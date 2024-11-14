@@ -46,6 +46,7 @@ class NotionService:
             array_characters.append({
                 "id": character['id']
                 ,"name": character['properties']['name']['title'][-1]['plain_text']
+                ,"status": character['properties']['status']['select']['name']
                 ,"picture": random_picture['file']['url']
                 ,"level": character_level
                 ,"coins": character['properties']['coins']['number']

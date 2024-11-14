@@ -13,10 +13,10 @@ class AdventureService:
         # Example logic for executing an adventure
         return {
             "adventure_id": adventure_id,
-            "status": "Completed",
+            "status": "completed",
             "reward": {
-                "xp": 100,
-                "coins": 50
+                "xpRwd": 100,
+                "coinRwd": 50
             }
         }
 

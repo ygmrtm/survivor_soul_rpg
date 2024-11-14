@@ -20,13 +20,15 @@
             <div class="character-card">
                 <img src="{{ character.picture }}" alt="{{ character.name }}">
                 <h3>{{ character.name }}</h3>
+                <p>{{ character.status }}</p>
                 <p>Level: {{ character.level }}</p>
-                <p>Coins: {{ character.coins }}</p>
                 <p>XP: {{ character.xp }} / {{ character.max_xp }}</p>
-                <p>HP: {{ character.hp }} / {{ character.max_hp }}</p>
+                <p>🫀: {{ character.hp }} / {{ character.max_hp }}</p>
+                <p>🧠: {{ character.sanity }} / {{ character.max_sanity }}</p>
                 <p>Attack: {{ character.attack }}</p>
                 <p>Defense: {{ character.defense }}</p>
                 <p>Magic: {{ character.magic }}</p>
+                <p>Coins: {{ character.coins }}</p>
                 <p>Inventory:</p>
                 <ul>
                     {% for item in character.inventory %}
