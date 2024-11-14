@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
+    <title>Survivor Soul RPG</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</head>
+<body class="lovecraft-theme">
+    <header>
+        <h1>Survivor Soul RPG</h1>
+        <h2>Choose Your Survivor</h2>
+    </header>
+    
+    <main class="container">
+        <div class="character-grid">
+            <!-- Dynamically render character cards -->
+            {% for character in characters %}
+            <div class="character-card">
+                <img src="{{ character.picture }}" alt="{{ character.name }}">
+                <h3>{{ character.name }}</h3>
+                <p>Level: {{ character.level }}</p>
+                <p>Coins: {{ character.coins }}</p>
+                <p>XP: {{ character.xp }} / {{ character.max_xp }}</p>
+                <p>HP: {{ character.hp }} / {{ character.max_hp }}</p>
+                <p>Attack: {{ character.attack }}</p>
+                <p>Defense: {{ character.defense }}</p>
+                <p>Magic: {{ character.magic }}</p>
+                <p>Inventory:</p>
+                <ul>
+                    {% for item in character.inventory %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+    </main>
+    
+    <footer>
+        &copy; 2024 Survivor Soul RPG - Version 1.0.0
+    </footer>
+</body>
+</html>
