@@ -1,13 +1,16 @@
 from flask import Blueprint, jsonify
+from backend.services.adventure_service import AdventureService
 
 adventure_bp = Blueprint('adventure', __name__)
+adventure_service = AdventureService()
 
-@adventure_bp.route('/adventures', methods=['POST'])
-def create_adventure():
+@adventure_bp.route('/<id>/create', methods=['POST'])
+def create_adventure(id):
     # Create a new adventure
-    return jsonify(success=True)
-
-@adventure_bp.route('/adventures/<id>/execute', methods=['POST'])
+    result = adventure_service.create_adventure(id)
+    return jsonify(result)
+@adventure_bp.route('/<id>/execute', methods=['POST'])
 def execute_adventure(id):
-    # Execute an adventure
-    return jsonify(success=True)
+    # Call the service to execute the adventure
+    result = adventure_service.execute_adventure(id)
+    return jsonify(result)
