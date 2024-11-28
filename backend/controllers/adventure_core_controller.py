@@ -14,3 +14,8 @@ def execute_adventure(id):
     # Call the service to execute the adventure
     result = adventure_service.execute_adventure(id)
     return jsonify(result)
+@adventure_bp.route('/challenges/<int:week_number>', methods=['POST'])
+def create_challenges(week_number):
+    # Call the service to create challenges for the specified week
+    result = adventure_service.create_challenges(week_number)
+    return jsonify(result)
