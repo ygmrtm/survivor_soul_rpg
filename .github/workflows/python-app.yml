@@ -46,7 +46,7 @@ jobs:
           git remote set-url origin https://${{ secrets.PAT_GH }}@github.com/ygmrtm/survivor_soul_rpg.git
           git add CHANGELOG.md
           git commit -m "Update CHANGELOG for version ${{ steps.bump_version.outputs.new_version }}"
-          git push https://${{ secrets.PAT_GH }}@github.com/ygmrtm/survivor_soul_rpg.git HEAD:main
+          # git push https://${{ secrets.PAT_GH }}@github.com/ygmrtm/survivor_soul_rpg.git HEAD:main
 
       - name: Bump version
         id: bump_version
