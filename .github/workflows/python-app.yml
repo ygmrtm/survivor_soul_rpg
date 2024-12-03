@@ -1,0 +1,75 @@
+# This workflow will install Python dependencies, run tests and lint with a single version of Python
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
+
+name: Python application
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt  # Install dependencies
+
+      - name: Update CHANGELOG
+        id: update_changelog
+        run: |
+          # Get the latest commit messages
+          commits=$(git log --format=%B -n 5)  # Get the last 5 commit messages
+          echo "Commits: $commits"
+
+          # Prepare the changelog entry
+          echo "## [${{ steps.bump_version.outputs.new_version }}] - $(date +'%Y-%m-%d')" >> CHANGELOG.md
+          echo "$commits" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+      - name: Commit CHANGELOG update
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add CHANGELOG.md
+          git commit -m "Update CHANGELOG for version ${{ steps.bump_version.outputs.new_version }}"
+          git push
+
+      - name: Bump version
+        id: bump_version
+        run: |
+          # Read the current version
+          version=$(cat VERSION.txt)
+          echo "Current version: $version"
+          
+          # Split the version into components
+          IFS='.' read -r major minor patch <<< "$version"
+          
+          # Increment the patch version (you can change this logic)
+          patch=$((patch + 1))
+          
+          # Create the new version
+          new_version="$major.$minor.$patch"
+          echo "New version: $new_version"
+          
+          # Write the new version back to the file
+          echo "$new_version" > VERSION.txt
+          echo "::set-output name=new_version::$new_version"
+
+      - name: Tag the release
+        run: |
+          git tag "v${{ steps.bump_version.outputs.new_version }}"
+          git push origin "v${{ steps.bump_version.outputs.new_version }}"
+          
