@@ -9,13 +9,18 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: write 
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 
 
       - name: Set up Python
         uses: actions/setup-python@v2
@@ -41,12 +46,9 @@ jobs:
 
       - name: Commit CHANGELOG update
         run: |
-          git config --global user.name 'ygmrtm'
-          git config --global user.email 'yog.mortuum@gmail.com'
-          git remote set-url origin https://${{ secrets.PAT_GH }}@github.com/ygmrtm/survivor_soul_rpg.git
           git add CHANGELOG.md
           git commit -m "Update CHANGELOG for version ${{ steps.bump_version.outputs.new_version }}"
-          # git push https://${{ secrets.PAT_GH }}@github.com/ygmrtm/survivor_soul_rpg.git HEAD:main
+          git push https://${{ secrets.PAT_GH }}@github.com/ygmrtm/survivor_soul_rpg.git HEAD:main
 
       - name: Bump version
         id: bump_version
