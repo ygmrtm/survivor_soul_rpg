@@ -47,8 +47,6 @@ jobs:
 
       - name: Commit CHANGELOG update
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
           git add CHANGELOG.md
           git commit -m "Update CHANGELOG for version ${{ steps.bump_version.outputs.new_version }}"
           git push
