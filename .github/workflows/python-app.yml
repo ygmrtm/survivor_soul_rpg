@@ -20,13 +20,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: '3.9'
-          
-      - name: GIT login
-        run: |
-          git config --global user.name 'ygmrtm'
-          git config --global user.email 'yog.mortuum@gmail.com'
-          git remote set-url origin https://${{ secrets.PAT_GH }}@github.com/ygmrtm/survivor_soul_rpg.git          
+          python-version: '3.9'       
 
       - name: Install dependencies
         run: |
@@ -52,7 +46,7 @@ jobs:
           git remote set-url origin https://${{ secrets.PAT_GH }}@github.com/ygmrtm/survivor_soul_rpg.git
           git add CHANGELOG.md
           git commit -m "Update CHANGELOG for version ${{ steps.bump_version.outputs.new_version }}"
-          git push https://${{ secrets.PAT_GH_CLASSIC }}@github.com/ygmrtm/survivor_soul_rpg.git HEAD:main
+          git push https://${{ secrets.PAT_GH }}@github.com/ygmrtm/survivor_soul_rpg.git HEAD:main
 
       - name: Bump version
         id: bump_version
