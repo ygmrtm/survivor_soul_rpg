@@ -40,12 +40,11 @@
 
         <!-- Button for Challenges -->
         <div class="challenge-button-container">
-            <button id="challenges-button">Click for Challenges in Week <span id="week-number"></span></button>
-        </div>
+            <button id="challenges-button" class="flat-button"><img src="{{ url_for('static', filename='img/notion-logo.png') }}" alt="Notion">Click for Challenges in Week <b><span id="week-number"></span></b></button>
+        </div>    
     </main>
-    
     <footer>
-        &copy; 2024 Survivor Soul RPG - Version 1.0.0
+        &copy; <span id="current-year"></span> Survivor Soul RPG - Version <span id="version-number"></span>
     </footer>
 
 </body>

@@ -19,3 +19,15 @@ def create_challenges(week_number):
     # Call the service to create challenges for the specified week
     result = adventure_service.create_challenges(week_number)
     return jsonify(result)
+
+@adventure_bp.route('/version', methods=['GET'])
+def get_version():
+    """Fetch the version number from VERSION.txt."""
+    try:
+        with open('VERSION.txt', 'r') as version_file:
+            version = version_file.read().strip()
+        return jsonify({"version": version}), 200
+    except FileNotFoundError:
+        return jsonify({"error": "Version file not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

@@ -71,8 +71,47 @@ header {
 /* Footer Styling */
 footer {
     text-align: center;
-    padding: 20px;
-    color: #7f705b;
     border-top: 1px solid #4a4a4a;
-    font-size: 0.8em;
+    font-size: 12px;
+    padding: 10px;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    color: #f0f0f0;
+    text-shadow:  2px 2px 1px rgba(236, 10, 10, 0.9);    
+}
+
+/* Flat Button Styling */
+.flat-button {
+    background-color: #1b1b1b;
+    border: 2px solid #705d56;
+    color: #c9b99e;
+    padding: 10px 10px;
+    font-family: 'Cormorant Garamond', serif;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 4px;
+}
+
+.flat-button:hover {
+    background-color: #705d56;
+    color: #1b1b1b;
+    border-color: #9d9473;
+}
+
+.challenge-button-container {
+    text-align: center;
+    margin: 10px 10;
+    width: 100%;
+    padding: 10px 10px 10px ;
+}
+
+/* Button with logo inside */
+button img {
+max-width: 20px;
+margin-right: 10px; 
+margin-left: 10px; 
+margin-bottom: 5xp;
+margin-top: 5px;
 }

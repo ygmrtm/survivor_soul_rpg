@@ -51,6 +51,24 @@ document.addEventListener("DOMContentLoaded", function () {
             console.error('Error creating challenges:', error);
         });
     });
+
+    document.getElementById('current-year').innerText = new Date().getFullYear();
+        
+    // Fetch the version number from the new endpoint
+    fetch('/api/adventure/version')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            document.getElementById('version-number').innerText = data.version;
+        })
+        .catch(error => {
+            console.error('Error fetching version:', error);
+            document.getElementById('version-number').innerText = '1.0.0'; // Fallback version
+        });
 });
 
 
