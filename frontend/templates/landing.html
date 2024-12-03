@@ -17,11 +17,10 @@
         <div class="character-grid">
             <!-- Dynamically render character cards -->
             {% for character in characters %}
-            <div class="character-card">
+            <div class="character-card" data-character-id="{{ character.id }}">
                 <img src="{{ character.picture }}" alt="{{ character.name }}">
                 <h3>{{ character.name }}</h3>
-                <p>{{ character.status }}</p>
-                <p>Level: {{ character.level }}</p>
+                <h4>Level: {{ character.level }} | {{ character.status }}</h4>
                 <p>XP: {{ character.xp }} / {{ character.max_xp }}</p>
                 <p>🫀: {{ character.hp }} / {{ character.max_hp }}</p>
                 <p>🧠: {{ character.sanity }} / {{ character.max_sanity }}</p>
@@ -38,10 +37,16 @@
             </div>
             {% endfor %}
         </div>
+
+        <!-- Button for Challenges -->
+        <div class="challenge-button-container">
+            <button id="challenges-button">Click for Challenges in Week <span id="week-number"></span></button>
+        </div>
     </main>
     
     <footer>
         &copy; 2024 Survivor Soul RPG - Version 1.0.0
     </footer>
+
 </body>
 </html>
