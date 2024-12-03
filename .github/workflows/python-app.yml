@@ -21,6 +21,12 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: '3.9'
+          
+      - name: GIT login
+        run: |
+          git config --global user.name 'ygmrtm'
+          git config --global user.email 'yog.mortuum@gmail.com'
+          git remote set-url origin https://${{ secrets.PAT_GH }}@github.com/ygmrtm/survivor_soul_rpg.git          
 
       - name: Install dependencies
         run: |
@@ -72,4 +78,7 @@ jobs:
         run: |
           git tag "v${{ steps.bump_version.outputs.new_version }}"
           git push origin "v${{ steps.bump_version.outputs.new_version }}"
-          
+
+      - name: Deploy to Production
+        run: |
+          echo "Deploying to production..."
