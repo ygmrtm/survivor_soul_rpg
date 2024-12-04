@@ -80,4 +80,3 @@ class AdventureService:
                 "coinRwd": 50
             }
         }
-

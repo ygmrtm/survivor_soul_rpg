@@ -1,3 +1,7 @@
+function closeModal() {
+    document.getElementById('adventure-modal').style.display = 'none'; // Hide the modal
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     const characterCards = document.querySelectorAll(".character-card");
 
@@ -10,15 +14,27 @@ document.addEventListener("DOMContentLoaded", function () {
         });
         card.addEventListener("click", () => {
             const characterId = card.dataset.characterId;
+            // Show the modal
+            document.getElementById('adventure-modal').style.display = 'block';
             fetch(`/api/adventure/${characterId}/create`, {
                 method: 'POST'
             })
             .then(response => response.json())
             .then(data => {
                 console.log('Adventure executed:', data);
+                const adventureId = data.adventure_id;
+                // Fetch adventure details using the adventure ID
+                return fetch(`/api/adventure/${adventureId}/execute`, {
+                    method: 'POST'
+                });
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('adventure-info').innerText = `Adventure ID: ${data.adventure_id}, Status: ${data.status}`;
             })
             .catch(error => {
-                console.error('Error executing adventure:', error);
+                console.error('Error fetching adventure details:', error);
+                document.getElementById('adventure-info').innerText = 'Failed to load adventure details.';
             });
         });
     });
@@ -26,10 +42,8 @@ document.addEventListener("DOMContentLoaded", function () {
     // Calculate the current week number based on ISO calendar
     function getISOWeekNumber(date) {
         const tempDate = new Date(date.getTime());
-        // Set to nearest Thursday: current date + 4 - current day number
         tempDate.setDate(tempDate.getDate() + 4 - (tempDate.getDay() || 7));
         const yearStart = new Date(tempDate.getFullYear(), 0, 1);
-        // Calculate full weeks to the nearest Thursday
         return Math.ceil((((tempDate - yearStart) / 86400000) + 1) / 7);
     }
 
@@ -45,12 +59,27 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(response => response.json())
         .then(data => {
             console.log('Challenges created:', data);
-            // Handle the response as needed (e.g., display a message or update the UI)
         })
         .catch(error => {
             console.error('Error creating challenges:', error);
         });
     });
+
+    document.getElementById('current-year').innerText = new Date().getFullYear();
+
+    // Fetch the version number from the new endpoint
+    fetch('/api/adventure/version')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            document.getElementById('version-number').innerText = data.version;
+        })
+        .catch(error => {
+            console.error('Error fetching version:', error);
+            document.getElementById('version-number').innerText = '1.0.0'; // Fallback version
+        });
 });
-
-

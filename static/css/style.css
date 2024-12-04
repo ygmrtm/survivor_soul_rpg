@@ -71,8 +71,83 @@ header {
 /* Footer Styling */
 footer {
     text-align: center;
-    padding: 20px;
-    color: #7f705b;
     border-top: 1px solid #4a4a4a;
-    font-size: 0.8em;
+    font-size: 12px;
+    padding: 10px;
+    position: fixed;
+    bottom: 0;
+    width: 100%;
+    color: #f0f0f0;
+    text-shadow:  2px 2px 1px rgba(236, 10, 10, 0.9);    
+}
+
+/* Flat Button Styling */
+.flat-button {
+    display: flex; /* Use flexbox */
+    align-items: center; /* Center items vertically */
+    justify-content: center; /* Center items horizontally */
+    background-color: transparent; /* Flat style */
+    border: 2px solid #c9b99e; /* Border color */
+    color: #c9b99e; /* Text color */
+    padding: 12px 24px; /* Padding */
+    font-size: 1em; /* Font size */
+    cursor: pointer; /* Pointer cursor */
+    transition: background-color 0.3s, color 0.3s; /* Transition for hover effect */
+    border-radius: 4px; /* Rounded corners */
+    height: 50px; /* Set a fixed height for the button */
+}
+
+.flat-button:hover {
+    background-color: #705d56;
+    color: #1b1b1b;
+    border-color: #9d9473;
+}
+
+.challenge-button-container {
+    display: flex;
+    flex-direction: column; /* Stack children vertically */
+    justify-content: center; /* Center children vertically */
+    align-items: center; /* Center children horizontally */
+    padding: 20px;
+}
+
+/* Button with logo inside */
+button img {
+max-width: 20px;
+margin-right: 10px; 
+margin-left: 10px; 
+margin-bottom: 5px;
+margin-top: 5px;
+}
+
+/* Modal styles */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1000; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0, 0, 0, 0.8); /* Black w/ opacity */
+}
+.modal-content {
+    background-color: #1b1b1b;
+    margin: 15% auto; /* 15% from the top and centered */
+    padding: 20px;
+    border: 2px solid #705d56;
+    border-radius: 8px;
+    width: 400px; /* Could be more or less, depending on screen size */
+    text-align: center;
+}
+.close-button {
+    background: none;
+    border: none;
+    color: #c9b99e;
+    font-size: 1.5em;
+    cursor: pointer;
+    position: absolute;
+    top: 10px;
+    right: 10px;
 }
