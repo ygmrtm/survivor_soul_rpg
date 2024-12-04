@@ -37,15 +37,22 @@
             </div>
             {% endfor %}
         </div>
+        <!-- Modal for Adventure Details -->
+        <div id="adventure-modal" class="modal">
+            <div class="modal-content">
+                <button class="close-button" onclick="closeModal()">X</button>
+                <h2>Adventure Details</h2>
+                <p id="adventure-info">Loading...</p>
+            </div>
+        </div>
 
         <!-- Button for Challenges -->
         <div class="challenge-button-container">
-            <button id="challenges-button" class="flat-button"><img src="{{ url_for('static', filename='img/notion-logo.png') }}" alt="Notion">Click for Challenges in Week <b><span id="week-number"></span></b></button>
+            <button id="challenges-button" class="flat-button"><img src="{{ url_for('static', filename='img/notion-logo.png') }}" alt="Notion">Click for Challenges in Week&nbsp;<b><span id="week-number"></span></b></button>
         </div>    
     </main>
     <footer>
         &copy; <span id="current-year"></span> Survivor Soul RPG - Version <span id="version-number"></span>
     </footer>
-
 </body>
 </html>
