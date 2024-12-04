@@ -32,4 +32,19 @@ All notable changes to this project will be documented in this file.
 - Update CHANGELOG for version
 - Update python-app.yml
 
+---## [1.0.2] - 2024-12-04
+Merge 66550d740fea0fa5b93ea5a05e77a1bc41072a8f into 14b77d30366ba02295ab2014d8a7bfc7c1f39f90
+
+feat: Execute Adventure
+
+dummy execution
+
+style: CreateChallenge Button
+
+- [x]  style: Footer w/exit
+- [x]  style: CreateChallenge Button
+
+Update CHANGELOG for version
+
+Merge 489595feb3cfdde96c2b2246994c567f75649f45 into 2b862feb194aa5718c41237822e3d654869308de
 ---
