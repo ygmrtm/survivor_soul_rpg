@@ -94,7 +94,12 @@ class AdventureService:
                     enemies.append(notion_service.get_character_by_id(vs['id']))
                 if self.execute_encounter(who, enemies, god_support) is True:
                     who['xp'] += self.add_encounter_log(adventure['xpRwd'],"xp","Adventure XP earned")
-                    who['coins'] += self.add_encounter_log(adventure['coinRwd'],"coins","Adventure 💵 earned")
+                    how_much = (random.randint(1, 50) / 100)
+                    send_coins = how_much * adventure['coinRwd']
+                    keep_coins = adventure['coinRwd'] - send_coins
+                    who['coins'] += self.add_encounter_log(keep_coins,"coins","Adventure 💵 earned (out of {})".format(adventure['coinRwd']))
+                    self.add_encounter_log(send_coins, "coins", '🎉 Thanks for the {}% donation [{}/{}]'.format(how_much * 100, send_coins, keep_coins))
+                    self.distribute_tribute(who['alter_ego'], send_coins) 
                     adventure['status'] = 'won'
                 else:
                     new_adventure = self.create_adventure(who['id'], underworld=True)
@@ -118,6 +123,7 @@ class AdventureService:
         fights = 0
         while who['hp'] >= 0 and fights < len(enemies):
             for enemy in enemies:
+                self.add_encounter_log(0,"","Encountered with {}.".format(str(enemy['name']).upper()))
                 if self.negotiate(who, enemy) is False:
                     self.fight(who, enemy, god_suuport)
                 fights += 1
@@ -196,3 +202,19 @@ class AdventureService:
         self.add_encounter_log(transfer, property_value, '{} stole {} from {}.'.format(winner['name'], transfer, loser['name']))
         experience_won = self.add_encounter_log(random.randint(1, 10), 'xp', 'UP!')
         return experience_won
+
+    def distribute_tribute(self, who_id, coins ):
+        notion_service = NotionService()
+        alter_ego = notion_service.get_character_by_id(who_id)
+        how_much = send_coins = 0
+        keep_coins = coins
+        if alter_ego['alter_ego']:
+            how_much = (random.randint(1, 50) / 100)
+            send_coins = how_much * coins
+            keep_coins = coins - send_coins
+            self.add_encounter_log(send_coins, "coins", '🎉 Thanks for the {}% donation [{}/{}] | {}'.format(how_much * 100, send_coins, keep_coins, alter_ego['name']))
+            self.distribute_tribute(alter_ego['alter_ego'], send_coins)
+        alter_ego['coins'] += self.add_encounter_log(keep_coins,"coins","⚡️{}⚡️{}⚡️ tribute 💵 earned w/o doing a 💩".format(alter_ego['deep_level'],alter_ego['name']))
+        datau = {"properties": { "coins": {"number": alter_ego['coins']} }}
+        upd_character = notion_service.update_character(alter_ego['id'], datau)
+        return upd_character
