@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from backend.services import notion_service
 from backend.services.notion_service import NotionService
 import random 
 import time
@@ -51,10 +52,10 @@ class AdventureService:
     
     def create_challenges(self, week_number):
         notion_service = NotionService()   
-        challenges_all = notion_service.get_challenges_by_week(week_number) 
+        challenges_all = notion_service.get_challenges_by_week(week_number, "CHALLENGE") 
         challenges = [challenge for challenge in challenges_all if challenge['status'] in ('created','accepted','on going')]
         if len(challenges) <= 0:
-            print("no challenges found for weeek", week_number)
+            print("no challenges found for weeek ", week_number)
             habits = notion_service.get_all_habits()
             how_many_challenges = random.randint(1,int(len(habits) * self.percentage_habits))
             sample_habits = random.sample(habits, min(how_many_challenges, len(habits)))
@@ -70,6 +71,55 @@ class AdventureService:
                 how_many_times = random.randint(1, 7)
                 challenge = notion_service.create_challenge(habit['emoji'], week_number, how_many_times, habit['who'], xp_reward, coin_reward, habit['id'])
                 challenges.append(challenge)
+        return challenges
+        
+    def evaluate_challenges(self, week_number):
+        notion_service = NotionService()   
+        ### create the habits dictionary
+        #habits = notion_service.get_all_habits()
+        #habits_dict = {}
+        #for habit in habits:
+        #    habits_dict[habit['name']] = habit
+
+        ### by Consecutive days Challenges
+        challenges_all = notion_service.get_challenges_by_week(week_number, "CHALLENGE") 
+        challenges = [challenge for challenge in challenges_all if challenge['status'] in ('accepted','on going')]
+        if len(challenges) <= 0:
+            print("no challenges found for weeek ", week_number)
+        for challenge in challenges:
+            if datetime.strptime(challenge['due'], "%Y-%m-%d") < datetime.today():
+                delta = datetime.strptime(challenge['due'], "%Y-%m-%d") - datetime.today()
+                self.add_encounter_log(0,"","Missed challenge by {} days".format(delta.days * -1))
+                challenge['status'] = 'missed'
+            else:
+                habit_id = challenge['habits'][0]
+                habit = notion_service.get_habits_by_id_or_name(habit_id['id'], None)
+                path_array = challenge['path']
+                xTimesWeek = next((item for item in path_array if item[0].isdigit() and 1 <= int(item[0]) <= 7), None)
+                daily_checklist = notion_service.get_daily_checklist(week_number)    
+                consecutive = max_consecutive = 0
+                for dly_card in daily_checklist:
+                    if habit['name'] in dly_card['achieved']:
+                        habit['xp'] += self.add_encounter_log(1, 'xp', dly_card['cuando'])
+                        consecutive += 1
+                        max_consecutive = max(max_consecutive, consecutive)
+                    else:
+                        consecutive = 0
+                if max_consecutive >= int(xTimesWeek[:1]):
+                    challenge['status'] = 'won'
+                    habit['xp'] += self.add_encounter_log(challenge['xpRwd'],"xp","Won challenge by {}/{} consecutive times | {}".format(max_consecutive, xTimesWeek, habit['name'] ))
+                else:
+                    challenge['status'] = 'lost'
+                    habit['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp","Failed challenge just getting miserable {}/{} times | {}".format(max_consecutive, xTimesWeek, habit['name'] ))
+            print("challenge:::: ", challenge)
+            print("habit:::: ",habit)
+        #print(":::: ",daily_checklist)
+
+        ### by Week Habits
+        challenges_all = notion_service.get_challenges_by_week(week_number, "HABIT")
+        challenges = [challenge for challenge in challenges_all if challenge['status'] in ('accepted','on going')]
+        if len(challenges) <= 0:
+            print("no habit challenges found for weeek ", week_number)
         return challenges
         
     def execute_adventure(self, adventure_id):
@@ -122,7 +172,7 @@ class AdventureService:
                     self.fight(who, enemy, god_suuport)
                 fights += 1
         if who['hp'] <= 0:
-            self.add_encounter_log(who['hp'], "hp", 'You have been defeated in {} fights.'.format(fights))
+            self.add_encounter_log(who['hp'], "hp", 'You have been defeated in {} encounters.'.format(fights))
             return False
         return True
 

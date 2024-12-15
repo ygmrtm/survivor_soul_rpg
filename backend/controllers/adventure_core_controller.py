@@ -20,6 +20,12 @@ def create_challenges(week_number):
     result = adventure_service.create_challenges(week_number)
     return jsonify(result)
 
+@adventure_bp.route('/challenges/<int:week_number>/evaluate', methods=['POST'])
+def evaluate_challenges(week_number):
+    # Call the service to create challenges for the specified week
+    result = adventure_service.evaluate_challenges(week_number)
+    return jsonify(result)
+
 @adventure_bp.route('/version', methods=['GET'])
 def get_version():
     """Fetch the version number from VERSION.txt."""

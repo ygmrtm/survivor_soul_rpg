@@ -2,7 +2,7 @@ import requests
 import random 
 import json
 from datetime import datetime, timedelta
-from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN, NOTION_DBID_HABIT, CREATED_LOG, CLOSED_LOG, WON_LOG, LOST_LOG, MISSED_LOG
+from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN, NOTION_DBID_HABIT, NOTION_DBID_DLYLG, CREATED_LOG, CLOSED_LOG, WON_LOG, LOST_LOG, MISSED_LOG
 
 class NotionService:
     base_url = "https://api.notion.com/v1"
@@ -267,8 +267,7 @@ class NotionService:
         response.raise_for_status()
         return self.translate_adventure([response.json()] if response.json() else [])[0]
     
-    def get_challenges_by_week(self, week_number):
-        """Retrieve challenges for a specific week."""
+    def start_end_dates(self, week_number):
         # Get the current year
         current_year = datetime.now().year
         
@@ -287,7 +286,13 @@ class NotionService:
         # Format dates to yyyy-mm-dd
         start_date_str = start_date.strftime('%Y-%m-%d')
         end_date_str = end_date.strftime('%Y-%m-%d')
+        return start_date_str, end_date_str
 
+
+    def get_challenges_by_week(self, week_number, name_str):
+        """Retrieve challenges for a specific week."""
+        start_date_str, end_date_str = self.start_end_dates(week_number)
+        print(name_str,start_date_str,end_date_str, "w"+str(week_number))
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
         data = {
@@ -308,18 +313,87 @@ class NotionService:
                     {
                         "property": "name",
                         "rich_text": {
-                        "contains": "CHALLENGE"
+                        "contains": name_str
                         }
                     }
                 ]
             }
         }
-        print("challenge",start_date_str,end_date_str, "w"+str(week_number))
         response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
         response.raise_for_status()
         return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
         
-        
+    def get_daily_checklist(self, week_number):
+        start_date_str, end_date_str = self.start_end_dates(week_number)
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{NOTION_DBID_DLYLG}/query"
+        data = {
+            "filter": {
+                "and": [
+                    {
+                        "property": "cuando",
+                        "date": {
+                            "on_or_after": start_date_str
+                        }
+                    },
+                    {
+                        "property": "cuando",
+                        "date": {
+                            "on_or_before": end_date_str
+                        }
+                    }
+                ]
+            },
+            "sorts":[{"property": "cuando", "direction" : "ascending"}]
+        }
+        response = requests.post(url, headers=self.headers, json=data)  
+        if response.status_code == 200: 
+            habits_cards_trn = []
+            habits_cards = response.json().get("results", [])
+            for habit_daily_card in habits_cards:
+                achieved = []
+                achieved.append("trade" if habit_daily_card['properties']['📈']['checkbox'] is True else None)
+                achieved.append("prsnl" if habit_daily_card['properties']['🫀']['checkbox'] is True else None)
+                achieved.append("beer" if habit_daily_card['properties']['🍺']['checkbox'] is True else None)
+                achieved.append("read" if habit_daily_card['properties']['📚']['checkbox'] is True else None)
+                achieved.append("tech" if habit_daily_card['properties']['💻']['checkbox'] is True else None)
+                achieved.append("deew" if habit_daily_card['properties']['🍃']['checkbox'] is True else None)
+                achieved.append("shower" if habit_daily_card['properties']['🚿']['checkbox'] is True else None)
+                achieved.append("social" if habit_daily_card['properties']['🛗']['checkbox'] is True else None)
+                achieved.append("cook" if habit_daily_card['properties']['🍚']['checkbox'] is True else None)
+                achieved.append("bed" if habit_daily_card['properties']['🛏️']['checkbox'] is True else None)
+                achieved.append("meals" if habit_daily_card['properties']['🥣']['number'] == 3 else None)
+                achieved.append("bike" if habit_daily_card['properties']['🚲']['checkbox'] is True else None)
+                achieved.append("teeth" if habit_daily_card['properties']['🦷']['checkbox'] is True else None)
+                achieved.append("outdoors" if habit_daily_card['properties']['🏜️']['checkbox'] is True else None)
+                achieved.append("gym" if habit_daily_card['properties']['💪🏼']['checkbox'] is True else None)
+                achieved = [item for item in achieved if item is not None]
+                habits_cards_trn.append({
+                    "id": habit_daily_card['id']
+                    ,"cuando": habit_daily_card['properties']['cuando']['date']['start']
+                    ,"trade" : habit_daily_card['properties']['📈']['checkbox']
+                    ,"prsnl" : habit_daily_card['properties']['🫀']['checkbox']
+                    ,"beer" : habit_daily_card['properties']['🍺']['checkbox']
+                    ,"read" : habit_daily_card['properties']['📚']['checkbox']
+                    ,"tech" : habit_daily_card['properties']['💻']['checkbox']
+                    ,"deew" : habit_daily_card['properties']['🍃']['checkbox']
+                    ,"shower" : habit_daily_card['properties']['🚿']['checkbox']
+                    ,"social" : habit_daily_card['properties']['🛗']['checkbox']
+                    ,"cook" : habit_daily_card['properties']['🍚']['checkbox']
+                    ,"bed" : habit_daily_card['properties']['🛏️']['checkbox']
+                    ,"meals" : habit_daily_card['properties']['🥣']['number']
+                    ,"bike" : habit_daily_card['properties']['🚲']['checkbox']
+                    ,"teeth" : habit_daily_card['properties']['🦷']['checkbox']
+                    ,"outdoors" : habit_daily_card['properties']['🏜️']['checkbox']
+                    ,"gym" : habit_daily_card['properties']['💪🏼']['checkbox']
+                    ,"achieved": achieved
+                })
+            return habits_cards_trn
+        else:
+            print("<x>|",response.status_code, response.text)  
+            response.raise_for_status()  
+            return []
+            
     def translate_adventure(self, adventures):
         array_adventures = []
         #print(adventures)
@@ -412,3 +486,10 @@ class NotionService:
                 ,"who": habit['properties']['who']['relation'][0]['id'] if habit['properties']['who']['relation'] else None
             })
         return translated_habits
+    
+    def get_habits_by_id_or_name(self, habit_id, habit_name):
+        habits = self.get_all_habits()
+        for habit in habits:
+            if habit['id'] == habit_id or habit['name'] == habit_name:
+                return habit
+        return None
