@@ -472,15 +472,21 @@ class NotionService:
             response.raise_for_status()  # Raise an error for bad responses
             return []  # Return None if the request was not successful
 
+        max_xp = self.max_xp
+
         habits = response.json().get("results", [])  
         translated_habits = []
         for habit in habits:
+            habit_level = int(habit['properties']['level']['number'])
+            for i in range(habit_level):
+                max_xp *= self.GOLDEN_RATIO
             translated_habits.append({
                 "id": habit['id']
                 ,"emoji": habit['icon']['emoji']
                 ,"name": habit['properties']['name']['title'][-1]['plain_text']
-                ,"level": habit['properties']['level']['number']
+                ,"level": habit_level
                 ,"xp": habit['properties']['xp']['number']
+                ,"max_xp": max_xp
                 ,"coins": habit['properties']['coins']['number']
                 ,"timesXweek": habit['properties']['timesXweek']['number']
                 ,"who": habit['properties']['who']['relation'][0]['id'] if habit['properties']['who']['relation'] else None
@@ -493,3 +499,13 @@ class NotionService:
             if habit['id'] == habit_id or habit['name'] == habit_name:
                 return habit
         return None
+
+    def persist_habit(self, habit):
+        print(habit)
+
+        habit['level'] += 1 if habit['xp'] >= habit['max_xp'] else 0
+        datau = {"properties": { "level": {"number": habit['level']}, 
+                                    "xp": {"number": habit['xp']}, 
+                                    "coins": {"number": habit['coins']}}}
+        upd_habit = self.update_character(habit['id'], datau)   
+        return upd_habit    
