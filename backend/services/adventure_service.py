@@ -106,7 +106,12 @@ class AdventureService:
                 habit['xp'] += self.add_encounter_log(challenge['xpRwd'],"xp","Won challenge by {}/{} consecutive times | {}".format(max_consecutive, xTimesWeek[:1], habit['name'] ))
                 who['xp'] += self.add_encounter_log(challenge['xpRwd'],"xp","Thanks to {}, {} got up".format(habit['name'], who['name'] ))
                 who['sanity'] += self.add_encounter_log(challenge['xpRwd'],"sanity","Thanks to {}, {} got up".format(habit['name'], who['name'] ))
-                # TODO: coins earnead with the tribute system for people and habit
+                how_much = (random.randint(1, 50) / 100)
+                send_coins = how_much * challenge['coinRwd']
+                keep_coins = challenge['coinRwd'] - send_coins
+                who['coins'] += self.add_encounter_log(keep_coins,"coins","Challenge 💵 earned (out of {})".format(challenge['coinRwd']))
+                self.add_encounter_log(send_coins, "coins", '🎉 Thanks for the {}% donation [{}/{}]'.format(how_much * 100, send_coins, keep_coins))
+                self.distribute_tribute(who['alter_ego'], send_coins) 
             else:
                 challenge['status'] = 'lost'
                 habit['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp","Failed challenge {} just getting miserable {}/{} times | {}".format(xTimesWeek, max_consecutive, xTimesWeek[:1], habit['name'] ))
@@ -146,7 +151,12 @@ class AdventureService:
                 habit['xp'] += self.add_encounter_log(challenge['xpRwd'],"xp","Won Week Habit challenge by {}/{} | {}".format(total_got, xTimesWeek[:1], habit['name'] ))
                 who['xp'] += self.add_encounter_log(challenge['xpRwd'],"xp","Thanks to {}, {} got up".format(habit['name'], who['name'] ))
                 who['sanity'] += self.add_encounter_log(challenge['xpRwd'],"sanity","Thanks to {}, {} got up".format(habit['name'], who['name'] ))
-                # TODO: coins earnead with the tribute system for people and habit
+                how_much = (random.randint(1, 50) / 100)
+                send_coins = how_much * challenge['coinRwd']
+                keep_coins = challenge['coinRwd'] - send_coins
+                who['coins'] += self.add_encounter_log(keep_coins,"coins","Challenge 💵 earned (out of {})".format(challenge['coinRwd']))
+                self.add_encounter_log(send_coins, "coins", '🎉 Thanks for the {}% donation [{}/{}]'.format(how_much * 100, send_coins, keep_coins))
+                self.distribute_tribute(who['alter_ego'], send_coins) 
             else:
                 challenge['status'] = 'lost'
                 habit['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp","Failed habit week challenge {} just getting miserable {}/{} | {}".format(xTimesWeek, total_got, xTimesWeek[:1], habit['name'] ))
@@ -177,6 +187,7 @@ class AdventureService:
     def execute_adventure(self, adventure_id):
         """Run the logic for executing an adventure."""
         notion_service = NotionService()
+        self.encounter_log = []
         adventure = notion_service.get_adventure_by_id(adventure_id)
         status = adventure['status']
         if status in ('created', 'accepted', 'on going'):
