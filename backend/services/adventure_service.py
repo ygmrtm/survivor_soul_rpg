@@ -81,6 +81,7 @@ class AdventureService:
         if len(challenges) <= 0:
             print("no challenges found for weeek ", week_number)
         for challenge in challenges:
+            dlylog_array = []
             notion_service = NotionService()
             habit_id = challenge['habits'][0]
             habit = notion_service.get_habits_by_id_or_name(habit_id['id'], None)
@@ -96,6 +97,7 @@ class AdventureService:
                     who['sanity'] += self.add_encounter_log(1, 'sanity', dly_card['cuando'] + ' | ' + who['name'] )
                     consecutive += 1
                     max_consecutive = max(max_consecutive, consecutive)
+                    dlylog_array.append({"id":dly_card['id']})
                 else:
                     consecutive = 0
             if max_consecutive >= int(xTimesWeek[:1]):
@@ -110,6 +112,8 @@ class AdventureService:
                 who['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp","Due to {} got failure in {}".format(who['name'] , habit['name'] ))
                 who['sanity'] += self.add_encounter_log(challenge['xpRwd']*-1,"sanity","Due to {} got failure in {}".format(who['name'] , habit['name'] ))
             challenge['encounter_log'] = self.encounter_log
+            challenge['dlylog'] = dlylog_array
+            self.encounter_log = []
             print(notion_service.persist_habit(habit))
             print(notion_service.persist_adventure(adventure=challenge, characters=[who]))
         #print(":::: ",daily_checklist)
@@ -119,7 +123,9 @@ class AdventureService:
         challenges = [challenge for challenge in challenges_all if challenge['status'] in ('accepted','on going')]
         if len(challenges) <= 0:
             print("no habit challenges found for weeek ", week_number)
+        
         for challenge in challenges:
+            dlylog_array = []
             notion_service = NotionService()
             habit_id = challenge['habits'][0]
             habit = notion_service.get_habits_by_id_or_name(habit_id['id'], None)
@@ -133,6 +139,7 @@ class AdventureService:
                     habit['xp'] += self.add_encounter_log(1, 'xp', dly_card['cuando'] + ' | ' + habit['name'] )
                     who['xp'] += self.add_encounter_log(1, 'xp', dly_card['cuando'] + ' | ' + who['name'] )
                     who['sanity'] += self.add_encounter_log(1, 'sanity', dly_card['cuando'] + ' | ' + who['name'] )
+                    dlylog_array.append({"id":dly_card['id']})
                     total_got += 1
             if total_got >= int(xTimesWeek[:1]):
                 challenge['status'] = 'won'
@@ -160,8 +167,9 @@ class AdventureService:
                 random_prop = random.choice(properties)
                 god_winner[random_prop] += self.add_encounter_log(average_properties, random_prop, 'winner ⚡️{}⚡️'.format(god_winner['name']))
                 gods_winner.append(god_winner)
-            challenge['encounter_log'] = self.encounter_log
             gods_winner.append(who)
+            challenge['encounter_log'] = self.encounter_log
+            challenge['dlylog'] = dlylog_array
             print(notion_service.persist_adventure(adventure=challenge, characters=gods_winner))
 
         return challenges
@@ -191,6 +199,7 @@ class AdventureService:
                     who['coins'] += self.add_encounter_log(adventure['coinRwd'],"coins","Adventure 💵 earned")
                     adventure['status'] = 'won'
                 else:
+                    #TODO: undead adventure
                     new_adventure = self.create_adventure(who['id'], underworld=True)
                     self.add_encounter_log(0, "", 'You lost the Adventure')
                     adventure['status'] = 'lost'

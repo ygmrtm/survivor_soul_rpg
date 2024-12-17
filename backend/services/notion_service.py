@@ -13,13 +13,13 @@ class NotionService:
     lines_per_paragraph = 80
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
-    """
-    Initialize a NotionService instance with headers for API requests.
-
-    Sets up the authorization headers using the NOTION_API_KEY and
-    initializes a cache for storing character data.
-    """
     def __init__(self):
+        """
+        Initialize a NotionService instance with headers for API requests.
+
+        Sets up the authorization headers using the NOTION_API_KEY and
+        initializes a cache for storing character data.
+        """
         self.headers = {
             "Authorization": f"Bearer {NOTION_API_KEY}",
             "Notion-Version": "2022-06-28",
@@ -27,18 +27,17 @@ class NotionService:
         }
         self._cached_characters = None  # Initialize cache
 
-    """
-    Retrieve all characters from the Notion database and cache the results.
-
-    If the characters are already cached, return the cached data.
-    Otherwise, fetch the characters from the Notion database, cache
-    the results, and return them.
-
-    Returns:
-        list: A list of character data retrieved from the Notion database.
-    """
     def get_all_characters(self):
-        """Fetch all characters from Notion database, caching the result."""
+        """
+        Retrieve all characters from the Notion database and cache the results.
+
+        If the characters are already cached, return the cached data.
+        Otherwise, fetch the characters from the Notion database, cache
+        the results, and return them.
+
+        Returns:
+            list: A list of character data retrieved from the Notion database.
+        """
         if self._cached_characters is None:  # Check if cache is empty
             url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
             response = requests.post(url, headers=self.headers)
@@ -51,6 +50,7 @@ class NotionService:
 
     def get_character_by_id(self, character_id):
         """Retrieve a character by its ID from the cached characters."""
+        #print("🚹 ",character_id)
         characters = self.get_all_characters()  # Ensure we have the latest characters
         for character in characters:
             if character['id'] == character_id:
@@ -104,6 +104,9 @@ class NotionService:
             "properties": { "status": {"status": {"name":adventure['status']}},
                             "resultlog": { "rich_text": RESULT_LOG  } }
         }  
+        if adventure['dlylog']:
+            datau['properties']['dlylog'] = { "relation": adventure['dlylog']  }
+        #print("----->", datau)
         upd_adventure = self.update_character(adventure['id'], datau)
         for character in characters if characters else []:
             character['level'] += 1 if character['xp'] >= character['max_xp'] else 0
