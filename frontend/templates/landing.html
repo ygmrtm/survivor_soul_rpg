@@ -17,7 +17,7 @@
         <div class="character-grid">
             <!-- Dynamically render character cards -->
             {% for character in characters %}
-            <div class="character-card" data-character-id="{{ character.id }}">
+            <div class="character-card" data-character-id="{{ character.id }}" data-character-hp="{{ character.hp }}">
                 <img src="{{ character.picture }}" alt="{{ character.name }}">
                 <h3>{{ character.name }}</h3>
                 <h4>Level: {{ character.level }} | {{ character.status }}</h4>
