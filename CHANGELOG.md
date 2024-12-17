@@ -41,3 +41,20 @@ All notable changes to this project will be documented in this file.
 - [x]  style: CreateChallenge Button
 ---
 
+## [1.0.3] - 2024-12-17
+Merge cef44231c9cb5d6d86044341478260c60609bba2 into ea8e00526c7fa74aeaf98368d2077614624649bb
+
+feat: Execute Adventure
+
+- [x]  feat: Execute Adventure
+    - [x]  system of fight
+    - [x]  consider negotiate
+    - [x]  reward system
+    - [x]  Logging in paragraphs
+
+Update CHANGELOG for version 1.0.2
+
+Update python-app.yml
+Update CHANGELOG for version 1.0.2
+---
+
