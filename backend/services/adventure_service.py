@@ -82,6 +82,7 @@ class AdventureService:
             print("no challenges found for weeek ", week_number)
         for challenge in challenges:
             dlylog_array = []
+            self.encounter_log = []
             notion_service = NotionService()
             habit_id = challenge['habits'][0]
             habit = notion_service.get_habits_by_id_or_name(habit_id['id'], None)
@@ -113,10 +114,8 @@ class AdventureService:
                 who['sanity'] += self.add_encounter_log(challenge['xpRwd']*-1,"sanity","Due to {} got failure in {}".format(who['name'] , habit['name'] ))
             challenge['encounter_log'] = self.encounter_log
             challenge['dlylog'] = dlylog_array
-            self.encounter_log = []
-            print(notion_service.persist_habit(habit))
-            print(notion_service.persist_adventure(adventure=challenge, characters=[who]))
-        #print(":::: ",daily_checklist)
+            notion_service.persist_habit(habit)
+            notion_service.persist_adventure(adventure=challenge, characters=[who])
 
         ### by Week Habits
         challenges_all = notion_service.get_challenges_by_week(week_number, "HABIT")
@@ -126,6 +125,7 @@ class AdventureService:
         
         for challenge in challenges:
             dlylog_array = []
+            self.encounter_log = []
             notion_service = NotionService()
             habit_id = challenge['habits'][0]
             habit = notion_service.get_habits_by_id_or_name(habit_id['id'], None)
@@ -152,7 +152,7 @@ class AdventureService:
                 habit['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp","Failed habit week challenge {} just getting miserable {}/{} | {}".format(xTimesWeek, total_got, xTimesWeek[:1], habit['name'] ))
                 who['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp","Due to {} got failure in {}".format(who['name'] , habit['name'] ))
                 who['sanity'] += self.add_encounter_log(challenge['xpRwd']*-1,"sanity","Due to {} got failure in {}".format(who['name'] , habit['name'] ))
-            print(notion_service.persist_habit(habit))
+            notion_service.persist_habit(habit)
             gods_winner = []
             if "encounter" in path_array:
                 npc_characters = notion_service.filter_by_deep_level(deep_level='l2', is_npc=True)
@@ -170,7 +170,7 @@ class AdventureService:
             gods_winner.append(who)
             challenge['encounter_log'] = self.encounter_log
             challenge['dlylog'] = dlylog_array
-            print(notion_service.persist_adventure(adventure=challenge, characters=gods_winner))
+            notion_service.persist_adventure(adventure=challenge, characters=gods_winner)
 
         return challenges
         

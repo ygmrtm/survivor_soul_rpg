@@ -40,14 +40,32 @@ class NotionService:
         """
         if self._cached_characters is None:  # Check if cache is empty
             url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
-            response = requests.post(url, headers=self.headers)
-            response.raise_for_status()
-            self._cached_characters = response.json().get("results", [])  # Cache the result
+            all_characters = []  # Initialize a list to hold all characters
+            has_more = True  # Flag to check if there are more pages
+            start_cursor = None  # Initialize the start cursor
+
+            while has_more:
+                # Prepare the request payload
+                payload = {}
+                if start_cursor:
+                    payload['start_cursor'] = start_cursor  # Add the cursor if it exists
+
+                response = requests.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()  # Raise an error for bad responses
+                data = response.json()
+
+                # Append the results to the all_characters list
+                all_characters.extend(data.get("results", []))
+                has_more = data.get("has_more", False)  # Check if there are more pages
+                start_cursor = data.get("next_cursor")  # Update the cursor for the next request
+
+            self._cached_characters = all_characters  # Cache the result
             print("Fetched and cached characters:", len(self._cached_characters))
         else:
             print("Using cached characters:", len(self._cached_characters))
-        return self._cached_characters
 
+        return self._cached_characters
+    
     def get_character_by_id(self, character_id):
         """Retrieve a character by its ID from the cached characters."""
         #print("🚹 ",character_id)
@@ -105,8 +123,9 @@ class NotionService:
                             "resultlog": { "rich_text": RESULT_LOG  } }
         }  
         if adventure['dlylog']:
+        if 'dlylog' in adventure.keys():
             datau['properties']['dlylog'] = { "relation": adventure['dlylog']  }
-        #print("----->", datau)
+
         upd_adventure = self.update_character(adventure['id'], datau)
         for character in characters if characters else []:
             character['level'] += 1 if character['xp'] >= character['max_xp'] else 0
@@ -252,7 +271,7 @@ class NotionService:
             }
         }
         if random.randint(0, 4) == 0: # 20%chance
-            data['properties']['path']['multi_select'].append("discovery")
+            data['properties']['path']['multi_select'].append({"name":"discovery"})
         url = f"{self.base_url}/pages"
         response = requests.post(url, headers=self.headers, json=data)  # Use json instead of data
         if response.status_code == 200:  # Check if the request was successful
@@ -504,8 +523,6 @@ class NotionService:
         return None
 
     def persist_habit(self, habit):
-        print(habit)
-
         habit['level'] += 1 if habit['xp'] >= habit['max_xp'] else 0
         datau = {"properties": { "level": {"number": habit['level']}, 
                                     "xp": {"number": habit['xp']}, 

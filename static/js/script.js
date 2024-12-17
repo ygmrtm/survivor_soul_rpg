@@ -54,6 +54,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Add event listener to the button
     document.getElementById('challenges-button').addEventListener('click', function() {
+        const button = this;
+        button.disabled = true;
         const weekNumber = document.getElementById('week-number').innerText;
         const prevWeekNumber = weekNumber - 1; // Calculate the previous week number
 
@@ -79,6 +81,9 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .catch(error => {
             console.error('Error creating/retrieving challenges:', error);
+        })
+        .finally(() => {
+            button.disabled = false; // Re-enable the button after all operations
         });
     });
 
