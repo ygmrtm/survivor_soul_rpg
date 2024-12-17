@@ -7,7 +7,7 @@ adventure_service = AdventureService()
 @adventure_bp.route('/<id>/create', methods=['POST'])
 def create_adventure(id):
     # Create a new adventure
-    result = adventure_service.create_adventure(id)
+    result = adventure_service.create_adventure(id, underworld=False)
     return jsonify(result)
 @adventure_bp.route('/<id>/execute', methods=['POST'])
 def execute_adventure(id):

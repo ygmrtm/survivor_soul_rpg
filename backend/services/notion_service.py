@@ -2,7 +2,7 @@ import requests
 import random 
 import json
 from datetime import datetime, timedelta
-from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN, NOTION_DBID_HABIT, CREATED_LOG
+from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN, NOTION_DBID_HABIT, CREATED_LOG, CLOSED_LOG, WON_LOG, LOST_LOG, MISSED_LOG
 
 class NotionService:
     base_url = "https://api.notion.com/v1"
@@ -10,6 +10,7 @@ class NotionService:
     max_xp = 500
     max_hp = 100
     max_sanity = 60    
+    lines_per_paragraph = 80
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
     """
@@ -91,8 +92,91 @@ class NotionService:
         """Update character attributes."""
         url = f"{self.base_url}/pages/{character_id}"
         response = requests.patch(url, headers=self.headers, json=updates)
+        #print("update_character::",response.status_code, response.text)  
         response.raise_for_status()
         return response.json()
+
+    def persist_adventure(self, adventure, characters):
+        #print(self.translate_encounter_log(adventure['encounter_log']))
+        self.add_blocks(adventure['id'], 'paragraph', self.translate_encounter_log(adventure['encounter_log']))
+        RESULT_LOG = adventure['resultlog'] + CLOSED_LOG + (WON_LOG if adventure['status'] == 'won' else MISSED_LOG if adventure['status'] == 'missed' else LOST_LOG)
+        datau = {
+            "properties": { "status": {"status": {"name":adventure['status']}},
+                            "resultlog": { "rich_text": RESULT_LOG  } }
+        }  
+        upd_adventure = self.update_character(adventure['id'], datau)
+        for character in characters if characters else []:
+            character['level'] += 1 if character['xp'] >= character['max_xp'] else 0
+            character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp']
+            character['sanity'] = character['sanity'] if character['sanity'] < character['max_sanity'] else character['max_sanity']
+            pct = character['hp'] / character['max_hp']
+            character['status'] = 'dead' if character['hp'] <= 0 else 'dying' if pct <= 0.15 else 'rest' if pct<=0.3 else character['status']
+            character['xp'] += 2 if character['hp'] <= 0 else 0
+            datau = {"properties": { "level": {"number": character['level']}, 
+                                    "hp": {"number": character['hp']}, 
+                                    "xp": {"number": character['xp']}, 
+                                    "sanity": {"number": character['sanity']}, 
+                                    "force": {"number": character['attack']}, 
+                                    "defense": {"number": character['defense']}, 
+                                    "coins": {"number": character['coins']}, 
+                                    "magic": {"number": character['magic']} ,
+                                    "status": {"select": {"name":character['status']} }}}
+            upd_character = self.update_character(character['id'], datau)
+            #print(datau)
+        return upd_adventure, upd_character
+
+    def add_blocks(self, parent_id, block_type, childrens):
+        """
+        Add a block to a Notion page.
+
+        :param token: The Notion integration token.
+        :param parent_id: The ID of the parent page where the block will be added.
+        :param block_type: The type of block to add (e.g., "paragraph", "heading_1", "to_do").
+        :return: The response from the Notion API.
+        """
+
+        childrens_to_send = []
+        url = f"{self.base_url}/blocks/{parent_id}/children"
+        count_child = 0
+        for children in childrens:
+            count_child += 1
+            childrens_to_send.append(children)
+            if len(childrens_to_send) == self.lines_per_paragraph or len(childrens) == count_child:
+                block_data = {
+                    "object": "block",
+                    "type": block_type,
+                    block_type: {"rich_text": childrens_to_send}
+                }
+                para_data = {
+                    "children": [block_data]
+                }
+                response = requests.patch(url, headers=self.headers, json=para_data)
+                if response.status_code == 200:
+                    print("Block added successfully!")
+                else:
+                    print(f"Failed to add block: {response.status_code} - {response.text}")
+                    response.raise_for_status()
+                childrens_to_send = []
+        
+    def translate_encounter_log(self, encounter_log):
+        translated_encounter = []
+        for encounter in encounter_log:
+            translated_encounter.append({'type': 'text','text': {'content': '\n' + str(encounter['time']),'link': None}
+                                        ,'annotations': {'bold': False,'italic': True,'strikethrough': False
+                                        ,'underline': False, 'code': False, 'color': 'gray_background'}
+                                        , 'plain_text': '\n' + str(encounter['time']), 'href': None })
+            translated_encounter.append({'type': 'text','text': {'content': ' '+encounter['why']+' ','link': None}
+                                        ,'annotations': {'bold': False,'italic': False,'strikethrough': False
+                                        ,'underline': False, 'code': False, 'color': 'gray'}
+                                        , 'plain_text': ' '+encounter['why']+' ', 'href': None })
+            if encounter['type'] != '':
+                color = 'green' if encounter['points'] >= 0 else 'red'
+                mas_menos = ('+' if encounter['points'] >= 0 else '-') + str(abs(encounter['points'])) + ' ' 
+                translated_encounter.append({'type': 'text','text': {'content': mas_menos + encounter['type'],'link': None}
+                                            ,'annotations': {'bold': True,'italic': True,'strikethrough': False
+                                            ,'underline': False, 'code': False, 'color': color}
+                                            , 'plain_text': mas_menos + encounter['type'], 'href': None })
+        return translated_encounter
 
     def filter_by_deep_level(self, deep_level, is_npc=False):
         """Filter characters by deep level and is_npc, returning 4 random characters."""
@@ -164,6 +248,8 @@ class NotionService:
                 "path": {"multi_select": [{"name": "encounter"}]}
             }
         }
+        if random.randint(0, 4) == 0: # 20%chance
+            data['properties']['path']['multi_select'].append("discovery")
         url = f"{self.base_url}/pages"
         response = requests.post(url, headers=self.headers, json=data)  # Use json instead of data
         if response.status_code == 200:  # Check if the request was successful
@@ -179,7 +265,7 @@ class NotionService:
         url = f"{self.base_url}/pages/{adventure_id}"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
-        return response.json()
+        return self.translate_adventure([response.json()] if response.json() else [])[0]
     
     def get_challenges_by_week(self, week_number):
         """Retrieve challenges for a specific week."""
