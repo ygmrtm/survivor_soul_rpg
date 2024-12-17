@@ -41,3 +41,36 @@ All notable changes to this project will be documented in this file.
 - [x]  style: CreateChallenge Button
 ---
 
+## [1.0.3] - 2024-12-17
+Merge cef44231c9cb5d6d86044341478260c60609bba2 into ea8e00526c7fa74aeaf98368d2077614624649bb
+
+feat: Execute Adventure
+
+- [x]  feat: Execute Adventure
+    - [x]  system of fight
+    - [x]  consider negotiate
+    - [x]  reward system
+    - [x]  Logging in paragraphs
+
+Update CHANGELOG for version 1.0.2
+
+Update python-app.yml
+Update CHANGELOG for version 1.0.2
+---
+
+## [1.0.4] - 2024-12-17
+Merge aa220b3811c1d1fa13082bea65d9126a7f29847c into 873f008d14a1466a14f07bfe214dc102f800689b
+
+Merge pull request #8 from ygmrtm/feat_underworld
+
+[CODE-41] Feat underworld
+feat: Tribute System for Challenges
+
+Merge pull request #7 from ygmrtm/fix_ui-do-not-refresh-the-next-adventure
+
+[CODE-41] Fix UI do not refresh the next adventure
+fix: After executing an Adventure, the UI do not refresh the next Adventure
+
+- [x]  fix: [Issue](https://github.com/ygmrtm/survivor_soul_rpg/issues/3)
+---
+
