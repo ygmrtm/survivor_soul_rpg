@@ -49,19 +49,41 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const currentDate = new Date();
     const weekNumber = getISOWeekNumber(currentDate);
+    const prevWeekNumber = weekNumber - 1;
     document.getElementById('week-number').innerText = weekNumber;
 
     // Add event listener to the button
     document.getElementById('challenges-button').addEventListener('click', function() {
+        const button = this;
+        button.disabled = true;
+        const weekNumber = document.getElementById('week-number').innerText;
+        const prevWeekNumber = weekNumber - 1; // Calculate the previous week number
+
+        // First endpoint to create/retrieve challenges for the current week
         fetch(`/api/adventure/challenges/${weekNumber}`, {
             method: 'POST'
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Challenges created:', data);
+            console.log('Challenges created/retrieved for current week:', data);
+            // TODO: Implement what to do with the UI with the retrieved challenges if needed
+            // Now execute the second endpoint for the previous week
+            return fetch(`/api/adventure/challenges/${prevWeekNumber}/evaluate`, {
+                method: 'POST'
+            });
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Challenges retrieved for previous week:', data);
+            // Here you can update the UI with the retrieved challenges if needed
+            // For example, you could display them in a specific section of your page
+            // document.getElementById('challenges-info').innerText = JSON.stringify(data);
         })
         .catch(error => {
-            console.error('Error creating challenges:', error);
+            console.error('Error creating/retrieving challenges:', error);
+        })
+        .finally(() => {
+            button.disabled = false; // Re-enable the button after all operations
         });
     });
 

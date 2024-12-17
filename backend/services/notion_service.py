@@ -2,7 +2,7 @@ import requests
 import random 
 import json
 from datetime import datetime, timedelta
-from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN, NOTION_DBID_HABIT, CREATED_LOG
+from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN, NOTION_DBID_HABIT, NOTION_DBID_DLYLG, CREATED_LOG, CLOSED_LOG, WON_LOG, LOST_LOG, MISSED_LOG
 
 class NotionService:
     base_url = "https://api.notion.com/v1"
@@ -10,15 +10,16 @@ class NotionService:
     max_xp = 500
     max_hp = 100
     max_sanity = 60    
+    lines_per_paragraph = 80
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
-    """
-    Initialize a NotionService instance with headers for API requests.
-
-    Sets up the authorization headers using the NOTION_API_KEY and
-    initializes a cache for storing character data.
-    """
     def __init__(self):
+        """
+        Initialize a NotionService instance with headers for API requests.
+
+        Sets up the authorization headers using the NOTION_API_KEY and
+        initializes a cache for storing character data.
+        """
         self.headers = {
             "Authorization": f"Bearer {NOTION_API_KEY}",
             "Notion-Version": "2022-06-28",
@@ -26,30 +27,48 @@ class NotionService:
         }
         self._cached_characters = None  # Initialize cache
 
-    """
-    Retrieve all characters from the Notion database and cache the results.
-
-    If the characters are already cached, return the cached data.
-    Otherwise, fetch the characters from the Notion database, cache
-    the results, and return them.
-
-    Returns:
-        list: A list of character data retrieved from the Notion database.
-    """
     def get_all_characters(self):
-        """Fetch all characters from Notion database, caching the result."""
+        """
+        Retrieve all characters from the Notion database and cache the results.
+
+        If the characters are already cached, return the cached data.
+        Otherwise, fetch the characters from the Notion database, cache
+        the results, and return them.
+
+        Returns:
+            list: A list of character data retrieved from the Notion database.
+        """
         if self._cached_characters is None:  # Check if cache is empty
             url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
-            response = requests.post(url, headers=self.headers)
-            response.raise_for_status()
-            self._cached_characters = response.json().get("results", [])  # Cache the result
+            all_characters = []  # Initialize a list to hold all characters
+            has_more = True  # Flag to check if there are more pages
+            start_cursor = None  # Initialize the start cursor
+
+            while has_more:
+                # Prepare the request payload
+                payload = {}
+                if start_cursor:
+                    payload['start_cursor'] = start_cursor  # Add the cursor if it exists
+
+                response = requests.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()  # Raise an error for bad responses
+                data = response.json()
+
+                # Append the results to the all_characters list
+                all_characters.extend(data.get("results", []))
+                has_more = data.get("has_more", False)  # Check if there are more pages
+                start_cursor = data.get("next_cursor")  # Update the cursor for the next request
+
+            self._cached_characters = all_characters  # Cache the result
             print("Fetched and cached characters:", len(self._cached_characters))
         else:
             print("Using cached characters:", len(self._cached_characters))
-        return self._cached_characters
 
+        return self._cached_characters
+    
     def get_character_by_id(self, character_id):
         """Retrieve a character by its ID from the cached characters."""
+        #print("🚹 ",character_id)
         characters = self.get_all_characters()  # Ensure we have the latest characters
         for character in characters:
             if character['id'] == character_id:
@@ -91,8 +110,94 @@ class NotionService:
         """Update character attributes."""
         url = f"{self.base_url}/pages/{character_id}"
         response = requests.patch(url, headers=self.headers, json=updates)
+        #print("update_character::",response.status_code, response.text)  
         response.raise_for_status()
         return response.json()
+
+    def persist_adventure(self, adventure, characters):
+        #print(self.translate_encounter_log(adventure['encounter_log']))
+        self.add_blocks(adventure['id'], 'paragraph', self.translate_encounter_log(adventure['encounter_log']))
+        RESULT_LOG = adventure['resultlog'] + CLOSED_LOG + (WON_LOG if adventure['status'] == 'won' else MISSED_LOG if adventure['status'] == 'missed' else LOST_LOG)
+        datau = {
+            "properties": { "status": {"status": {"name":adventure['status']}},
+                            "resultlog": { "rich_text": RESULT_LOG  } }
+        }  
+        if 'dlylog' in adventure.keys():
+            datau['properties']['dlylog'] = { "relation": adventure['dlylog']  }
+
+        upd_adventure = self.update_character(adventure['id'], datau)
+        for character in characters if characters else []:
+            character['level'] += 1 if character['xp'] >= character['max_xp'] else 0
+            character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp']
+            character['sanity'] = character['sanity'] if character['sanity'] < character['max_sanity'] else character['max_sanity']
+            pct = character['hp'] / character['max_hp']
+            character['status'] = 'dead' if character['hp'] <= 0 else 'dying' if pct <= 0.15 else 'rest' if pct<=0.3 else character['status']
+            character['xp'] += 2 if character['hp'] <= 0 else 0
+            datau = {"properties": { "level": {"number": character['level']}, 
+                                    "hp": {"number": character['hp']}, 
+                                    "xp": {"number": character['xp']}, 
+                                    "sanity": {"number": character['sanity']}, 
+                                    "force": {"number": character['attack']}, 
+                                    "defense": {"number": character['defense']}, 
+                                    "coins": {"number": character['coins']}, 
+                                    "magic": {"number": character['magic']} ,
+                                    "status": {"select": {"name":character['status']} }}}
+            upd_character = self.update_character(character['id'], datau)
+            #print(datau)
+        return upd_adventure, upd_character
+
+    def add_blocks(self, parent_id, block_type, childrens):
+        """
+        Add a block to a Notion page.
+
+        :param token: The Notion integration token.
+        :param parent_id: The ID of the parent page where the block will be added.
+        :param block_type: The type of block to add (e.g., "paragraph", "heading_1", "to_do").
+        :return: The response from the Notion API.
+        """
+
+        childrens_to_send = []
+        url = f"{self.base_url}/blocks/{parent_id}/children"
+        count_child = 0
+        for children in childrens:
+            count_child += 1
+            childrens_to_send.append(children)
+            if len(childrens_to_send) == self.lines_per_paragraph or len(childrens) == count_child:
+                block_data = {
+                    "object": "block",
+                    "type": block_type,
+                    block_type: {"rich_text": childrens_to_send}
+                }
+                para_data = {
+                    "children": [block_data]
+                }
+                response = requests.patch(url, headers=self.headers, json=para_data)
+                if response.status_code == 200:
+                    print("Block added successfully!")
+                else:
+                    print(f"Failed to add block: {response.status_code} - {response.text}")
+                    response.raise_for_status()
+                childrens_to_send = []
+        
+    def translate_encounter_log(self, encounter_log):
+        translated_encounter = []
+        for encounter in encounter_log:
+            translated_encounter.append({'type': 'text','text': {'content': '\n' + str(encounter['time']),'link': None}
+                                        ,'annotations': {'bold': False,'italic': True,'strikethrough': False
+                                        ,'underline': False, 'code': False, 'color': 'gray_background'}
+                                        , 'plain_text': '\n' + str(encounter['time']), 'href': None })
+            translated_encounter.append({'type': 'text','text': {'content': ' '+encounter['why']+' ','link': None}
+                                        ,'annotations': {'bold': False,'italic': False,'strikethrough': False
+                                        ,'underline': False, 'code': False, 'color': 'gray'}
+                                        , 'plain_text': ' '+encounter['why']+' ', 'href': None })
+            if encounter['type'] != '':
+                color = 'green' if encounter['points'] >= 0 else 'red'
+                mas_menos = ('+' if encounter['points'] >= 0 else '-') + str(abs(encounter['points'])) + ' ' 
+                translated_encounter.append({'type': 'text','text': {'content': mas_menos + encounter['type'],'link': None}
+                                            ,'annotations': {'bold': True,'italic': True,'strikethrough': False
+                                            ,'underline': False, 'code': False, 'color': color}
+                                            , 'plain_text': mas_menos + encounter['type'], 'href': None })
+        return translated_encounter
 
     def filter_by_deep_level(self, deep_level, is_npc=False):
         """Filter characters by deep level and is_npc, returning 4 random characters."""
@@ -164,6 +269,8 @@ class NotionService:
                 "path": {"multi_select": [{"name": "encounter"}]}
             }
         }
+        if random.randint(0, 4) == 0: # 20%chance
+            data['properties']['path']['multi_select'].append({"name":"discovery"})
         url = f"{self.base_url}/pages"
         response = requests.post(url, headers=self.headers, json=data)  # Use json instead of data
         if response.status_code == 200:  # Check if the request was successful
@@ -179,10 +286,9 @@ class NotionService:
         url = f"{self.base_url}/pages/{adventure_id}"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
-        return response.json()
+        return self.translate_adventure([response.json()] if response.json() else [])[0]
     
-    def get_challenges_by_week(self, week_number):
-        """Retrieve challenges for a specific week."""
+    def start_end_dates(self, week_number):
         # Get the current year
         current_year = datetime.now().year
         
@@ -201,7 +307,13 @@ class NotionService:
         # Format dates to yyyy-mm-dd
         start_date_str = start_date.strftime('%Y-%m-%d')
         end_date_str = end_date.strftime('%Y-%m-%d')
+        return start_date_str, end_date_str
 
+
+    def get_challenges_by_week(self, week_number, name_str):
+        """Retrieve challenges for a specific week."""
+        start_date_str, end_date_str = self.start_end_dates(week_number)
+        print(name_str,start_date_str,end_date_str, "w"+str(week_number))
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
         data = {
@@ -222,18 +334,87 @@ class NotionService:
                     {
                         "property": "name",
                         "rich_text": {
-                        "contains": "CHALLENGE"
+                        "contains": name_str
                         }
                     }
                 ]
             }
         }
-        print("challenge",start_date_str,end_date_str, "w"+str(week_number))
         response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
         response.raise_for_status()
         return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
         
-        
+    def get_daily_checklist(self, week_number):
+        start_date_str, end_date_str = self.start_end_dates(week_number)
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{NOTION_DBID_DLYLG}/query"
+        data = {
+            "filter": {
+                "and": [
+                    {
+                        "property": "cuando",
+                        "date": {
+                            "on_or_after": start_date_str
+                        }
+                    },
+                    {
+                        "property": "cuando",
+                        "date": {
+                            "on_or_before": end_date_str
+                        }
+                    }
+                ]
+            },
+            "sorts":[{"property": "cuando", "direction" : "ascending"}]
+        }
+        response = requests.post(url, headers=self.headers, json=data)  
+        if response.status_code == 200: 
+            habits_cards_trn = []
+            habits_cards = response.json().get("results", [])
+            for habit_daily_card in habits_cards:
+                achieved = []
+                achieved.append("trade" if habit_daily_card['properties']['📈']['checkbox'] is True else None)
+                achieved.append("prsnl" if habit_daily_card['properties']['🫀']['checkbox'] is True else None)
+                achieved.append("beer" if habit_daily_card['properties']['🍺']['checkbox'] is True else None)
+                achieved.append("read" if habit_daily_card['properties']['📚']['checkbox'] is True else None)
+                achieved.append("tech" if habit_daily_card['properties']['💻']['checkbox'] is True else None)
+                achieved.append("deew" if habit_daily_card['properties']['🍃']['checkbox'] is True else None)
+                achieved.append("shower" if habit_daily_card['properties']['🚿']['checkbox'] is True else None)
+                achieved.append("social" if habit_daily_card['properties']['🛗']['checkbox'] is True else None)
+                achieved.append("cook" if habit_daily_card['properties']['🍚']['checkbox'] is True else None)
+                achieved.append("bed" if habit_daily_card['properties']['🛏️']['checkbox'] is True else None)
+                achieved.append("meals" if habit_daily_card['properties']['🥣']['number'] == 3 else None)
+                achieved.append("bike" if habit_daily_card['properties']['🚲']['checkbox'] is True else None)
+                achieved.append("teeth" if habit_daily_card['properties']['🦷']['checkbox'] is True else None)
+                achieved.append("outdoors" if habit_daily_card['properties']['🏜️']['checkbox'] is True else None)
+                achieved.append("gym" if habit_daily_card['properties']['💪🏼']['checkbox'] is True else None)
+                achieved = [item for item in achieved if item is not None]
+                habits_cards_trn.append({
+                    "id": habit_daily_card['id']
+                    ,"cuando": habit_daily_card['properties']['cuando']['date']['start']
+                    ,"trade" : habit_daily_card['properties']['📈']['checkbox']
+                    ,"prsnl" : habit_daily_card['properties']['🫀']['checkbox']
+                    ,"beer" : habit_daily_card['properties']['🍺']['checkbox']
+                    ,"read" : habit_daily_card['properties']['📚']['checkbox']
+                    ,"tech" : habit_daily_card['properties']['💻']['checkbox']
+                    ,"deew" : habit_daily_card['properties']['🍃']['checkbox']
+                    ,"shower" : habit_daily_card['properties']['🚿']['checkbox']
+                    ,"social" : habit_daily_card['properties']['🛗']['checkbox']
+                    ,"cook" : habit_daily_card['properties']['🍚']['checkbox']
+                    ,"bed" : habit_daily_card['properties']['🛏️']['checkbox']
+                    ,"meals" : habit_daily_card['properties']['🥣']['number']
+                    ,"bike" : habit_daily_card['properties']['🚲']['checkbox']
+                    ,"teeth" : habit_daily_card['properties']['🦷']['checkbox']
+                    ,"outdoors" : habit_daily_card['properties']['🏜️']['checkbox']
+                    ,"gym" : habit_daily_card['properties']['💪🏼']['checkbox']
+                    ,"achieved": achieved
+                })
+            return habits_cards_trn
+        else:
+            print("<x>|",response.status_code, response.text)  
+            response.raise_for_status()  
+            return []
+            
     def translate_adventure(self, adventures):
         array_adventures = []
         #print(adventures)
@@ -312,17 +493,38 @@ class NotionService:
             response.raise_for_status()  # Raise an error for bad responses
             return []  # Return None if the request was not successful
 
+        max_xp = self.max_xp
+
         habits = response.json().get("results", [])  
         translated_habits = []
         for habit in habits:
+            habit_level = int(habit['properties']['level']['number'])
+            for i in range(habit_level):
+                max_xp *= self.GOLDEN_RATIO
             translated_habits.append({
                 "id": habit['id']
                 ,"emoji": habit['icon']['emoji']
                 ,"name": habit['properties']['name']['title'][-1]['plain_text']
-                ,"level": habit['properties']['level']['number']
+                ,"level": habit_level
                 ,"xp": habit['properties']['xp']['number']
+                ,"max_xp": max_xp
                 ,"coins": habit['properties']['coins']['number']
                 ,"timesXweek": habit['properties']['timesXweek']['number']
                 ,"who": habit['properties']['who']['relation'][0]['id'] if habit['properties']['who']['relation'] else None
             })
         return translated_habits
+    
+    def get_habits_by_id_or_name(self, habit_id, habit_name):
+        habits = self.get_all_habits()
+        for habit in habits:
+            if habit['id'] == habit_id or habit['name'] == habit_name:
+                return habit
+        return None
+
+    def persist_habit(self, habit):
+        habit['level'] += 1 if habit['xp'] >= habit['max_xp'] else 0
+        datau = {"properties": { "level": {"number": habit['level']}, 
+                                    "xp": {"number": habit['xp']}, 
+                                    "coins": {"number": habit['coins']}}}
+        upd_habit = self.update_character(habit['id'], datau)   
+        return upd_habit    

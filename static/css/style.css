@@ -103,6 +103,12 @@ footer {
     border-color: #9d9473;
 }
 
+.flat-button:disabled {
+    background-color: #555; /* Darker background for disabled state */
+    color: #ccc; /* Lighter text color for disabled state */
+    cursor: not-allowed; /* Change cursor to indicate it's not clickable */
+}
+
 .challenge-button-container {
     display: flex;
     flex-direction: column; /* Stack children vertically */
@@ -151,3 +157,4 @@ margin-top: 5px;
     top: 10px;
     right: 10px;
 }
+
