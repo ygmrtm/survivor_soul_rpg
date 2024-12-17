@@ -10,7 +10,7 @@ class NotionService:
     max_xp = 500
     max_hp = 100
     max_sanity = 60    
-    lines_per_paragraph = 80
+    lines_per_paragraph = 90
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
     def __init__(self):
