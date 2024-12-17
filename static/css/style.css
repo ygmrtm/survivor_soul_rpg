@@ -68,6 +68,11 @@ header {
     padding: 0;
 }
 
+.character-card.disabled {
+    opacity: 0.5; /* Make the card look faded */
+    pointer-events: none; /* Prevent any interaction */
+}
+
 /* Footer Styling */
 footer {
     text-align: center;
@@ -101,6 +106,12 @@ footer {
     background-color: #705d56;
     color: #1b1b1b;
     border-color: #9d9473;
+}
+
+.flat-button:disabled {
+    background-color: #555; /* Darker background for disabled state */
+    color: #ccc; /* Lighter text color for disabled state */
+    cursor: not-allowed; /* Change cursor to indicate it's not clickable */
 }
 
 .challenge-button-container {
@@ -151,3 +162,4 @@ margin-top: 5px;
     top: 10px;
     right: 10px;
 }
+
