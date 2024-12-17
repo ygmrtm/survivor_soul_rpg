@@ -122,7 +122,6 @@ class NotionService:
             "properties": { "status": {"status": {"name":adventure['status']}},
                             "resultlog": { "rich_text": RESULT_LOG  } }
         }  
-        if adventure['dlylog']:
         if 'dlylog' in adventure.keys():
             datau['properties']['dlylog'] = { "relation": adventure['dlylog']  }
 
