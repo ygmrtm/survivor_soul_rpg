@@ -6,6 +6,15 @@ document.addEventListener("DOMContentLoaded", function () {
     const characterCards = document.querySelectorAll(".character-card");
 
     characterCards.forEach(card => {
+        const characterId = card.dataset.characterId; // Get character ID from data attribute
+        const characterHp = parseInt(card.dataset.characterHp); // Assuming you have hp in data attribute
+        // Disable card if character HP is less than zero
+        if (characterHp < 0) {
+            console.log('Character HP is less than zero. Cannot execute adventure.');
+            card.classList.add('disabled'); 
+            card.style.pointerEvents = 'none'; 
+        }
+
         card.addEventListener("mouseover", () => {
             card.style.transform = "scale(1.1)";
         });
@@ -13,8 +22,10 @@ document.addEventListener("DOMContentLoaded", function () {
             card.style.transform = "scale(1)";
         });
         card.addEventListener("click", () => {
-            const characterId = card.dataset.characterId;
-            // Show the modal
+            if (card.classList.contains('disabled')) return; // Prevent action if card is disabled
+            card.classList.add('disabled'); // Disable the card
+            card.style.pointerEvents = 'none'; // Prevent further clicks
+            document.getElementById('adventure-info').innerText = 'Loading...';
             document.getElementById('adventure-modal').style.display = 'block';
             fetch(`/api/adventure/${characterId}/create`, {
                 method: 'POST'
@@ -37,6 +48,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 document.getElementById('adventure-info').innerText = 'Failed to load adventure details.';
             });
         });
+        // Close modal logic
+        document.querySelector('.close-button').addEventListener('click', () => {
+            document.getElementById('adventure-modal').style.display = 'none'; // Hide the modal
+            // Re-enable all character cards
+            characterCards.forEach(card => {
+                const alive_pts = parseInt(card.dataset.characterHp)
+                if(alive_pts > 0){
+                    card.classList.remove('disabled'); // Remove disabled class
+                    card.style.pointerEvents = 'auto'; // Re-enable clicks
+                    card.style.transform = "scale(1)"; // Reset scale
+                }
+            });
+        });        
     });
 
     // Calculate the current week number based on ISO calendar

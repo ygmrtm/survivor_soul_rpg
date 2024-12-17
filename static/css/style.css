@@ -68,6 +68,11 @@ header {
     padding: 0;
 }
 
+.character-card.disabled {
+    opacity: 0.5; /* Make the card look faded */
+    pointer-events: none; /* Prevent any interaction */
+}
+
 /* Footer Styling */
 footer {
     text-align: center;
