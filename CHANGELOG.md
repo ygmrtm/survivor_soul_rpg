@@ -58,3 +58,19 @@ Update python-app.yml
 Update CHANGELOG for version 1.0.2
 ---
 
+## [1.0.4] - 2024-12-17
+Merge aa220b3811c1d1fa13082bea65d9126a7f29847c into 873f008d14a1466a14f07bfe214dc102f800689b
+
+Merge pull request #8 from ygmrtm/feat_underworld
+
+[CODE-41] Feat underworld
+feat: Tribute System for Challenges
+
+Merge pull request #7 from ygmrtm/fix_ui-do-not-refresh-the-next-adventure
+
+[CODE-41] Fix UI do not refresh the next adventure
+fix: After executing an Adventure, the UI do not refresh the next Adventure
+
+- [x]  fix: [Issue](https://github.com/ygmrtm/survivor_soul_rpg/issues/3)
+---
+
