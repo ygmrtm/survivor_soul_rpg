@@ -1,11 +1,25 @@
 from flask import Blueprint, jsonify
+from backend.services.notion_service import NotionService
 
 notion_bp = Blueprint('notion', __name__)
+notion_service = NotionService()
 
 @notion_bp.route('/characters', methods=['GET'])
 def get_all_characters():
     # Retrieve characters via Notion API
     return jsonify([])
+
+@notion_bp.route('/characters/<id>', methods=['GET'])
+def get_character_by_id(id):
+    result = notion_service.get_character_by_id(id)
+    return jsonify(result)
+
+@notion_bp.route('/countdeadpeople', methods=['GET'])
+def countdeadpeople():
+    l3_characters = notion_service.filter_by_deep_level(deep_level='l3', is_npc=False) + notion_service.filter_by_deep_level(deep_level='l3', is_npc=True)
+    filtered_characters = [c for c in l3_characters if c['status'] == 'dead']    
+    return jsonify({"count": len(filtered_characters)}), 200
+
 
 @notion_bp.route('/characters/<id>', methods=['PUT'])
 def update_character(id):

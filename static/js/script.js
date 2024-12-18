@@ -111,6 +111,27 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    document.getElementById('underworld-button').addEventListener('click', function() {
+        const button = this;
+        button.disabled = true;
+
+        // First endpoint to 
+        fetch(`/api/adventure/underworld`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('underworld for current week:', data);
+            document.getElementById('dead-people').innerText = "(" + data.reborn  + " but "+ data.still_dead +" still ☠️)";
+        })
+        .catch(error => {
+            console.error('Error in underworld:', error);
+        })
+        .finally(() => {
+            button.disabled = false;
+        });
+    });
+
     document.getElementById('current-year').innerText = new Date().getFullYear();
 
     // Fetch the version number from the new endpoint
@@ -127,5 +148,21 @@ document.addEventListener("DOMContentLoaded", function () {
         .catch(error => {
             console.error('Error fetching version:', error);
             document.getElementById('version-number').innerText = '1.0.0'; // Fallback version
+        });
+
+    // Fetch the dead people number from the new endpoint
+    fetch('/api/notion/countdeadpeople')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            document.getElementById('dead-people').innerText = "(" + data.count + ")";
+        })
+        .catch(error => {
+            console.error('Error fetching counts:', error);
+            document.getElementById('dead-people').innerText = '0'; // Fallback version
         });
 });

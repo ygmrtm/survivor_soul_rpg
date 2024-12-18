@@ -10,6 +10,7 @@ class NotionService:
     max_xp = 500
     max_hp = 100
     max_sanity = 60    
+    max_prop_limit = 20
     lines_per_paragraph = 90
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
@@ -69,9 +70,11 @@ class NotionService:
     def get_character_by_id(self, character_id):
         """Retrieve a character by its ID from the cached characters."""
         #print("🚹 ",character_id)
+        # replace - with space
+        character_id = character_id.replace('-','')
         characters = self.get_all_characters()  # Ensure we have the latest characters
         for character in characters:
-            if character['id'] == character_id:
+            if character['id'].replace('-','') == character_id:
                 pictures = character['properties']['picture']['files']
                 random_picture = random.choice(pictures) if pictures else None
                 character_level = character['properties']['level']['number']
@@ -82,8 +85,9 @@ class NotionService:
                     max_xp *= self.GOLDEN_RATIO
                     max_hp *= self.GOLDEN_RATIO
                     max_sanity *= self.GOLDEN_RATIO
+                #print("-->",character['properties'])
                 return { 
-                "id": character['id']
+                "id": character['id'].replace('-','')
                 ,"name": character['properties']['name']['title'][-1]['plain_text']
                 ,"status": character['properties']['status']['select']['name']
                 ,"picture": random_picture['file']['url']
@@ -101,8 +105,10 @@ class NotionService:
                 ,"inventory": character['properties']['inventory']['multi_select']
                 ,"npc": character['properties']['npc']['checkbox']
                 ,"deep_level": character['properties']['deeplevel']['formula']['string']
-                ,"alter_ego": character['properties']['alter ego']['relation'][0]['id'] if character['properties']['alter ego']['relation'] else None
-                ,"respawn": character['properties']['respawn']['number']
+                ,"alter_ego": character['properties']['alter ego']['relation'][0]['id'].replace('-','') if character['properties']['alter ego']['relation'] else None
+                ,"respawn": character['properties']['respawn']['number'] if character['properties']['respawn']['number'] else 0
+                ,"pending_reborn": character['properties']['pendingToReborn']['formula']['string']
+                ,"hours_recovered": character['properties']['hours_recovered']['formula']['number']
                 }
         return None  # Return None if the character is not found
 
@@ -126,21 +132,37 @@ class NotionService:
             datau['properties']['dlylog'] = { "relation": adventure['dlylog']  }
 
         upd_adventure = self.update_character(adventure['id'], datau)
+
+        # All logic for validating the Character before pushing the changes
         for character in characters if characters else []:
             character['level'] += 1 if character['xp'] >= character['max_xp'] else 0
             character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp']
             character['sanity'] = character['sanity'] if character['sanity'] < character['max_sanity'] else character['max_sanity']
             pct = character['hp'] / character['max_hp']
-            character['status'] = 'dead' if character['hp'] <= 0 else 'dying' if pct <= 0.15 else 'rest' if pct<=0.3 else character['status']
+            if character['hp'] <= 0:
+                character['status'] = 'dead'  
+            elif pct <= 0.15:
+                character['status'] = 'dying' 
+            elif pct<=0.3 :
+                character['status'] = 'rest'
+            else:
+                character['status'] = 'alive'
             character['xp'] += 2 if character['hp'] <= 0 else 0
+            max_prop_limit = self.max_prop_limit
+            for i in range(character['level']):
+                max_prop_limit *= self.GOLDEN_RATIO
+            character['defense'] = character['defense'] if character['defense'] <= max_prop_limit else max_prop_limit
+            character['attack'] = character['attack'] if character['attack'] <= max_prop_limit else max_prop_limit
+            character['magic'] = character['magic'] if character['magic'] <= max_prop_limit else max_prop_limit
+
             datau = {"properties": { "level": {"number": character['level']}, 
-                                    "hp": {"number": character['hp']}, 
+                                    "hp": {"number": round(character['hp'])}, 
                                     "xp": {"number": character['xp']}, 
                                     "sanity": {"number": character['sanity']}, 
-                                    "force": {"number": character['attack']}, 
-                                    "defense": {"number": character['defense']}, 
+                                    "force": {"number": round(character['attack'])}, 
+                                    "defense": {"number": round(character['defense'])}, 
                                     "coins": {"number": character['coins']}, 
-                                    "magic": {"number": character['magic']} ,
+                                    "magic": {"number": round(character['magic'])} ,
                                     "status": {"select": {"name":character['status']} }}}
             upd_character = self.update_character(character['id'], datau)
             #print(datau)
@@ -216,7 +238,7 @@ class NotionService:
                 max_hp *= self.GOLDEN_RATIO
                 max_sanity *= self.GOLDEN_RATIO
             array_characters.append({ 
-                "id": character['id']
+                "id": character['id'].replace('-','')
                 ,"name": character['properties']['name']['title'][-1]['plain_text']
                 ,"status": character['properties']['status']['select']['name']
                 ,"picture": random_picture['file']['url']
@@ -234,8 +256,10 @@ class NotionService:
                 ,"inventory": character['properties']['inventory']['multi_select']
                 ,"npc": character['properties']['npc']['checkbox']
                 ,"deep_level": character['properties']['deeplevel']['formula']['string']
-                ,"alter_ego": character['properties']['alter ego']['relation'][0]['id'] if character['properties']['alter ego']['relation'] else None
+                ,"alter_ego": character['properties']['alter ego']['relation'][0]['id'].replace('-','') if character['properties']['alter ego']['relation'] else None
                 ,"respawn": character['properties']['respawn']['number']
+                ,"pending_reborn": character['properties']['pendingToReborn']['formula']['string']
+                ,"hours_recovered": character['properties']['hours_recovered']['formula']['number']
             })
         return array_characters if is_npc else random.sample(array_characters, min(4, len(array_characters)))
     
@@ -245,13 +269,14 @@ class NotionService:
         data = {
             "parent": { "database_id": NOTION_DBID_ADVEN },
             "icon": {
-                "emoji": "🏰"
+                "emoji": "🏰" if xp_reward > 0 else "🏴‍☠️"
             },
             "properties": {
                 "name": {
                     "title": [
                         {"text": {
-                            "content": "ADVENTURE | " + str(random.randint(1, 666))  # TODO: generate with groq
+                            "content": ("DE" if xp_reward <=0 else "") + ("ADVENTURE | " + str(random.randint(1, 666)))
+                            # TODO: generate with groq
                         }}
                     ]
                 },
@@ -528,3 +553,30 @@ class NotionService:
                                     "coins": {"number": habit['coins']}}}
         upd_habit = self.update_character(habit['id'], datau)   
         return upd_habit    
+
+    def get_underworld_adventures(self):
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
+        data = {
+            "filter": {
+                "and": [
+                    {
+                        "property": "name",
+                        "rich_text": {
+                        "contains": "DEADVENTURE"
+                        }
+                    },
+                    {
+                        "property": "status",
+                        "status": { "equals": "created"}
+                    }
+                ]
+            }
+        }
+        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
+        if response.status_code == 200: 
+            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
+        else:
+            print("-->",response.status_code, response.text)  # Debugging: Print the response
+            response.raise_for_status()  # Raise an error for bad responses
+        
