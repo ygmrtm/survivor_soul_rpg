@@ -215,9 +215,10 @@ class AdventureService:
                     self.distribute_tribute(who['alter_ego'], send_coins) 
                     adventure['status'] = 'won'
                 else:
-                    #TODO: undead adventure
                     new_adventure = self.create_adventure(who['id'], underworld=True)
-                    self.add_encounter_log(0, "", 'You lost the Adventure')
+                    self.add_encounter_log(who['hp'], "hp", '‼️You lost the Adventure‼️')
+                    new_adv = notion_service.get_adventure_by_id(new_adventure['adventure_id'])
+                    self.add_encounter_log(0,'new',new_adv['name']+new_adv['desc'])
                     adventure['status'] = 'lost'
             enemies.append(who)
             adventure['encounter_log'] = self.encounter_log
@@ -437,4 +438,22 @@ class AdventureService:
             done += 1
         return return_array
 
+    def awake_characters(self):
+        return_array = []
+        notion_service = NotionService()
+        l3_characters = notion_service.filter_by_deep_level(deep_level='l3', is_npc=False) + notion_service.filter_by_deep_level(deep_level='l3', is_npc=True)
+        filtered_characters = [c for c in l3_characters if c['status'] == 'rest' or c['status'] == 'dying']
+        for character in filtered_characters:
+            pct_before = character['hp'] / character['max_hp']
+            pct_after = (character['hp'] + character['hours_recovered']) / character['max_hp']
+            if pct_after > 0.3:
+                character['hp'] += character['hours_recovered']
+                character['status'] = 'alive'
+                datau = {"properties": { "hp": {"number": character['hp']},"status": {"select": {"name":character['status']} } }}
+                upd_character = notion_service.update_character(character['id'], datau)
+                return_array.append({ "character_id": character['id'], "character_name": character['name'], "character_hp": character['hp']})
+
+                print(character['hours_recovered'],character['name'],'{}->{} awakening'.format(pct_before,pct_after))
+
+        return return_array
         

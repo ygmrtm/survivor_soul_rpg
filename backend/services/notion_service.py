@@ -117,8 +117,11 @@ class NotionService:
         url = f"{self.base_url}/pages/{character_id}"
         response = requests.patch(url, headers=self.headers, json=updates)
         #print("update_character::",response.status_code, response.text)  
-        response.raise_for_status()
-        return response.json()
+        if response.status_code == 200:  # Check if the request was successful
+            return response.json()
+        else:
+            print(response.status_code, response.text)  # Debugging: Print the response
+            response.raise_for_status()  # Raise an error for bad responses
 
     def persist_adventure(self, adventure, characters):
         #print(self.translate_encounter_log(adventure['encounter_log']))
