@@ -207,6 +207,8 @@ class AdventureService:
                     enemies.append(notion_service.get_character_by_id(vs['id']))
                 if self.execute_encounter(who, enemies, god_support) is True:
                     who['xp'] += self.add_encounter_log(adventure['xpRwd'],"xp","Adventure XP earned")
+                    god_support['xp'] += adventure['xpRwd']
+                    god_support['sanity'] += adventure['xpRwd']
                     how_much = (random.randint(1, 50) / 100)
                     send_coins = how_much * adventure['coinRwd']
                     keep_coins = adventure['coinRwd'] - send_coins
@@ -220,12 +222,24 @@ class AdventureService:
                     new_adv = notion_service.get_adventure_by_id(new_adventure['adventure_id'])
                     self.add_encounter_log(0,'new',new_adv['name']+new_adv['desc'])
                     adventure['status'] = 'lost'
+            if "discovery" in adventure['path']:
+                real_characters = notion_service.filter_by_deep_level(deep_level='l0', is_npc=True) + notion_service.filter_by_deep_level(deep_level='l1', is_npc=True)
+                total_taken = 0
+                for character in real_characters:
+                    rand_pct = random.randint(1, 50) / 100
+                    taken = round(character['coins'] * rand_pct)
+                    character['coins'] -= taken
+                    total_taken += taken
+                    enemies.append(character)
+                    self.add_encounter_log(taken*-1,'coins','{} off {}%'.format(character['name'],rand_pct*100))
+                who['coins'] += self.add_encounter_log(total_taken,"coins","You have found 💰💰💰 of real 🌎")
             enemies.append(who)
             adventure['encounter_log'] = self.encounter_log
             notion_service.persist_adventure(adventure=adventure, characters=enemies)
         return {
             "adventure_id": adventure_id,
             "status": adventure['status'],
+            "who_name": who['name'] if who['name'] else adventure['who'],
             "reward": {
                 "xpRwd": adventure['xpRwd'],
                 "coinRwd": adventure['coinRwd']
@@ -341,7 +355,7 @@ class AdventureService:
     def steal_property(self, loser, winner):
         percentage = random.randint(1, 100) / 100
         property_value = random.choice(['coins', 'defense', 'attack', 'magic'])
-        transfer = percentage * loser[property_value]
+        transfer = round(percentage * loser[property_value])
         winner[property_value] += transfer
         loser[property_value] -= transfer
 
@@ -354,17 +368,22 @@ class AdventureService:
         alter_ego = notion_service.get_character_by_id(who_id)
         how_much = send_coins = 0
         keep_coins = coins
-        if alter_ego['alter_ego']:
-            how_much = (random.randint(1, 50) / 100)
-            send_coins = how_much * coins
-            keep_coins = coins - send_coins
-            self.add_encounter_log(send_coins, "coins", '🎉 Thanks for the {}% donation [{}/{}] | {}'.format(how_much * 100, send_coins, keep_coins, alter_ego['name']))
-            self.distribute_tribute(alter_ego['alter_ego'], send_coins)
-        alter_ego['coins'] += self.add_encounter_log(keep_coins,"coins","⚡️{}⚡️{}⚡️ tribute 💵 earned w/o doing a 💩".format(alter_ego['deep_level'],alter_ego['name']))
-        datau = {"properties": { "coins": {"number": alter_ego['coins']} }}
-        upd_character = notion_service.update_character(alter_ego['id'], datau)
+        upd_character = None
+        try:
+            if alter_ego['alter_ego']:
+                how_much = (random.randint(1, 50) / 100)
+                send_coins = how_much * coins
+                keep_coins = coins - send_coins
+                self.add_encounter_log(send_coins, "coins", '🎉 Thanks for the {}% donation [{}/{}] | {}'.format(how_much * 100, send_coins, keep_coins, alter_ego['name']))
+                self.distribute_tribute(alter_ego['alter_ego'], send_coins)
+            alter_ego['coins'] += self.add_encounter_log(keep_coins,"coins","⚡️{}⚡️{}⚡️ tribute 💵 earned w/o doing a 💩".format(alter_ego['deep_level'],alter_ego['name']))
+            alter_ego['xp'] += 1
+            datau = {"properties": { "coins": {"number": alter_ego['coins']} , "xp": {"number": alter_ego['xp']} } }
+            upd_character = notion_service.update_character(alter_ego['id'], datau)
+        except Exception as e:
+            print("Error distributing tribute:", e)
         return upd_character
-    
+   
     def create_underworld_4_deadpeople(self):
         notion_service = NotionService()
         l3_characters = notion_service.filter_by_deep_level(deep_level='l3', is_npc=False) + notion_service.filter_by_deep_level(deep_level='l3', is_npc=True)
@@ -456,4 +475,3 @@ class AdventureService:
                 print(character['hours_recovered'],character['name'],'{}->{} awakening'.format(pct_before,pct_after))
 
         return return_array
-        
