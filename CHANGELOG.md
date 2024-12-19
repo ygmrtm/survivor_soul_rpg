@@ -24,43 +24,53 @@ All notable changes to this project will be documented in this file.
 
 ### Removed
 - N/A
-
 ---
-
 ## [1.0.1] - 2024-12-03
 - Merge 489595feb3cfdde96c2b2246994c567f75649f45 into 2b862feb194aa5718c41237822e3d654869308de
 - Update CHANGELOG for version
 - Update python-app.yml
-
----## [1.0.2] - 2024-12-04
-Merge 66550d740fea0fa5b93ea5a05e77a1bc41072a8f into 14b77d30366ba02295ab2014d8a7bfc7c1f39f90
-
-feat: Execute Adventure
-
-dummy execution
-
-style: CreateChallenge Button
-
-- [x]  style: Footer w/exit
-- [x]  style: CreateChallenge Button
-
-Update CHANGELOG for version
-
-Merge 489595feb3cfdde96c2b2246994c567f75649f45 into 2b862feb194aa5718c41237822e3d654869308de
 ---
 ## [1.0.2] - 2024-12-04
-Update python-app.yml
-Update CHANGELOG for version 1.0.2
+- Update python-app.yml
+- Update CHANGELOG for version 1.0.2
+- Merge 66550d740fea0fa5b93ea5a05e77a1bc41072a8f into 14b77d30366ba02295ab2014d8a7bfc7c1f39f90
+- feat: Execute Adventure 
+- dummy execution
+- style: CreateChallenge Button
+- [x]  style: Footer w/exit
+- [x]  style: CreateChallenge Button
+---
 
-Merge 66550d740fea0fa5b93ea5a05e77a1bc41072a8f into 14b77d30366ba02295ab2014d8a7bfc7c1f39f90
+## [1.0.3] - 2024-12-17
+Merge cef44231c9cb5d6d86044341478260c60609bba2 into ea8e00526c7fa74aeaf98368d2077614624649bb
 
 feat: Execute Adventure
 
-dummy execution
+- [x]  feat: Execute Adventure
+    - [x]  system of fight
+    - [x]  consider negotiate
+    - [x]  reward system
+    - [x]  Logging in paragraphs
 
-style: CreateChallenge Button
+Update CHANGELOG for version 1.0.2
 
-- [x]  style: Footer w/exit
-- [x]  style: CreateChallenge Button
+Update python-app.yml
+Update CHANGELOG for version 1.0.2
+---
+
+## [1.0.4] - 2024-12-17
+Merge aa220b3811c1d1fa13082bea65d9126a7f29847c into 873f008d14a1466a14f07bfe214dc102f800689b
+
+Merge pull request #8 from ygmrtm/feat_underworld
+
+[CODE-41] Feat underworld
+feat: Tribute System for Challenges
+
+Merge pull request #7 from ygmrtm/fix_ui-do-not-refresh-the-next-adventure
+
+[CODE-41] Fix UI do not refresh the next adventure
+fix: After executing an Adventure, the UI do not refresh the next Adventure
+
+- [x]  fix: [Issue](https://github.com/ygmrtm/survivor_soul_rpg/issues/3)
 ---
 

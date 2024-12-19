@@ -7,7 +7,7 @@ adventure_service = AdventureService()
 @adventure_bp.route('/<id>/create', methods=['POST'])
 def create_adventure(id):
     # Create a new adventure
-    result = adventure_service.create_adventure(id)
+    result = adventure_service.create_adventure(id, underworld=False)
     return jsonify(result)
 @adventure_bp.route('/<id>/execute', methods=['POST'])
 def execute_adventure(id):
@@ -18,6 +18,12 @@ def execute_adventure(id):
 def create_challenges(week_number):
     # Call the service to create challenges for the specified week
     result = adventure_service.create_challenges(week_number)
+    return jsonify(result)
+
+@adventure_bp.route('/challenges/<int:week_number>/evaluate', methods=['POST'])
+def evaluate_challenges(week_number):
+    # Call the service to create challenges for the specified week
+    result = adventure_service.evaluate_challenges(week_number)
     return jsonify(result)
 
 @adventure_bp.route('/version', methods=['GET'])

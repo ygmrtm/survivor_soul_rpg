@@ -6,6 +6,15 @@ document.addEventListener("DOMContentLoaded", function () {
     const characterCards = document.querySelectorAll(".character-card");
 
     characterCards.forEach(card => {
+        const characterId = card.dataset.characterId; // Get character ID from data attribute
+        const characterHp = parseInt(card.dataset.characterHp); // Assuming you have hp in data attribute
+        // Disable card if character HP is less than zero
+        if (characterHp < 0) {
+            console.log('Character HP is less than zero. Cannot execute adventure.');
+            card.classList.add('disabled'); 
+            card.style.pointerEvents = 'none'; 
+        }
+
         card.addEventListener("mouseover", () => {
             card.style.transform = "scale(1.1)";
         });
@@ -13,8 +22,10 @@ document.addEventListener("DOMContentLoaded", function () {
             card.style.transform = "scale(1)";
         });
         card.addEventListener("click", () => {
-            const characterId = card.dataset.characterId;
-            // Show the modal
+            if (card.classList.contains('disabled')) return; // Prevent action if card is disabled
+            card.classList.add('disabled'); // Disable the card
+            card.style.pointerEvents = 'none'; // Prevent further clicks
+            document.getElementById('adventure-info').innerText = 'Loading...';
             document.getElementById('adventure-modal').style.display = 'block';
             fetch(`/api/adventure/${characterId}/create`, {
                 method: 'POST'
@@ -37,6 +48,19 @@ document.addEventListener("DOMContentLoaded", function () {
                 document.getElementById('adventure-info').innerText = 'Failed to load adventure details.';
             });
         });
+        // Close modal logic
+        document.querySelector('.close-button').addEventListener('click', () => {
+            document.getElementById('adventure-modal').style.display = 'none'; // Hide the modal
+            // Re-enable all character cards
+            characterCards.forEach(card => {
+                const alive_pts = parseInt(card.dataset.characterHp)
+                if(alive_pts > 0){
+                    card.classList.remove('disabled'); // Remove disabled class
+                    card.style.pointerEvents = 'auto'; // Re-enable clicks
+                    card.style.transform = "scale(1)"; // Reset scale
+                }
+            });
+        });        
     });
 
     // Calculate the current week number based on ISO calendar
@@ -49,19 +73,41 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const currentDate = new Date();
     const weekNumber = getISOWeekNumber(currentDate);
+    const prevWeekNumber = weekNumber - 1;
     document.getElementById('week-number').innerText = weekNumber;
 
     // Add event listener to the button
     document.getElementById('challenges-button').addEventListener('click', function() {
+        const button = this;
+        button.disabled = true;
+        const weekNumber = document.getElementById('week-number').innerText;
+        const prevWeekNumber = weekNumber - 1; // Calculate the previous week number
+
+        // First endpoint to create/retrieve challenges for the current week
         fetch(`/api/adventure/challenges/${weekNumber}`, {
             method: 'POST'
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Challenges created:', data);
+            console.log('Challenges created/retrieved for current week:', data);
+            // TODO: Implement what to do with the UI with the retrieved challenges if needed
+            // Now execute the second endpoint for the previous week
+            return fetch(`/api/adventure/challenges/${prevWeekNumber}/evaluate`, {
+                method: 'POST'
+            });
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Challenges retrieved for previous week:', data);
+            // Here you can update the UI with the retrieved challenges if needed
+            // For example, you could display them in a specific section of your page
+            // document.getElementById('challenges-info').innerText = JSON.stringify(data);
         })
         .catch(error => {
-            console.error('Error creating challenges:', error);
+            console.error('Error creating/retrieving challenges:', error);
+        })
+        .finally(() => {
+            button.disabled = false; // Re-enable the button after all operations
         });
     });
 
