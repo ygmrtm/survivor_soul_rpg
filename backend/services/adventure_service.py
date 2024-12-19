@@ -220,7 +220,7 @@ class AdventureService:
                     new_adventure = self.create_adventure(who['id'], underworld=True)
                     self.add_encounter_log(who['hp'], "hp", '‼️You lost the Adventure‼️')
                     new_adv = notion_service.get_adventure_by_id(new_adventure['adventure_id'])
-                    self.add_encounter_log(0,'new',new_adv['name']+new_adv['desc'])
+                    self.add_encounter_log(0,'new',new_adv['name'] + ' | ' +new_adv['desc'])
                     adventure['status'] = 'lost'
             if "discovery" in adventure['path']:
                 real_characters = notion_service.filter_by_deep_level(deep_level='l0', is_npc=True) + notion_service.filter_by_deep_level(deep_level='l1', is_npc=True)
@@ -298,10 +298,11 @@ class AdventureService:
                 damage = enemy['magic'] + random.randint(1, self.dice_size) - who['magic'] - god['magic'] - random.randint(1, self.dice_size)
             else: #Physical Defense
                 damage = enemy['attack'] + random.randint(1, self.dice_size) - who['defense'] - god['defense'] - random.randint(1, self.dice_size)
+            damage = damage * -1
             if random.randint(0, 2) % 3 != 0: #aimed defense
-                who['hp'] += self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | Enemy aimed the attack.'.format(rounds))
+                who['hp'] += self.add_encounter_log(damage, "hp", 'R{} | Enemy aimed the attack.'.format(rounds))
             else:
-                self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | Enemy missed the attack.'.format(rounds))
+                self.add_encounter_log(damage , "hp", 'R{} | Enemy missed the attack.'.format(rounds))
         if who['hp'] <= 0:
                 self.add_encounter_log(who['hp'], "hp", 'You have been defeated by the enemy.')
                 enemy['xp'] += self.steal_property(loser=who, winner=enemy)

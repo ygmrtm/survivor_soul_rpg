@@ -19,6 +19,7 @@ def execute_adventure(id):
 @adventure_bp.route('/underworld', methods=['POST'])
 def execute_underworld():
     # Call the service to execute the adventure
+    adventure_service = AdventureService()
     adventures_created = []
     adventures_executed = []
     characters_awaked = []
