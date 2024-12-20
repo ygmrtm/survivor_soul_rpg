@@ -161,6 +161,7 @@ class NotionService:
             datau = {"properties": { "level": {"number": character['level']}, 
                                     "hp": {"number": round(character['hp'])}, 
                                     "xp": {"number": character['xp']}, 
+                                    "respawn": {"number": character['respawn']}, 
                                     "sanity": {"number": character['sanity']}, 
                                     "force": {"number": round(character['attack'])}, 
                                     "defense": {"number": round(character['defense'])}, 

@@ -159,7 +159,7 @@ document.addEventListener("DOMContentLoaded", function () {
             return response.json();
         })
         .then(data => {
-            document.getElementById('dead-people').innerText = "(" + data.count + ")";
+            document.getElementById('dead-people').innerText = "(" + data.count + "☠️)";
         })
         .catch(error => {
             console.error('Error fetching counts:', error);

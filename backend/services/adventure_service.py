@@ -216,6 +216,11 @@ class AdventureService:
                     self.add_encounter_log(send_coins, "coins", '🎉 Thanks for the {}% donation [{}/{}]'.format(how_much * 100, send_coins, keep_coins))
                     self.distribute_tribute(who['alter_ego'], send_coins) 
                     adventure['status'] = 'won'
+                    # logic for random creation of underworld for dead enemy
+                    if random.randint(0, 2) % 3 == 0:
+                        random_enemy = random.choice(enemies)
+                        if random_enemy['hp'] < 0:
+                            self.create_adventure(random_enemy['id'], underworld=True)
                 else:
                     new_adventure = self.create_adventure(who['id'], underworld=True)
                     self.add_encounter_log(who['hp'], "hp", '‼️You lost the Adventure‼️')
@@ -286,6 +291,7 @@ class AdventureService:
         rounds = 0
         while who['hp'] > 0 and enemy['hp'] > 0:
             rounds += 1
+            damage = 0
             if random.randint(0, 1) % 2 == 0: #Magic Attack
                 damage = who['magic'] + god['magic'] + random.randint(1, self.dice_size) - enemy['magic'] - random.randint(1, self.dice_size)
             else: #Physical Attack
@@ -295,14 +301,18 @@ class AdventureService:
             else:
                 self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | You missed your attack.'.format(rounds))
             if random.randint(0, 1) % 2 == 0: #Magic Defense
-                damage = enemy['magic'] + random.randint(1, self.dice_size) - who['magic'] - god['magic'] - random.randint(1, self.dice_size)
+                enemypts = enemy['magic'] + random.randint(1, self.dice_size)
+                whopts = who['magic'] + god['magic'] + random.randint(1, self.dice_size)
+                damage = enemypts - whopts
             else: #Physical Defense
-                damage = enemy['attack'] + random.randint(1, self.dice_size) - who['defense'] - god['defense'] - random.randint(1, self.dice_size)
-            damage = damage * -1
+                enemypts = enemy['attack'] + random.randint(1, self.dice_size) 
+                whopts = who['defense'] + god['defense'] + random.randint(1, self.dice_size)
+                damage = enemypts - whopts
+            #print(damage, enemy['name'])
             if random.randint(0, 2) % 3 != 0: #aimed defense
-                who['hp'] += self.add_encounter_log(damage, "hp", 'R{} | Enemy aimed the attack.'.format(rounds))
+                who['hp'] += self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | Enemy aimed the attack.'.format(rounds))
             else:
-                self.add_encounter_log(damage , "hp", 'R{} | Enemy missed the attack.'.format(rounds))
+                self.add_encounter_log(damage*-1 , "hp", 'R{} | Enemy missed the attack.'.format(rounds))
         if who['hp'] <= 0:
                 self.add_encounter_log(who['hp'], "hp", 'You have been defeated by the enemy.')
                 enemy['xp'] += self.steal_property(loser=who, winner=enemy)
@@ -435,7 +445,7 @@ class AdventureService:
                 dead_gods_pool.append(enemy['id'])
             if self.fight_w_death(who, enemy, abs(deaadventure['xpRwd'])) is True:
                 # alternative wins for the 🧟 
-                who['respawn'] += self.add_encounter_log(1, "respawn", 'It🧟is🧟alive')
+                who['respawn'] += self.add_encounter_log(1, "respawn", 'It🧟is🧟alive w{}'.format(who['hp']))
                 who['hp'] += self.add_encounter_log(who['hours_recovered'], "hp", 'hours recovered as')
                 properties = ['magic', 'attack', 'defense']
                 total = 0
