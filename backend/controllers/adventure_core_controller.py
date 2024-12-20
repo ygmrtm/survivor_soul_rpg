@@ -27,24 +27,24 @@ def execute_underworld():
     adventures_created, dead_people_count = adventure_service.create_underworld_4_deadpeople()
     adventures_executed = adventure_service.execute_underworld()
     characters_awaked = adventure_service.awake_characters()
-    #TODO: then punishment executions
     return jsonify({ "reborn" : len(adventures_executed)
                     , "still_dead" : dead_people_count - len(adventures_executed) 
                     , "created" : adventures_created
                     , "executed" : adventures_executed
                     , "awaked" : characters_awaked})
 
-@adventure_bp.route('/challenges/<int:week_number>', methods=['POST'])
+@adventure_bp.route('/challenges/<int:week_number>/create', methods=['POST'])
 def create_challenges(week_number):
-    # Call the service to create challenges for the specified week
     result = adventure_service.create_challenges(week_number)
     return jsonify(result)
 
 @adventure_bp.route('/challenges/<int:week_number>/evaluate', methods=['POST'])
 def evaluate_challenges(week_number):
     # Call the service to create challenges for the specified week
-    result = adventure_service.evaluate_challenges(week_number)
-    return jsonify(result)
+    challenges_cons = adventure_service.evaluate_consecutivedays_challenges(week_number)
+    challenges_habits = adventure_service.evaluate_weekhabits_challenges(week_number)
+    challenges_expired = adventure_service.evaluate_expired_challenges()
+    return jsonify({"consecutivedays": challenges_cons, "habits": challenges_habits, "expired": challenges_expired})
 
 @adventure_bp.route('/version', methods=['GET'])
 def get_version():

@@ -135,6 +135,7 @@ class NotionService:
             datau['properties']['dlylog'] = { "relation": adventure['dlylog']  }
 
         upd_adventure = self.update_character(adventure['id'], datau)
+        upd_character = None
 
         # All logic for validating the Character before pushing the changes
         for character in characters if characters else []:
@@ -157,7 +158,7 @@ class NotionService:
             character['defense'] = character['defense'] if character['defense'] <= max_prop_limit else max_prop_limit
             character['attack'] = character['attack'] if character['attack'] <= max_prop_limit else max_prop_limit
             character['magic'] = character['magic'] if character['magic'] <= max_prop_limit else max_prop_limit
-
+            print('--💾💾-->{}'.format(character['name']))
             datau = {"properties": { "level": {"number": character['level']}, 
                                     "hp": {"number": round(character['hp'])}, 
                                     "xp": {"number": character['xp']}, 
@@ -198,9 +199,7 @@ class NotionService:
                     "children": [block_data]
                 }
                 response = requests.patch(url, headers=self.headers, json=para_data)
-                if response.status_code == 200:
-                    print("Block added successfully!")
-                else:
+                if response.status_code != 200:
                     print(f"Failed to add block: {response.status_code} - {response.text}")
                     response.raise_for_status()
                 childrens_to_send = []
@@ -370,9 +369,52 @@ class NotionService:
             }
         }
         response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
-        response.raise_for_status()
-        return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
-        
+        if response.status_code == 200: 
+            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
+        else:
+            print("-->",response.status_code, response.text)  
+            response.raise_for_status() 
+        return None
+
+    def get_due_challenges(self):
+        today = datetime.now().strftime('%Y-%m-%d')
+        one_month_ago = datetime.now() - timedelta(days=15)
+        one_month_ago = one_month_ago.strftime('%Y-%m-%d')
+
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
+        data = {
+            "filter": {
+                "and": [
+                    {
+                        "property": "due",
+                        "date": {
+                            "on_or_after": one_month_ago
+                        }
+                    },
+                    {
+                        "property": "due",
+                        "date": {
+                            "before": today
+                        }
+                    },
+                    {
+                        "property": "name",
+                        "rich_text": {
+                        "contains": 'CHALLENGE'
+                        }
+                    }
+                ]
+            }
+        }
+        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
+        if response.status_code == 200: 
+            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
+        else:
+            print("-->",response.status_code, response.text)  
+            response.raise_for_status() 
+        return None
+
     def get_daily_checklist(self, week_number):
         start_date_str, end_date_str = self.start_end_dates(week_number)
         # Prepare the query for Notion API
@@ -509,9 +551,9 @@ class NotionService:
             adventure_id = response.json()['id']
             return  self.translate_adventure([response.json()] if response.json() else [])[0]
         else:
-            print("-->",response.status_code, response.text)  # Debugging: Print the response
-            response.raise_for_status()  # Raise an error for bad responses
-            return None  # Return None if the request was not successful    
+            print("-->",response.status_code, response.text)  
+            response.raise_for_status() 
+            return None  
         
 
     def get_all_habits(self):

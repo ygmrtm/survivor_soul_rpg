@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", function () {
         const prevWeekNumber = weekNumber - 1; // Calculate the previous week number
 
         // First endpoint to create/retrieve challenges for the current week
-        fetch(`/api/adventure/challenges/${weekNumber}`, {
+        fetch(`/api/adventure/challenges/${weekNumber}/create`, {
             method: 'POST'
         })
         .then(response => response.json())
