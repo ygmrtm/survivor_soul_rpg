@@ -10,7 +10,7 @@ import pytest
 class TestFilterByDeepLevel:
 
     # Filters characters correctly by specified deep level and is_npc flag
-    def test_filter_by_deep_level_correctly_filters_characters(self, mocker):
+    def test_get_characters_by_deep_level_correctly_filters_characters(self, mocker):
         # Arrange
         notion_service = NotionService()
         mock_characters = [
@@ -23,7 +23,7 @@ class TestFilterByDeepLevel:
         mocker.patch.object(notion_service, 'get_all_characters', return_value=mock_characters)
     
         # Act
-        result = notion_service.filter_by_deep_level(3, False)
+        result = notion_service.get_characters_by_deep_level(3, False)
     
         # Assert
         assert len(result) == 4
@@ -32,7 +32,7 @@ class TestFilterByDeepLevel:
             assert character['properties']['npc'] == False
 
     # No characters match the specified deep level and is_npc flag
-    def test_filter_by_deep_level_no_matching_characters(self, mocker):
+    def test_get_characters_by_deep_level_no_matching_characters(self, mocker):
         # Arrange
         notion_service = NotionService()
         mock_characters = [
@@ -42,7 +42,7 @@ class TestFilterByDeepLevel:
         mocker.patch.object(notion_service, 'get_all_characters', return_value=mock_characters)
     
         # Act
-        result = notion_service.filter_by_deep_level(3, False)
+        result = notion_service.get_characters_by_deep_level(3, False)
     
         # Assert
         assert result == []

@@ -23,16 +23,19 @@ def execute_underworld():
     adventures_created = []
     adventures_executed = []
     characters_awaked = []
+    adventures_punishment = []
     dead_people_count = 0
-    adventures_created, dead_people_count = adventure_service.create_underworld_4_deadpeople()
-    adventures_executed = adventure_service.execute_underworld()
-    characters_awaked = adventure_service.awake_characters()
-    #TODO: then punishment executions
+    notion_service = None
+    adventures_created, dead_people_count, notion_service = adventure_service.create_underworld_4_deadpeople()
+    adventures_executed, _ = adventure_service.execute_underworld(notion_service=notion_service)
+    characters_awaked, notion_service = adventure_service.awake_characters()
+    adventures_punishment, _ = adventure_service.apply_punishment(notion_service=notion_service)
     return jsonify({ "reborn" : len(adventures_executed)
                     , "still_dead" : dead_people_count - len(adventures_executed) 
                     , "created" : adventures_created
                     , "executed" : adventures_executed
-                    , "awaked" : characters_awaked})
+                    , "awaked" : characters_awaked
+                    , "punishments" : adventures_punishment})
 
 @adventure_bp.route('/challenges/<int:week_number>', methods=['POST'])
 def create_challenges(week_number):
