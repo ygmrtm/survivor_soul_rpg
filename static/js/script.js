@@ -41,7 +41,7 @@ document.addEventListener("DOMContentLoaded", function () {
             })
             .then(response => response.json())
             .then(data => {
-                document.getElementById('adventure-info').innerText = `Adventure ID: ${data.adventure_id}, Character: ${data.who_name}, Status: ${data.status}`;
+                document.getElementById('adventure-info').innerText = `Adventure ID: ${data.adventure_id}, \nCharacter: ${data.who_name}, \nStatus: ${data.status}`;
             })
             .catch(error => {
                 console.error('Error fetching adventure details:', error);

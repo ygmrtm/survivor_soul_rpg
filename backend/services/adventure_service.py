@@ -301,7 +301,7 @@ class AdventureService:
             else:
                 self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | You missed your attack.'.format(rounds))
             if random.randint(0, 1) % 2 == 0: #Magic Defense
-                enemypts = enemy['magic'] + random.randint(1, self.dice_size)
+                enemypts = enemy['magic'] + random.randint(1, self.dice_size) + (enemy['magic'] if random.randint(0, 3) % 4 == 0 else 0 )
                 whopts = who['magic'] + god['magic'] + random.randint(1, self.dice_size)
                 damage = enemypts - whopts
             else: #Physical Defense
@@ -394,7 +394,7 @@ class AdventureService:
         except Exception as e:
             print("Error distributing tribute:", e)
         return upd_character
-   
+
     def create_underworld_4_deadpeople(self):
         notion_service = NotionService()
         l3_characters = notion_service.filter_by_deep_level(deep_level='l3', is_npc=False) + notion_service.filter_by_deep_level(deep_level='l3', is_npc=True)
@@ -457,7 +457,6 @@ class AdventureService:
                     if value < prev_value:
                         minor_prop = prop
                         prev_value = value
-
                 average_properties = total / len(properties)
                 who[minor_prop] += self.add_encounter_log(average_properties, minor_prop, 'Engaging the weakest property')
                 deaadventure['status'] = 'won'
@@ -482,7 +481,5 @@ class AdventureService:
                 datau = {"properties": { "hp": {"number": character['hp']},"status": {"select": {"name":character['status']} } }}
                 upd_character = notion_service.update_character(character['id'], datau)
                 return_array.append({ "character_id": character['id'], "character_name": character['name'], "character_hp": character['hp']})
-
                 print(character['hours_recovered'],character['name'],'{}->{} awakening'.format(pct_before,pct_after))
-
         return return_array
