@@ -224,7 +224,7 @@ class AdventureService:
         
         for challenge in won_challenges:
             print(challenge['name'], challenge['status'], challenge['xpRwd'], challenge['coinRwd'])
-
+            #TODO: WON challenges
 
         return upd_challenges
     
