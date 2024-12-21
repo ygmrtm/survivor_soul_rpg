@@ -191,14 +191,13 @@ class AdventureService:
         notion_service = NotionService()
         ### by Week Habits
         challenges_all = notion_service.get_due_challenges()
-        due_challenges = [challenge for challenge in challenges_all if challenge['status'] in ('accepted','on going','created')]
-        mis_challenges = [challenge for challenge in challenges_all if challenge['status'] in ('missed')]
+        due_challenges = [challenge for challenge in challenges_all if challenge['status'] in ('accepted','on going','created','missed')]
         won_challenges = [challenge for challenge in challenges_all if challenge['status'] in ('won')]
         print("{} due challenges found ".format(len(due_challenges)))
         print("{} won challenges found ".format(len(won_challenges)))
-        print("{} mis challenges found ".format(len(mis_challenges)))
         upd_challenges = []
         for challenge in due_challenges:
+            print(challenge['name'], challenge['status'], challenge['xpRwd'], challenge['coinRwd'])
             self.encounter_log = []
             notion_service = NotionService()
             who = None
@@ -207,24 +206,25 @@ class AdventureService:
                 habit_obj = notion_service.get_habits_by_id_or_name(habit['id'], None)
                 habit_obj['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp","Failed challenge for {}".format(habit_obj['name'] ))
                 notion_service.persist_habit(habit_obj)
-                if who not in pool_whos:
-                    who = notion_service.get_character_by_id(habit_obj['who'])
-                    pool_whos.append(who)
+                who = notion_service.get_character_by_id(habit_obj['who'])
                 who['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp","got failure for {}".format(who['name'] ))
                 who['sanity'] += self.add_encounter_log(challenge['xpRwd']*-1,"sanity","got failure for {}".format(who['name'] ))
+            if who['id'] not in [character['id'] for character in pool_whos]:
+                pool_whos.append(who)
+            prev_status = challenge['status']
+            self.add_encounter_log(0, "status", 'old status [{}]'.format(prev_status))
             challenge['status'] = 'lost'
             challenge['encounter_log'] = self.encounter_log
             upd_adventure, upd_character = notion_service.persist_adventure(adventure=challenge, characters=pool_whos)
-            upd_challenges.append({ 'due':{'adventure_id':upd_adventure['id']
-                                        , 'who_id':upd_character['id']
-                                        , 'challenge_name':challenge['name']
-                                        , 'status':challenge['status'] }})
+            upd_challenges.append({ 'adventure_id':upd_adventure['id']
+                                , 'who_id':upd_character['id']
+                                , 'challenge_name':challenge['name']
+                                , 'status':challenge['status'] 
+                                , 'status_old':prev_status })
         
         for challenge in won_challenges:
             print(challenge['name'], challenge['status'], challenge['xpRwd'], challenge['coinRwd'])
 
-        for challenge in mis_challenges:
-            print(challenge['name'], challenge['status'], challenge['xpRwd'], challenge['coinRwd'])
 
         return upd_challenges
     
@@ -275,7 +275,7 @@ class AdventureService:
                 real_characters = notion_service.filter_by_deep_level(deep_level='l0', is_npc=True) + notion_service.filter_by_deep_level(deep_level='l1', is_npc=True)
                 total_taken = 0
                 for character in real_characters:
-                    rand_pct = random.randint(1, 50) / 100
+                    rand_pct = random.randint(1, 25) / 100
                     taken = round(character['coins'] * rand_pct)
                     character['coins'] -= taken
                     total_taken += taken
