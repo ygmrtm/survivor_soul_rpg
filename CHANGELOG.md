@@ -88,3 +88,21 @@ Merge pull request #13 from ygmrtm/feat_executeChagenge
 [CODE-41] Feat execute challenge to underworld
 ---
 
+## [1.0.6] - 2024-12-26
+Merge d029ed4e561023195e73d6b8e0d226ef659a9368 into cca74683e33f612eeb9ccaa2d78d20d6ecbae955
+
+Update CHANGELOG for version 1.0.5
+
+Merge 8d57e1c19bb4b016525347b686d1e79bf1a2a022 into 34f6001bf25e15dc4a87364a1cef11fbd678d528
+
+feat: afterlife’s Adventure (punishment)
+
+- [x]  feat: afterlife’s Adventure
+    - [x]  Create **Underworld Training 101** for *deadpeople*
+    - [x]  Execute **101**
+    - [x]  Resting/Dying Characters
+    - [x]  Enable Punishment
+
+feat: afterlife’s Adventure
+---
+
