@@ -13,9 +13,9 @@ class AdventureService:
     encounter_log = []
     dice_size = 16
 
-    def create_adventure(self, character_id, underworld=False):
+    def create_adventure(self, character_id, underworld=False, notion_service=None):
         """Create a new adventure based on specified parameters."""
-        notion_service = NotionService()
+        notion_service = NotionService() if not notion_service else notion_service
         
         # Retrieve the character using the character_id
         character = notion_service.get_character_by_id(character_id)
@@ -207,6 +207,8 @@ class AdventureService:
                     enemies.append(notion_service.get_character_by_id(vs['id']))
                 if self.execute_encounter(who, enemies, god_support) is True:
                     who['xp'] += self.add_encounter_log(adventure['xpRwd'],"xp","Adventure XP earned")
+                    god_support['xp'] += adventure['xpRwd']
+                    god_support['sanity'] += adventure['xpRwd']
                     how_much = (random.randint(1, 50) / 100)
                     send_coins = how_much * adventure['coinRwd']
                     keep_coins = adventure['coinRwd'] - send_coins
@@ -214,17 +216,35 @@ class AdventureService:
                     self.add_encounter_log(send_coins, "coins", '🎉 Thanks for the {}% donation [{}/{}]'.format(how_much * 100, send_coins, keep_coins))
                     self.distribute_tribute(who['alter_ego'], send_coins) 
                     adventure['status'] = 'won'
+                    # logic for random creation of underworld for dead enemy
+                    if random.randint(0, 2) % 3 == 0:
+                        random_enemy = random.choice(enemies)
+                        if random_enemy['hp'] < 0:
+                            self.create_adventure(random_enemy['id'], underworld=True)
                 else:
-                    #TODO: undead adventure
                     new_adventure = self.create_adventure(who['id'], underworld=True)
-                    self.add_encounter_log(0, "", 'You lost the Adventure')
+                    self.add_encounter_log(who['hp'], "hp", '‼️You lost the Adventure‼️')
+                    new_adv = notion_service.get_adventure_by_id(new_adventure['adventure_id'])
+                    self.add_encounter_log(0,'new',new_adv['name'] + ' | ' +new_adv['desc'])
                     adventure['status'] = 'lost'
+            if "discovery" in adventure['path']:
+                real_characters = notion_service.filter_by_deep_level(deep_level='l0', is_npc=True) + notion_service.filter_by_deep_level(deep_level='l1', is_npc=True)
+                total_taken = 0
+                for character in real_characters:
+                    rand_pct = random.randint(1, 50) / 100
+                    taken = round(character['coins'] * rand_pct)
+                    character['coins'] -= taken
+                    total_taken += taken
+                    enemies.append(character)
+                    self.add_encounter_log(taken*-1,'coins','{} off {}%'.format(character['name'],rand_pct*100))
+                who['coins'] += self.add_encounter_log(total_taken,"coins","You have found 💰💰💰 of real 🌎")
             enemies.append(who)
             adventure['encounter_log'] = self.encounter_log
             notion_service.persist_adventure(adventure=adventure, characters=enemies)
         return {
             "adventure_id": adventure_id,
             "status": adventure['status'],
+            "who_name": who['name'] if who['name'] else adventure['who'],
             "reward": {
                 "xpRwd": adventure['xpRwd'],
                 "coinRwd": adventure['coinRwd']
@@ -271,6 +291,7 @@ class AdventureService:
         rounds = 0
         while who['hp'] > 0 and enemy['hp'] > 0:
             rounds += 1
+            damage = 0
             if random.randint(0, 1) % 2 == 0: #Magic Attack
                 damage = who['magic'] + god['magic'] + random.randint(1, self.dice_size) - enemy['magic'] - random.randint(1, self.dice_size)
             else: #Physical Attack
@@ -280,13 +301,18 @@ class AdventureService:
             else:
                 self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | You missed your attack.'.format(rounds))
             if random.randint(0, 1) % 2 == 0: #Magic Defense
-                damage = enemy['magic'] + random.randint(1, self.dice_size) - who['magic'] - god['magic'] - random.randint(1, self.dice_size)
+                enemypts = enemy['magic'] + random.randint(1, self.dice_size) + (enemy['magic'] if random.randint(0, 3) % 4 == 0 else 0 )
+                whopts = who['magic'] + god['magic'] + random.randint(1, self.dice_size)
+                damage = enemypts - whopts
             else: #Physical Defense
-                damage = enemy['attack'] + random.randint(1, self.dice_size) - who['defense'] - god['defense'] - random.randint(1, self.dice_size)
+                enemypts = enemy['attack'] + random.randint(1, self.dice_size) 
+                whopts = who['defense'] + god['defense'] + random.randint(1, self.dice_size)
+                damage = enemypts - whopts
+            #print(damage, enemy['name'])
             if random.randint(0, 2) % 3 != 0: #aimed defense
                 who['hp'] += self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | Enemy aimed the attack.'.format(rounds))
             else:
-                self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | Enemy missed the attack.'.format(rounds))
+                self.add_encounter_log(damage*-1 , "hp", 'R{} | Enemy missed the attack.'.format(rounds))
         if who['hp'] <= 0:
                 self.add_encounter_log(who['hp'], "hp", 'You have been defeated by the enemy.')
                 enemy['xp'] += self.steal_property(loser=who, winner=enemy)
@@ -296,6 +322,37 @@ class AdventureService:
                 who['xp'] += self.steal_property(loser=enemy, winner=who)
                 return True
         return False
+
+    def fight_w_death(self, who, enemy, xpReward):
+        rounds = 0
+        was_too_much = False
+        self.add_encounter_log(0,"","Encountered with {}.".format(str(enemy['name']).upper()))
+        while who['hp'] <= 0 and not was_too_much:
+            rounds += 1
+            versus = ''
+            if random.randint(0, 1) % 2 == 0: #Magic Defense
+                damage = enemy['magic'] + random.randint(1, self.dice_size) - who['magic'] - random.randint(1, self.dice_size)
+                versus = '🪄:{}vs{}={}'.format(enemy['magic'], who['magic'], damage)
+            else: #Physical Defense
+                damage = enemy['attack'] + random.randint(1, self.dice_size) - who['defense'] - random.randint(1, self.dice_size)
+                versus = '🛡️:{}vs{}={}'.format(enemy['attack'], who['defense'], damage)
+            if damage > 0: 
+                who['hp'] += self.add_encounter_log(damage, "hp", 'R{} | Enemy aimed {}'.format(rounds, versus))
+                enemy['hp'] -= damage
+                who['xp'] += self.add_encounter_log(xpReward, "xp", '{} got '.format(who['name']) )
+                enemy['xp'] += self.add_encounter_log(xpReward, "xp", '{} got '.format(enemy['name']) )
+                lucky_exchange = random.randint(0, 4) % 4
+                if lucky_exchange == 0:
+                    who['magic'] += self.add_encounter_log(enemy['magic'] * 0.1, 'magic', '🍀{}🍀'.format(who['name']))
+                    enemy['magic'] += self.add_encounter_log(who['magic'] * 0.1, 'magic', '🍀{}🍀'.format(enemy['name']))
+                elif lucky_exchange == 1:
+                    who['attack'] += self.add_encounter_log(enemy['attack'] * 0.1, 'attack', '🍀{}🍀'.format(who['name']))
+                    enemy['attack'] += self.add_encounter_log(who['attack'] * 0.1, 'attack', '🍀{}🍀'.format(enemy['name']))
+                elif lucky_exchange == 2:
+                    who['defense'] += self.add_encounter_log(enemy['defense'] * 0.1, 'defense', '🍀{}🍀'.format(who['name']))
+                    enemy['defense'] += self.add_encounter_log(who['defense'] * 0.1, 'defense', '🍀{}🍀'.format(enemy['name']))
+            was_too_much = rounds >= 100
+        return True
 
     def add_encounter_log(self, points, type, why):
         self.encounter_log.append({
@@ -309,7 +366,7 @@ class AdventureService:
     def steal_property(self, loser, winner):
         percentage = random.randint(1, 100) / 100
         property_value = random.choice(['coins', 'defense', 'attack', 'magic'])
-        transfer = percentage * loser[property_value]
+        transfer = round(percentage * loser[property_value])
         winner[property_value] += transfer
         loser[property_value] -= transfer
 
@@ -322,13 +379,107 @@ class AdventureService:
         alter_ego = notion_service.get_character_by_id(who_id)
         how_much = send_coins = 0
         keep_coins = coins
-        if alter_ego['alter_ego']:
-            how_much = (random.randint(1, 50) / 100)
-            send_coins = how_much * coins
-            keep_coins = coins - send_coins
-            self.add_encounter_log(send_coins, "coins", '🎉 Thanks for the {}% donation [{}/{}] | {}'.format(how_much * 100, send_coins, keep_coins, alter_ego['name']))
-            self.distribute_tribute(alter_ego['alter_ego'], send_coins)
-        alter_ego['coins'] += self.add_encounter_log(keep_coins,"coins","⚡️{}⚡️{}⚡️ tribute 💵 earned w/o doing a 💩".format(alter_ego['deep_level'],alter_ego['name']))
-        datau = {"properties": { "coins": {"number": alter_ego['coins']} }}
-        upd_character = notion_service.update_character(alter_ego['id'], datau)
+        upd_character = None
+        try:
+            if alter_ego['alter_ego']:
+                how_much = (random.randint(1, 50) / 100)
+                send_coins = how_much * coins
+                keep_coins = coins - send_coins
+                self.add_encounter_log(send_coins, "coins", '🎉 Thanks for the {}% donation [{}/{}] | {}'.format(how_much * 100, send_coins, keep_coins, alter_ego['name']))
+                self.distribute_tribute(alter_ego['alter_ego'], send_coins)
+            alter_ego['coins'] += self.add_encounter_log(keep_coins,"coins","⚡️{}⚡️{}⚡️ tribute 💵 earned w/o doing a 💩".format(alter_ego['deep_level'],alter_ego['name']))
+            alter_ego['xp'] += 1
+            datau = {"properties": { "coins": {"number": alter_ego['coins']} , "xp": {"number": alter_ego['xp']} } }
+            upd_character = notion_service.update_character(alter_ego['id'], datau)
+        except Exception as e:
+            print("Error distributing tribute:", e)
         return upd_character
+
+    def create_underworld_4_deadpeople(self):
+        notion_service = NotionService()
+        l3_characters = notion_service.filter_by_deep_level(deep_level='l3', is_npc=False) + notion_service.filter_by_deep_level(deep_level='l3', is_npc=True)
+        filtered_characters = [c for c in l3_characters if c['status'] == 'dead']  
+        dead_people_count = len(filtered_characters)
+        filtered_characters =  [c for c in filtered_characters if c['pending_reborn'] is None]   
+        to_execute = 0
+        if len(filtered_characters) <= 5:
+            to_execute = len(filtered_characters)
+        else:
+            to_execute = random.randint(1, int(len(filtered_characters) * self.percentage_habits))
+        sample_characters = random.sample(filtered_characters, min( to_execute, len(filtered_characters)))
+        done = 1
+        return_array = []
+        for character in sample_characters:
+            print("underworld for "+character['name'],' | {}/{} [{}]'.format(done, len(sample_characters), len(filtered_characters)))
+            adventure = self.create_adventure(character['id'], underworld=True, notion_service=notion_service )
+            return_array.append({"adventure_id": adventure['adventure_id'], "character_id": character['id'], "character_name": character['name']})
+            time.sleep(random.randint(1, 5))
+            done += 1
+        return return_array, dead_people_count
+    
+    def execute_underworld(self):
+        return_array = []
+        notion_service = NotionService()    
+        all_adventures = notion_service.get_underworld_adventures()
+        if len(all_adventures) <= 0:
+            print("no underworld adventures")
+            return return_array
+        to_execute = 0
+        if len(all_adventures) <= 5:
+            to_execute = len(all_adventures)
+        else:
+            to_execute = random.randint(1, int(len(all_adventures) * self.percentage_habits))
+        sample_adventures = random.sample(all_adventures, min(to_execute, len(all_adventures)))
+        done = 1
+        dead_gods_pool = []
+        for deaadventure in sample_adventures:
+            self.encounter_log = []
+            enemy = None
+            who = notion_service.get_character_by_id(deaadventure['who'])
+            print("underworld exec "+deaadventure['name']+"|"+who['name'],'| {}/{} [{}]'.format(done, len(sample_adventures), len(all_adventures)))
+            for vs in deaadventure['vs']:
+                if vs['id'].replace('-','') in dead_gods_pool:
+                    notion_service = NotionService() #forcing new w/o cached info
+                    dead_gods_pool = []
+                enemy = notion_service.get_character_by_id(vs['id'])
+                dead_gods_pool.append(enemy['id'])
+            if self.fight_w_death(who, enemy, abs(deaadventure['xpRwd'])) is True:
+                # alternative wins for the 🧟 
+                who['respawn'] += self.add_encounter_log(1, "respawn", 'It🧟is🧟alive w{}'.format(who['hp']))
+                who['hp'] += self.add_encounter_log(who['hours_recovered'], "hp", 'hours recovered as')
+                properties = ['magic', 'attack', 'defense']
+                total = 0
+                prev_value = 100000000
+                minor_prop = ''
+                for prop in properties:
+                    value = who[prop]
+                    total += value
+                    if value < prev_value:
+                        minor_prop = prop
+                        prev_value = value
+                average_properties = total / len(properties)
+                who[minor_prop] += self.add_encounter_log(average_properties, minor_prop, 'Engaging the weakest property')
+                deaadventure['status'] = 'won'
+                deaadventure['encounter_log'] = self.encounter_log
+                notion_service.persist_adventure(adventure=deaadventure, characters=[who,enemy])
+                time.sleep(random.randint(1, 5))
+            return_array.append({"adventure_id": deaadventure['id'], "character_id": who['id'], "character_name": who['name'], "deadgod_name": enemy['name'],"adventure_status": deaadventure['status']})
+            done += 1
+        return return_array
+
+    def awake_characters(self):
+        return_array = []
+        notion_service = NotionService()
+        l3_characters = notion_service.filter_by_deep_level(deep_level='l3', is_npc=False) + notion_service.filter_by_deep_level(deep_level='l3', is_npc=True)
+        filtered_characters = [c for c in l3_characters if c['status'] == 'rest' or c['status'] == 'dying']
+        for character in filtered_characters:
+            pct_before = character['hp'] / character['max_hp']
+            pct_after = (character['hp'] + character['hours_recovered']) / character['max_hp']
+            if pct_after > 0.3:
+                character['hp'] += character['hours_recovered']
+                character['status'] = 'alive'
+                datau = {"properties": { "hp": {"number": character['hp']},"status": {"select": {"name":character['status']} } }}
+                upd_character = notion_service.update_character(character['id'], datau)
+                return_array.append({ "character_id": character['id'], "character_name": character['name'], "character_hp": character['hp']})
+                print(character['hours_recovered'],character['name'],'{}->{} awakening'.format(pct_before,pct_after))
+        return return_array

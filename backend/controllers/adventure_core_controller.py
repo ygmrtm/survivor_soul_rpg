@@ -9,11 +9,31 @@ def create_adventure(id):
     # Create a new adventure
     result = adventure_service.create_adventure(id, underworld=False)
     return jsonify(result)
+
 @adventure_bp.route('/<id>/execute', methods=['POST'])
 def execute_adventure(id):
     # Call the service to execute the adventure
     result = adventure_service.execute_adventure(id)
     return jsonify(result)
+
+@adventure_bp.route('/underworld', methods=['POST'])
+def execute_underworld():
+    # Call the service to execute the adventure
+    adventure_service = AdventureService()
+    adventures_created = []
+    adventures_executed = []
+    characters_awaked = []
+    dead_people_count = 0
+    adventures_created, dead_people_count = adventure_service.create_underworld_4_deadpeople()
+    adventures_executed = adventure_service.execute_underworld()
+    characters_awaked = adventure_service.awake_characters()
+    #TODO: then punishment executions
+    return jsonify({ "reborn" : len(adventures_executed)
+                    , "still_dead" : dead_people_count - len(adventures_executed) 
+                    , "created" : adventures_created
+                    , "executed" : adventures_executed
+                    , "awaked" : characters_awaked})
+
 @adventure_bp.route('/challenges/<int:week_number>', methods=['POST'])
 def create_challenges(week_number):
     # Call the service to create challenges for the specified week
