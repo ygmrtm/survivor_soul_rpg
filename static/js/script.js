@@ -99,7 +99,7 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(response => response.json())
         .then(data => {
             console.log('Challenges retrieved for previous week:', data);
-            // Here you can update the UI with the retrieved challenges if needed
+            // TODO: Here you can update the UI with the retrieved challenges if needed
             // For example, you could display them in a specific section of your page
             // document.getElementById('challenges-info').innerText = JSON.stringify(data);
         })
