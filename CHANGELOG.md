@@ -74,3 +74,17 @@ fix: After executing an Adventure, the UI do not refresh the next Adventure
 - [x]  fix: [Issue](https://github.com/ygmrtm/survivor_soul_rpg/issues/3)
 ---
 
+## [1.0.5] - 2024-12-26
+Merge 8d57e1c19bb4b016525347b686d1e79bf1a2a022 into 34f6001bf25e15dc4a87364a1cef11fbd678d528
+
+feat: afterlife’s Adventure
+
+fix: respawn
+
+fix: adventure log
+
+Merge pull request #13 from ygmrtm/feat_executeChagenge
+
+[CODE-41] Feat execute challenge to underworld
+---
+
