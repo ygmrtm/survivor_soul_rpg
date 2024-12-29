@@ -432,8 +432,11 @@ class AdventureService:
                 self.add_encounter_log(send_coins, "coins", '🎉 Thanks for the {}% donation [{}/{}] | {}'.format(how_much * 100, send_coins, keep_coins, alter_ego['name']))
                 self.distribute_tribute(alter_ego['alter_ego'], send_coins)
             alter_ego['coins'] += self.add_encounter_log(keep_coins,"coins","⚡️{}⚡️{}⚡️ tribute 💵 earned w/o doing a 💩".format(alter_ego['deep_level'],alter_ego['name']))
-            alter_ego['xp'] += 1
-            datau = {"properties": { "coins": {"number": alter_ego['coins']} , "xp": {"number": alter_ego['xp']} } }
+            alter_ego['xp'] += 10
+            alter_ego['level'] += 1 if alter_ego['xp'] >= alter_ego['max_xp'] else 0
+            datau = {"properties": { "coins": {"number": alter_ego['coins']} 
+                                    , "xp": {"number": alter_ego['xp']} } 
+                                    , "level": {"number": alter_ego['level']} } 
             upd_character = notion_service.update_character(alter_ego['id'], datau)
         except Exception as e:
             print("Error distributing tribute:", e)

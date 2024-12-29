@@ -2,7 +2,8 @@ import requests
 import random 
 import json
 from datetime import datetime, timedelta
-from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN, NOTION_DBID_HABIT, NOTION_DBID_DLYLG, CREATED_LOG, CLOSED_LOG, WON_LOG, LOST_LOG, MISSED_LOG
+from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN,NOTION_DBID_DLYLG, CREATED_LOG, CLOSED_LOG, WON_LOG, LOST_LOG, MISSED_LOG
+from config import NOTION_DBID_HABIT, NOTION_DBID_ABILI
 
 class NotionService:
     base_url = "https://api.notion.com/v1"
@@ -122,6 +123,7 @@ class NotionService:
         else:
             print(response.status_code, response.text)  # Debugging: Print the response
             response.raise_for_status()  # Raise an error for bad responses
+    
 
     def persist_adventure(self, adventure, characters):
         #print(self.translate_encounter_log(adventure['encounter_log']))
@@ -317,6 +319,7 @@ class NotionService:
         return self.translate_adventure([response.json()] if response.json() else [])[0]
     
     def start_end_dates(self, week_number):
+        week_number = int(week_number)
         # Get the current year
         current_year = datetime.now().year
         
@@ -554,7 +557,32 @@ class NotionService:
             print("-->",response.status_code, response.text)  
             response.raise_for_status() 
             return None  
-        
+
+    def get_underworld_adventures(self):
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
+        data = {
+            "filter": {
+                "and": [
+                    {
+                        "property": "name",
+                        "rich_text": {
+                        "contains": "DEADVENTURE"
+                        }
+                    },
+                    {
+                        "property": "status",
+                        "status": { "equals": "created"}
+                    }
+                ]
+            }
+        }
+        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
+        if response.status_code == 200: 
+            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
+        else:
+            print("-->",response.status_code, response.text)  # Debugging: Print the response
+            response.raise_for_status()  # Raise an error for bad responses
 
     def get_all_habits(self):
         url = f"{self.base_url}/databases/{NOTION_DBID_HABIT}/query"
@@ -600,29 +628,45 @@ class NotionService:
         upd_habit = self.update_character(habit['id'], datau)   
         return upd_habit    
 
-    def get_underworld_adventures(self):
-        # Prepare the query for Notion API
-        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
-        data = {
-            "filter": {
-                "and": [
-                    {
-                        "property": "name",
-                        "rich_text": {
-                        "contains": "DEADVENTURE"
-                        }
-                    },
-                    {
-                        "property": "status",
-                        "status": { "equals": "created"}
-                    }
-                ]
-            }
-        }
-        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
-        if response.status_code == 200: 
-            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
-        else:
-            print("-->",response.status_code, response.text)  # Debugging: Print the response
-            response.raise_for_status()  # Raise an error for bad responses
+    def get_all_abilities(self):
+        url = f"{self.base_url}/databases/{NOTION_DBID_ABILI}/query"
+        response = requests.post(url, headers=self.headers)
+        if response.status_code != 200:  
+            response.raise_for_status()  
+            return []  
+
+        max_xp = self.max_xp
+
+        abilities = response.json().get("results", [])  
+        translated_abilities = []
+        for ability in abilities:
+            ability_level = int(ability['properties']['level']['number'])
+            for i in range(ability_level):
+                max_xp *= self.GOLDEN_RATIO
+            translated_abilities.append({
+                "id": ability['id']
+                ,"name": ability['properties']['name']['title'][-1]['plain_text']
+                ,"level": ability_level
+                ,"xp": ability['properties']['xp']['number']
+                ,"max_xp": max_xp
+                ,"coins": ability['properties']['coins']['number']
+            })
+        return translated_abilities
+    
+    def get_abilities_by_id_or_name(self, ability_id, ability_name):
+        abilities = self.get_all_abilities()
+        for ability in abilities:
+            if ability['id'] == ability_id or ability['name'] == ability_name:
+                return ability
+        return None
+
+    def persist_ability(self, ability):
+        ability['level'] += 1 if ability['xp'] >= ability['max_xp'] else 0
+        datau = {"properties": { "level": {"number": ability['level']}, 
+                                    "xp": {"number": ability['xp']}, 
+                                    "coins": {"number": ability['coins']}}}
+        if 'dlylog' in ability.keys():
+            datau['properties']['dlylog'] = { "relation": ability['dlylog']  }
         
+        upd_ability = self.update_character(ability['id'], datau)   
+        return upd_ability                
