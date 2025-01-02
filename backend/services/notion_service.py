@@ -70,7 +70,7 @@ class NotionService:
     
     def get_character_by_id(self, character_id):
         """Retrieve a character by its ID from the cached characters."""
-        #print("🚹 ",character_id)
+        print("🚹 ",character_id)
         # replace - with space
         character_id = character_id.replace('-','')
         characters = self.get_all_characters()  # Ensure we have the latest characters
@@ -86,7 +86,6 @@ class NotionService:
                     max_xp *= self.GOLDEN_RATIO
                     max_hp *= self.GOLDEN_RATIO
                     max_sanity *= self.GOLDEN_RATIO
-                #print("-->",character['properties'])
                 return { 
                 "id": character['id'].replace('-','')
                 ,"name": character['properties']['name']['title'][-1]['plain_text']
@@ -121,7 +120,7 @@ class NotionService:
         if response.status_code == 200:  # Check if the request was successful
             return response.json()
         else:
-            print(response.status_code, response.text)  # Debugging: Print the response
+            print("❌❌","update_character",response.status_code, response.text) 
             response.raise_for_status()  # Raise an error for bad responses
     
 
@@ -151,6 +150,8 @@ class NotionService:
                 character['status'] = 'dying' 
             elif pct<=0.3 :
                 character['status'] = 'rest'
+            elif character['status'] == 'high':
+                character['status'] = 'high'
             else:
                 character['status'] = 'alive'
             character['xp'] += 2 if character['hp'] <= 0 else 0
@@ -197,6 +198,8 @@ class NotionService:
                     "type": block_type,
                     block_type: {"rich_text": childrens_to_send}
                 }
+                if block_type == 'callout':
+                    block_data['callout']['icon'] = { 'emoji': '🎖️'}
                 para_data = {
                     "children": [block_data]
                 }
@@ -307,7 +310,7 @@ class NotionService:
             adventure_id = response.json()['id']
             return { "adventure_id": adventure_id }
         else:
-            print(response.status_code, response.text)  # Debugging: Print the response
+            print("❌❌","create_adventure",response.status_code, response.text) 
             response.raise_for_status()  # Raise an error for bad responses
             return None  # Return None if the request was not successful
 
@@ -318,10 +321,10 @@ class NotionService:
         response.raise_for_status()
         return self.translate_adventure([response.json()] if response.json() else [])[0]
     
-    def start_end_dates(self, week_number):
+    def start_end_dates(self, week_number, year_number=None):
         week_number = int(week_number)
         # Get the current year
-        current_year = datetime.now().year
+        current_year = datetime.now().year if not year_number else year_number
         
         # Calculate the first day of the year
         first_day_of_year = datetime(current_year, 1, 1)
@@ -341,9 +344,9 @@ class NotionService:
         return start_date_str, end_date_str
 
 
-    def get_challenges_by_week(self, week_number, name_str):
+    def get_challenges_by_week(self, week_number, year_number, name_str):
         """Retrieve challenges for a specific week."""
-        start_date_str, end_date_str = self.start_end_dates(week_number)
+        start_date_str, end_date_str = self.start_end_dates(week_number, year_number)
         print(name_str,start_date_str,end_date_str, "w"+str(week_number))
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
@@ -375,7 +378,7 @@ class NotionService:
         if response.status_code == 200: 
             return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
         else:
-            print("-->",response.status_code, response.text)  
+            print("❌❌","get_challenges_by_week",response.status_code, response.text)  
             response.raise_for_status() 
         return None
 
@@ -414,12 +417,12 @@ class NotionService:
         if response.status_code == 200: 
             return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
         else:
-            print("-->",response.status_code, response.text)  
+            print("❌❌","get_due_challenges",response.status_code, response.text)  
             response.raise_for_status() 
         return None
 
-    def get_daily_checklist(self, week_number):
-        start_date_str, end_date_str = self.start_end_dates(week_number)
+    def get_daily_checklist(self, week_number, year_number):
+        start_date_str, end_date_str = self.start_end_dates(week_number, year_number)
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_DLYLG}/query"
         data = {
@@ -554,7 +557,7 @@ class NotionService:
             adventure_id = response.json()['id']
             return  self.translate_adventure([response.json()] if response.json() else [])[0]
         else:
-            print("-->",response.status_code, response.text)  
+            print("❌❌","create_challenge",response.status_code, response.text)  
             response.raise_for_status() 
             return None  
 
@@ -581,14 +584,14 @@ class NotionService:
         if response.status_code == 200: 
             return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
         else:
-            print("-->",response.status_code, response.text)  # Debugging: Print the response
+            print("❌❌","get_underworld_adventures",response.status_code, response.text) 
             response.raise_for_status()  # Raise an error for bad responses
 
     def get_all_habits(self):
         url = f"{self.base_url}/databases/{NOTION_DBID_HABIT}/query"
         response = requests.post(url, headers=self.headers)
         if response.status_code != 200:  
-            print(response.status_code, response.text)  # Debugging: Print the response
+            print("❌❌","get_all_habits",response.status_code, response.text) 
             response.raise_for_status()  # Raise an error for bad responses
             return []  # Return None if the request was not successful
 
@@ -655,6 +658,7 @@ class NotionService:
     
     def get_abilities_by_id_or_name(self, ability_id, ability_name):
         abilities = self.get_all_abilities()
+        print("🚸",ability_id, ability_name)
         for ability in abilities:
             if ability['id'] == ability_id or ability['name'] == ability_name:
                 return ability

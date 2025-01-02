@@ -1,8 +1,10 @@
 from flask import Blueprint, jsonify
 from backend.services.adventure_service import AdventureService
+from backend.services.coding_service import CodingService
 
 adventure_bp = Blueprint('adventure', __name__)
 adventure_service = AdventureService()
+coding_service = CodingService()
 
 @adventure_bp.route('/<id>/create', methods=['POST'])
 def create_adventure(id):
@@ -33,18 +35,23 @@ def execute_underworld():
                     , "executed" : adventures_executed
                     , "awaked" : characters_awaked})
 
-@adventure_bp.route('/challenges/<int:week_number>/create', methods=['POST'])
-def create_challenges(week_number):
-    result = adventure_service.create_challenges(week_number)
+@adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/create', methods=['POST'])
+def create_challenges(week_number, year_number):
+    result = adventure_service.create_challenges(week_number, year_number)
     return jsonify(result)
 
-@adventure_bp.route('/challenges/<int:week_number>/evaluate', methods=['POST'])
-def evaluate_challenges(week_number):
+@adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/evaluate', methods=['POST'])
+def evaluate_challenges(week_number, year_number):
     # Call the service to create challenges for the specified week
-    challenges_cons = adventure_service.evaluate_consecutivedays_challenges(week_number)
-    challenges_habits = adventure_service.evaluate_weekhabits_challenges(week_number)
+    challenges_cons = adventure_service.evaluate_consecutivedays_challenges(week_number, year_number)
+    challenges_habits = adventure_service.evaluate_weekhabits_challenges(week_number, year_number)
     challenges_expired = adventure_service.evaluate_expired_challenges()
-    return jsonify({"consecutivedays": challenges_cons, "habits": challenges_habits, "expired": challenges_expired})
+    # Call Specify Ability Challenges
+    challenges_coding = coding_service.evaluate_challenges(week_number, year_number)
+    return jsonify({"consecutivedays": challenges_cons
+                    , "habits": challenges_habits
+                    , "expired": challenges_expired
+                    , "coding": challenges_coding})
 
 @adventure_bp.route('/version', methods=['GET'])
 def get_version():
