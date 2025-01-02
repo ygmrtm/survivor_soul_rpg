@@ -120,7 +120,8 @@ class CodingService:
         abilities = []
         self.execution_log = []
         notion_service = NotionService() if not notion_service else notion_service
-        multiplier = 1 if challenge['status'] == 'Done' or challenge['status'] == 'Archived' else -1
+        pos_or_neg = 1 if challenge['status'] == 'Done' or challenge['status'] == 'Archived' or challenge['status'] == 'Standby' else -1
+        multiplier = pos_or_neg * 5
         xp = 0
         # days between dates
         days_alive = (datetime.strptime(challenge['alive_range']['end'], '%Y-%m-%d') 
