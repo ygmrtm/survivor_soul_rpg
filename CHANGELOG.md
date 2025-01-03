@@ -74,3 +74,56 @@ fix: After executing an Adventure, the UI do not refresh the next Adventure
 - [x]  fix: [Issue](https://github.com/ygmrtm/survivor_soul_rpg/issues/3)
 ---
 
+## [1.0.5] - 2024-12-26
+Merge 8d57e1c19bb4b016525347b686d1e79bf1a2a022 into 34f6001bf25e15dc4a87364a1cef11fbd678d528
+
+feat: afterlife’s Adventure
+
+fix: respawn
+
+fix: adventure log
+
+Merge pull request #13 from ygmrtm/feat_executeChagenge
+
+[CODE-41] Feat execute challenge to underworld
+---
+
+## [1.0.6] - 2024-12-26
+Merge d029ed4e561023195e73d6b8e0d226ef659a9368 into cca74683e33f612eeb9ccaa2d78d20d6ecbae955
+
+Update CHANGELOG for version 1.0.5
+
+Merge 8d57e1c19bb4b016525347b686d1e79bf1a2a022 into 34f6001bf25e15dc4a87364a1cef11fbd678d528
+
+feat: afterlife’s Adventure (punishment)
+
+- [x]  feat: afterlife’s Adventure
+    - [x]  Create **Underworld Training 101** for *deadpeople*
+    - [x]  Execute **101**
+    - [x]  Resting/Dying Characters
+    - [x]  Enable Punishment
+
+feat: afterlife’s Adventure
+---
+
+## [1.0.7] - 2025-01-03
+Merge branch 'feat_abilities' into main
+Merge pull request #18 from ygmrtm/feat_stencilintegration
+
+[CODE-41] Feat stencilintegration to abilities branch
+Merge pull request #17 from ygmrtm/feat_bikeIntegration
+
+[CODE-41] Feat bike integration to abilities branch
+Merge pull request #16 from ygmrtm/feat_codingIntegration
+
+[CODE-41] Feat coding integration merge to abilities branch
+feat: Integration with **Stencil**
+
+- [ ]  feat:Update abilities (like habits)
+    - [x]  Integration with **Code**
+    - [x]  Integration with **Stencil**
+    - [x]  Integration with **Bike**
+    - [ ]  Integration with **Epics**
+    - [x]  Consider not punishment if status Stand-by
+---
+

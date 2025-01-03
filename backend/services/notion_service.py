@@ -29,7 +29,7 @@ class NotionService:
         }
         self._cached_characters = None  # Initialize cache
 
-    def get_all_characters(self):
+    def get_all_raw_characters(self):
         """
         Retrieve all characters from the Notion database and cache the results.
 
@@ -73,7 +73,7 @@ class NotionService:
         print("🚹 ",character_id)
         # replace - with space
         character_id = character_id.replace('-','')
-        characters = self.get_all_characters()  # Ensure we have the latest characters
+        characters = self.get_all_raw_characters()  # Ensure we have the latest characters
         for character in characters:
             if character['id'].replace('-','') == character_id:
                 pictures = character['properties']['picture']['files']
@@ -229,9 +229,9 @@ class NotionService:
                                             , 'plain_text': mas_menos + encounter['type'], 'href': None })
         return translated_encounter
 
-    def filter_by_deep_level(self, deep_level, is_npc=False):
+    def get_characters_by_deep_level(self, deep_level, is_npc=False):
         """Filter characters by deep level and is_npc, returning 4 random characters."""
-        characters = self.get_all_characters()
+        characters = self.get_all_raw_characters()
         filtered_characters = [c for c in characters if c['properties']['deeplevel']['formula']['string'] == deep_level and c['properties']['npc']['checkbox'] == is_npc]
         array_characters = []
         for character in filtered_characters:
@@ -495,25 +495,28 @@ class NotionService:
     def translate_adventure(self, adventures):
         array_adventures = []
         #print(adventures)
-        for adventure in adventures:
-            array_adventures.append({ 
-                "id": adventure['id']
-                ,"name": adventure['properties']['name']['title'][-1]['plain_text']
-                ,"who": adventure['properties']['who']['relation'][0]['id'] if adventure['properties']['who']['relation'] else None
-                ,"status": adventure['properties']['status']['status']['name']
-                ,"desc": adventure['properties']['desc']['rich_text'][-1]['plain_text'] if adventure['properties']['desc']['rich_text'] else None
-                ,"coinRwd": adventure['properties']['coinRwd']['number']
-                ,"xpRwd": adventure['properties']['xpRwd']['number']
-                ,"timesXweek": adventure['properties']['timesXweek']['rollup']['number']
-                ,"vs": adventure['properties']['vs']['relation'] if adventure['properties']['vs']['relation'] else None
-                ,"habits": adventure['properties']['habits']['relation'] if adventure['properties']['habits']['relation'] else None
-                ,"due": adventure['properties']['due']['date']['start']
-                ,"assigned": adventure['properties']['assigned']['people'][0]['id']
-                ,"resultlog": adventure['properties']['resultlog']['rich_text']
-                ,"path": [path['name'] for path in adventure['properties']['path']['multi_select']] if adventure['properties']['path']['multi_select'] else None
-                ,"last_edited_time": str(adventure['last_edited_time']).split('T')[0] if adventure['last_edited_time'] else None
-                ,"url": adventure['id']
-            })
+        try:
+            for adventure in adventures:
+                array_adventures.append({ 
+                    "id": adventure['id']
+                    ,"name": adventure['properties']['name']['title'][-1]['plain_text']
+                    ,"who": adventure['properties']['who']['relation'][0]['id'] if adventure['properties']['who']['relation'] else None
+                    ,"status": adventure['properties']['status']['status']['name']
+                    ,"desc": adventure['properties']['desc']['rich_text'][-1]['plain_text'] if adventure['properties']['desc']['rich_text'] else None
+                    ,"coinRwd": adventure['properties']['coinRwd']['number']
+                    ,"xpRwd": adventure['properties']['xpRwd']['number']
+                    ,"timesXweek": adventure['properties']['timesXweek']['rollup']['number']
+                    ,"vs": adventure['properties']['vs']['relation'] if adventure['properties']['vs']['relation'] else None
+                    ,"habits": adventure['properties']['habits']['relation'] if adventure['properties']['habits']['relation'] else None
+                    ,"due": adventure['properties']['due']['date']['start']
+                    ,"assigned": adventure['properties']['assigned']['people'][0]['id']
+                    ,"resultlog": adventure['properties']['resultlog']['rich_text']
+                    ,"path": [path['name'] for path in adventure['properties']['path']['multi_select']] if adventure['properties']['path']['multi_select'] else None
+                    ,"last_edited_time": str(adventure['last_edited_time']).split('T')[0] if adventure['last_edited_time'] else None
+                    ,"url": adventure['id']
+                })
+        except Exception as e:
+            print("XXXX translate_adventure ",e) 
         return array_adventures
     
 
@@ -561,32 +564,6 @@ class NotionService:
             response.raise_for_status() 
             return None  
 
-    def get_underworld_adventures(self):
-        # Prepare the query for Notion API
-        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
-        data = {
-            "filter": {
-                "and": [
-                    {
-                        "property": "name",
-                        "rich_text": {
-                        "contains": "DEADVENTURE"
-                        }
-                    },
-                    {
-                        "property": "status",
-                        "status": { "equals": "created"}
-                    }
-                ]
-            }
-        }
-        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
-        if response.status_code == 200: 
-            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
-        else:
-            print("❌❌","get_underworld_adventures",response.status_code, response.text) 
-            response.raise_for_status()  # Raise an error for bad responses
-
     def get_all_habits(self):
         url = f"{self.base_url}/databases/{NOTION_DBID_HABIT}/query"
         response = requests.post(url, headers=self.headers)
@@ -629,7 +606,57 @@ class NotionService:
                                     "xp": {"number": habit['xp']}, 
                                     "coins": {"number": habit['coins']}}}
         upd_habit = self.update_character(habit['id'], datau)   
-        return upd_habit    
+        return upd_habit  
+
+    def get_underworld_adventures(self):
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
+        data = {
+            "filter": {
+                "and": [
+                    {
+                        "property": "name",
+                        "rich_text": {
+                        "contains": "DEADVENTURE"
+                        }
+                    },
+                    {
+                        "property": "status",
+                        "status": { "equals": "created"}
+                    }
+                ]
+            }
+        }
+        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
+        if response.status_code == 200: 
+            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
+        else:
+            print("-->",response.status_code, response.text)  # Debugging: Print the response
+            response.raise_for_status()  # Raise an error for bad responses
+        
+    def get_punishment_adventures(self):
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
+        data = {
+            "filter": {
+                "and": [
+                    {
+                        "property": "path",
+                        "multi_select": {"contains": "punishment"}
+                    }
+                    ,{
+                        "property": "status",
+                        "status": { "equals": "accepted"}
+                    }
+                ]
+            }
+        }
+        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
+        if response.status_code == 200: 
+            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
+        else:
+            print("-->",response.status_code, response.text)  # Debugging: Print the response
+            response.raise_for_status()  # Raise an error for bad responses        
 
     def get_all_abilities(self):
         url = f"{self.base_url}/databases/{NOTION_DBID_ABILI}/query"
