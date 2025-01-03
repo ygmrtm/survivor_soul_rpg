@@ -106,3 +106,24 @@ feat: afterlife’s Adventure (punishment)
 feat: afterlife’s Adventure
 ---
 
+## [1.0.7] - 2025-01-03
+Merge branch 'feat_abilities' into main
+Merge pull request #18 from ygmrtm/feat_stencilintegration
+
+[CODE-41] Feat stencilintegration to abilities branch
+Merge pull request #17 from ygmrtm/feat_bikeIntegration
+
+[CODE-41] Feat bike integration to abilities branch
+Merge pull request #16 from ygmrtm/feat_codingIntegration
+
+[CODE-41] Feat coding integration merge to abilities branch
+feat: Integration with **Stencil**
+
+- [ ]  feat:Update abilities (like habits)
+    - [x]  Integration with **Code**
+    - [x]  Integration with **Stencil**
+    - [x]  Integration with **Bike**
+    - [ ]  Integration with **Epics**
+    - [x]  Consider not punishment if status Stand-by
+---
+
