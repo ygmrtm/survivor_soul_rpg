@@ -3,12 +3,14 @@ from backend.services.adventure_service import AdventureService
 from backend.services.coding_service import CodingService
 from backend.services.bike_service import BikingService
 from backend.services.stencil_service import StencilService
+from backend.services.epics_service import EpicsService
 
 adventure_bp = Blueprint('adventure', __name__)
 adventure_service = AdventureService()
 coding_service = CodingService()
 bike_service = BikingService()
 stencil_service = StencilService()
+epics_service = EpicsService()
 
 @adventure_bp.route('/<id>/create', methods=['POST'])
 def create_adventure(id):
@@ -58,12 +60,14 @@ def evaluate_challenges(week_number, year_number):
     challenges_coding = coding_service.evaluate_challenges(week_number, year_number)
     challenges_biking = bike_service.evaluate_challenges(week_number, year_number)
     challenges_stencil = stencil_service.evaluate_challenges(week_number, year_number)
+    challenges_epics = epics_service.evaluate_challenges(week_number, year_number)
     return jsonify({"consecutivedays": challenges_cons
                     , "habits": challenges_habits
                     , "expired": challenges_expired
                     , "coding": challenges_coding
                     , "biking": challenges_biking
-                    , "stencil": challenges_stencil})
+                    , "stencil": challenges_stencil
+                    , "epics": challenges_epics})
 
 @adventure_bp.route('/version', methods=['GET'])
 def get_version():
