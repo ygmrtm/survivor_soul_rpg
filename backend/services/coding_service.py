@@ -1,7 +1,6 @@
 import requests
 import random 
 from datetime import date, datetime
-from backend.services import notion_service
 from backend.services.notion_service import NotionService
 from config import NOTION_API_KEY, NOTION_DBID_CODIN
 import random 
@@ -11,6 +10,7 @@ class CodingService:
     base_url = "https://api.notion.com/v1"
     GOLDEN_RATIO = 1.618033988749895
     percentage_per_day = 0.20
+    multiplier = 2
     execution_log = []
     execution_log_translated = []
     start_date_str = None
@@ -109,8 +109,8 @@ class CodingService:
         challenges = self.get_by_week(week_number, year_number, notion_service)
         result = None
         if len(challenges) <= 0:
-            print("no challenges found for weeek ", week_number)
-            result = {"status": "No challenges found"}
+            print("no coding challenges found for weeek ", week_number)
+            result = {"status": "No coding challenges found"}
         for challenge in challenges:
             result = self.evaluate_challenge(challenge, notion_service)
         return result
@@ -121,13 +121,13 @@ class CodingService:
         self.execution_log = []
         notion_service = NotionService() if not notion_service else notion_service
         pos_or_neg = 1 if challenge['status'] == 'Done' or challenge['status'] == 'Archived' or challenge['status'] == 'Standby' else -1
-        multiplier = pos_or_neg * 5
+        multiplier = pos_or_neg * self.multiplier
         xp = 0
         # days between dates
-        days_alive = (datetime.strptime(challenge['alive_range']['end'], '%Y-%m-%d') 
-                - datetime.strptime(challenge['alive_range']['start'], '%Y-%m-%d')).days
-        days_off = (datetime.strptime(challenge['alive_range']['end'], '%Y-%m-%d') 
-                - datetime.strptime(challenge['due'], '%Y-%m-%d')).days
+        days_alive = abs((datetime.strptime(challenge['alive_range']['end'], '%Y-%m-%d') 
+                - datetime.strptime(challenge['alive_range']['start'], '%Y-%m-%d')).days)
+        days_off = abs((datetime.strptime(challenge['alive_range']['end'], '%Y-%m-%d') 
+                - datetime.strptime(challenge['due'], '%Y-%m-%d')).days)
         self.execution_log.append('[{}] {}'.format(challenge['status'],challenge['name']))
         for who in challenge['whos']:
             if multiplier > 0:

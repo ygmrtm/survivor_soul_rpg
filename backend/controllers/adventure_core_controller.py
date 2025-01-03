@@ -1,10 +1,12 @@
 from flask import Blueprint, jsonify
 from backend.services.adventure_service import AdventureService
 from backend.services.coding_service import CodingService
+from backend.services.bike_service import BikingService
 
 adventure_bp = Blueprint('adventure', __name__)
 adventure_service = AdventureService()
 coding_service = CodingService()
+bike_service = BikingService()
 
 @adventure_bp.route('/<id>/create', methods=['POST'])
 def create_adventure(id):
@@ -48,10 +50,12 @@ def evaluate_challenges(week_number, year_number):
     challenges_expired = adventure_service.evaluate_expired_challenges()
     # Call Specify Ability Challenges
     challenges_coding = coding_service.evaluate_challenges(week_number, year_number)
+    challenges_biking = bike_service.evaluate_challenges(week_number, year_number)
     return jsonify({"consecutivedays": challenges_cons
                     , "habits": challenges_habits
                     , "expired": challenges_expired
-                    , "coding": challenges_coding})
+                    , "coding": challenges_coding
+                    , "biking": challenges_biking})
 
 @adventure_bp.route('/version', methods=['GET'])
 def get_version():
