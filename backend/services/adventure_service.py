@@ -50,9 +50,9 @@ class AdventureService:
             response = notion_service.create_adventure(character_id, [{"id":random.choice(filtered_death_gods)['id']}], xp_reward *-1, coin_reward=0, description="Underworld Training 101")
         return response
     
-    def create_challenges(self, week_number):
+    def create_challenges(self, week_number, year_number):
         notion_service = NotionService()   
-        challenges_all = notion_service.get_challenges_by_week(week_number, "CHALLENGE") 
+        challenges_all = notion_service.get_challenges_by_week(week_number, year_number, "CHALLENGE") 
         challenges = [challenge for challenge in challenges_all if challenge['status'] in ('created','accepted','on going')]
         if len(challenges) <= 0:
             print("no challenges found for weeek ", week_number)
@@ -73,10 +73,10 @@ class AdventureService:
                 challenges.append(challenge)
         return challenges
         
-    def evaluate_challenges(self, week_number):
+    def evaluate_consecutivedays_challenges(self, week_number, year_number):
         notion_service = NotionService()   
         ### by Consecutive days Challenges
-        challenges_all = notion_service.get_challenges_by_week(week_number, "CHALLENGE") 
+        challenges_all = notion_service.get_challenges_by_week(week_number, year_number, "CHALLENGE") 
         challenges = [challenge for challenge in challenges_all if challenge['status'] in ('created','accepted','on going')]
         if len(challenges) <= 0:
             print("no challenges found for weeek ", week_number)
@@ -89,7 +89,7 @@ class AdventureService:
             who = notion_service.get_character_by_id(habit['who'])
             path_array = challenge['path']
             xTimesWeek = next((item for item in path_array if item[0].isdigit() and 1 <= int(item[0]) <= 7), None)
-            daily_checklist = notion_service.get_daily_checklist(week_number)    
+            daily_checklist = notion_service.get_daily_checklist(week_number, year_number)    
             consecutive = max_consecutive = 0
             for dly_card in daily_checklist:
                 if habit['name'] in dly_card['achieved']:
@@ -121,9 +121,12 @@ class AdventureService:
             challenge['dlylog'] = dlylog_array
             notion_service.persist_habit(habit)
             notion_service.persist_adventure(adventure=challenge, characters=[who])
-
+        return challenges
+    
+    def evaluate_weekhabits_challenges(self, week_number, year_number):
+        notion_service = NotionService()
         ### by Week Habits
-        challenges_all = notion_service.get_challenges_by_week(week_number, "HABIT")
+        challenges_all = notion_service.get_challenges_by_week(week_number, year_number, "HABIT")
         challenges = [challenge for challenge in challenges_all if challenge['status'] in ('accepted','on going')]
         if len(challenges) <= 0:
             print("no habit challenges found for weeek ", week_number)
@@ -137,7 +140,7 @@ class AdventureService:
             who = notion_service.get_character_by_id(habit['who'])
             path_array = challenge['path']
             xTimesWeek = next((item for item in path_array if item[0].isdigit() and 1 <= int(item[0]) <= 7), None)
-            daily_checklist = notion_service.get_daily_checklist(week_number)    
+            daily_checklist = notion_service.get_daily_checklist(week_number, year_number)    
             total_got = 0
             for dly_card in daily_checklist:
                 if habit['name'] in dly_card['achieved']:
@@ -168,6 +171,7 @@ class AdventureService:
                 npc_characters = notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
                 high_gods = [c for c in npc_characters if c['status'] == 'high']
                 god_winner = random.choice(high_gods) if high_gods else None
+                #print("❎❎❎❎",god_winner,len(high_gods))
                 god_winner['xp'] += self.add_encounter_log(challenge['xpRwd'],"xp",'winner ⚡️{}⚡️'.format(god_winner['name']))
                 properties = ['magic', 'attack', 'defense']
                 total = 0
@@ -183,7 +187,48 @@ class AdventureService:
             notion_service.persist_adventure(adventure=challenge, characters=gods_winner)
 
         return challenges
+
+    def evaluate_expired_challenges(self):
+        notion_service = NotionService()
+        ### by Week Habits
+        challenges_all = notion_service.get_due_challenges()
+        due_challenges = [challenge for challenge in challenges_all if challenge['status'] in ('accepted','on going','created','missed')]
+        won_challenges = [challenge for challenge in challenges_all if challenge['status'] in ('won')]
+        print("{} due challenges found ".format(len(due_challenges)))
+        print("{} won challenges found ".format(len(won_challenges)))
+        upd_challenges = []
+        for challenge in due_challenges:
+            print(challenge['name'], challenge['status'], challenge['xpRwd'], challenge['coinRwd'])
+            self.encounter_log = []
+            notion_service = NotionService()
+            who = None
+            pool_whos = []
+            for habit in challenge['habits']:
+                habit_obj = notion_service.get_habits_by_id_or_name(habit['id'], None)
+                habit_obj['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp","Failed challenge for {}".format(habit_obj['name'] ))
+                notion_service.persist_habit(habit_obj)
+                who = notion_service.get_character_by_id(habit_obj['who'])
+                who['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp","got failure for {}".format(who['name'] ))
+                who['sanity'] += self.add_encounter_log(challenge['xpRwd']*-1,"sanity","got failure for {}".format(who['name'] ))
+            if who['id'] not in [character['id'] for character in pool_whos]:
+                pool_whos.append(who)
+            prev_status = challenge['status']
+            self.add_encounter_log(0, "status", 'old status [{}]'.format(prev_status))
+            challenge['status'] = 'lost'
+            challenge['encounter_log'] = self.encounter_log
+            upd_adventure, upd_character = notion_service.persist_adventure(adventure=challenge, characters=pool_whos)
+            upd_challenges.append({ 'adventure_id':upd_adventure['id']
+                                , 'who_id':upd_character['id']
+                                , 'challenge_name':challenge['name']
+                                , 'status':challenge['status'] 
+                                , 'status_old':prev_status })
         
+        for challenge in won_challenges:
+            print(challenge['name'], challenge['status'], challenge['xpRwd'], challenge['coinRwd'])
+            #TODO: WON challenges
+
+        return upd_challenges
+    
     def execute_adventure(self, adventure_id):
         """Run the logic for executing an adventure."""
         notion_service = NotionService()
@@ -231,7 +276,7 @@ class AdventureService:
                 real_characters = notion_service.get_characters_by_deep_level(deep_level='l0', is_npc=True) + notion_service.get_characters_by_deep_level(deep_level='l1', is_npc=True)
                 total_taken = 0
                 for character in real_characters:
-                    rand_pct = random.randint(1, 50) / 100
+                    rand_pct = random.randint(1, 25) / 100
                     taken = round(character['coins'] * rand_pct)
                     character['coins'] -= taken
                     total_taken += taken
@@ -388,11 +433,14 @@ class AdventureService:
                 self.add_encounter_log(send_coins, "coins", '🎉 Thanks for the {}% donation [{}/{}] | {}'.format(how_much * 100, send_coins, keep_coins, alter_ego['name']))
                 self.distribute_tribute(alter_ego['alter_ego'], send_coins)
             alter_ego['coins'] += self.add_encounter_log(keep_coins,"coins","⚡️{}⚡️{}⚡️ tribute 💵 earned w/o doing a 💩".format(alter_ego['deep_level'],alter_ego['name']))
-            alter_ego['xp'] += 1
-            datau = {"properties": { "coins": {"number": alter_ego['coins']} , "xp": {"number": alter_ego['xp']} } }
+            alter_ego['xp'] += 10
+            alter_ego['level'] += 1 if alter_ego['xp'] >= alter_ego['max_xp'] else 0
+            datau = {"properties": { "coins": {"number": alter_ego['coins']} 
+                                    , "xp": {"number": alter_ego['xp']}  
+                                    , "level": {"number": alter_ego['level']} }  }
             upd_character = notion_service.update_character(alter_ego['id'], datau)
         except Exception as e:
-            print("Error distributing tribute:", e)
+            print("Error distributing tribute:", e.__traceback__)
         return upd_character
 
     def create_underworld_4_deadpeople(self, notion_service=None):

@@ -3,6 +3,10 @@ from flask import Flask, render_template, jsonify
 from backend.controllers.notion_controller import notion_bp
 from backend.controllers.adventure_core_controller import adventure_bp
 from backend.controllers.todoist_controller import todoist_bp
+from backend.controllers.coding_core_controller import coding_bp
+from backend.controllers.stencil_core_controller import stencil_bp
+from backend.controllers.epics_core_controller import epics_bp
+from backend.controllers.bike_core_controller import biking_bp
 from backend.utils.error_handling import handle_api_error, APIError
 from backend.utils.logger import setup_logger
 from backend.services.notion_service import NotionService
@@ -22,6 +26,10 @@ def create_app():
     app.register_blueprint(notion_bp, url_prefix="/api/notion")
     app.register_blueprint(adventure_bp, url_prefix="/api/adventure")
     app.register_blueprint(todoist_bp, url_prefix="/api/todoist")
+    app.register_blueprint(coding_bp, url_prefix="/api/coding")
+    app.register_blueprint(stencil_bp, url_prefix="/api/stencil")
+    app.register_blueprint(epics_bp, url_prefix="/api/epics")
+    app.register_blueprint(biking_bp, url_prefix="/api/bike")
 
     # Error Handling
     app.register_error_handler(APIError, handle_api_error)

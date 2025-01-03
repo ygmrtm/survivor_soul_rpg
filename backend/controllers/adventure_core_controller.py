@@ -1,8 +1,14 @@
 from flask import Blueprint, jsonify
 from backend.services.adventure_service import AdventureService
+from backend.services.coding_service import CodingService
+from backend.services.bike_service import BikingService
+from backend.services.stencil_service import StencilService
 
 adventure_bp = Blueprint('adventure', __name__)
 adventure_service = AdventureService()
+coding_service = CodingService()
+bike_service = BikingService()
+stencil_service = StencilService()
 
 @adventure_bp.route('/<id>/create', methods=['POST'])
 def create_adventure(id):
@@ -37,17 +43,27 @@ def execute_underworld():
                     , "awaked" : characters_awaked
                     , "punishments" : adventures_punishment})
 
-@adventure_bp.route('/challenges/<int:week_number>', methods=['POST'])
-def create_challenges(week_number):
-    # Call the service to create challenges for the specified week
-    result = adventure_service.create_challenges(week_number)
+@adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/create', methods=['POST'])
+def create_challenges(week_number, year_number):
+    result = adventure_service.create_challenges(week_number, year_number)
     return jsonify(result)
 
-@adventure_bp.route('/challenges/<int:week_number>/evaluate', methods=['POST'])
-def evaluate_challenges(week_number):
+@adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/evaluate', methods=['POST'])
+def evaluate_challenges(week_number, year_number):
     # Call the service to create challenges for the specified week
-    result = adventure_service.evaluate_challenges(week_number)
-    return jsonify(result)
+    challenges_cons = adventure_service.evaluate_consecutivedays_challenges(week_number, year_number)
+    challenges_habits = adventure_service.evaluate_weekhabits_challenges(week_number, year_number)
+    challenges_expired = adventure_service.evaluate_expired_challenges()
+    # Call Specify Ability Challenges
+    challenges_coding = coding_service.evaluate_challenges(week_number, year_number)
+    challenges_biking = bike_service.evaluate_challenges(week_number, year_number)
+    challenges_stencil = stencil_service.evaluate_challenges(week_number, year_number)
+    return jsonify({"consecutivedays": challenges_cons
+                    , "habits": challenges_habits
+                    , "expired": challenges_expired
+                    , "coding": challenges_coding
+                    , "biking": challenges_biking
+                    , "stencil": challenges_stencil})
 
 @adventure_bp.route('/version', methods=['GET'])
 def get_version():
