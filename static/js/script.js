@@ -80,19 +80,30 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('challenges-button').addEventListener('click', function() {
         const button = this;
         button.disabled = true;
-        const weekNumber = document.getElementById('week-number').innerText;
-        const prevWeekNumber = weekNumber - 1; // Calculate the previous week number
+        const weekNumber = parseInt(document.getElementById('week-number').innerText);
+        let prevWeekNumber = weekNumber - 1; // Calculate the previous week number
+        let yearNumber = new Date().getFullYear(); // Get the current year
+
+
+        // Clear the modal content before making requests
+        document.getElementById('adventure-info').innerText = 'Loading...'; // Reset modal content
+
 
         // First endpoint to create/retrieve challenges for the current week
-        fetch(`/api/adventure/challenges/${weekNumber}/create`, {
+        fetch(`/api/adventure/challenges/${weekNumber}/${yearNumber}/create`, {
             method: 'POST'
         })
         .then(response => response.json())
         .then(data => {
+        // Validate if prevWeekNumber is less than or equal to zero
+            if (prevWeekNumber <= 0) {
+                prevWeekNumber = 52; // Set to the last week of the previous year
+                yearNumber -= 1; // Decrement the year
+            }
             console.log('Challenges created/retrieved for current week:', data);
             // TODO: Implement what to do with the UI with the retrieved challenges if needed
             // Now execute the second endpoint for the previous week
-            return fetch(`/api/adventure/challenges/${prevWeekNumber}/evaluate`, {
+            return fetch(`/api/adventure/challenges/${prevWeekNumber}/${yearNumber}/evaluate`, {
                 method: 'POST'
             });
         })
