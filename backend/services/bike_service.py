@@ -11,7 +11,6 @@ class BikingService:
     percentage_per_day = 0.20
     multiplier = 2
     execution_log = []
-    execution_log_translated = []
     start_date_str = None
     end_date_str = None
 
@@ -64,17 +63,6 @@ class BikingService:
             })
         return array_tasks
 
-    def translate_execution_log(self):
-        self.execution_log_translated = []
-        colors = ['green','blue','red','orange','purple','yellow','gray','brown']
-        onetime = True
-        for execution in self.execution_log:
-            self.execution_log_translated.append({'type': 'text','text': {'content': '\n' + str(execution),'link': None}
-                                        ,'annotations': {'bold': onetime,'italic': False,'strikethrough': False
-                                        ,'underline': onetime, 'code': False, 'color': random.choice(colors)+'_background'}
-                                        , 'plain_text': '\n' + str(execution), 'href': None })
-            onetime = False
-        return self.execution_log_translated
 
     def get_by_week(self, week_number, year_number, notion_service=None):
         """Get biking activities for a given week."""
@@ -111,16 +99,16 @@ class BikingService:
             print("no biking challenges found for weeek ", week_number)
             result = {"status": "No biking challenges found"}
         for challenge in challenges:
-            result = self.evaluate_challenge(challenge, notion_service)
+            result = self.evaluate_challenge(challenge, week_number, year_number, notion_service)
         return result
 
-    def evaluate_challenge(self, challenge, notion_service=None):
+    def evaluate_challenge(self, challenge, week_number, year_number, notion_service=None):
         #print("✅",challenge)
         characters = []
         abilities = []
         self.execution_log = []
         notion_service = NotionService() if not notion_service else notion_service
-        pos_or_neg = 1 if challenge['status'] == 'Done' or challenge['status'] == 'Archived' or challenge['status'] == 'Standby' else -1
+        pos_or_neg = 1 if challenge['status'] == 'Done' or challenge['status'] == 'Archived' else -1
         multiplier = pos_or_neg * self.multiplier
         xp = 0
         # days between dates
@@ -154,6 +142,7 @@ class BikingService:
             characters.append(notion_service.update_character(who['id'], datau))
 
         for ability in challenge['abilities']:
+            dlylog_array = []
             if multiplier > 0:
                 ability['coins'] += multiplier * challenge['coinRwd']
                 ability['xp'] += multiplier * (challenge['kms'])
@@ -167,6 +156,24 @@ class BikingService:
                                     + ability['name'] + (" earned " if multiplier > 0 else " lost ") 
                                     + str(multiplier * challenge['coinRwd']) + " coins and " 
                                     + str(xp) + " xp" )
+            daily_checklist = notion_service.get_daily_checklist(week_number, year_number)
+            #print(daily_checklist)
+            for dly_card in daily_checklist:
+                if challenge['due'] == dly_card['cuando']:
+                    dlylog_array.append({"id":dly_card['id']})
+                    self.execution_log.append("📆 linked bcoz due date {}".format(dly_card['cuando']))
+                arr1 = notion_service.dlychcklst_map[ability['name']]
+                arr2 = dly_card['achieved']
+                result = any(elem in arr2 for elem in arr1)
+                if result is True:
+                    dlylog_array.append({"id":dly_card['id']})
+                    self.execution_log.append("🗓️ linked bcoz {} @ {}".format(arr1,dly_card['cuando']))
+                # print(dly_card['cuando'],arr1, arr2,result)
+
+            if len(dlylog_array) > 0:
+                #dlylog_array = list(dict.fromkeys(dlylog_array))
+                ability['dlylog'] = dlylog_array
+
             abilities.append(notion_service.persist_ability(ability))
-            notion_service.add_blocks(ability['id'], "callout", self.translate_execution_log())
+            notion_service.add_blocks(ability['id'], "callout", notion_service.translate_execution_log(self.execution_log))
         return {"status":challenge['status'],"characters": characters, "abilities": abilities}
