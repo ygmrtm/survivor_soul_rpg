@@ -81,7 +81,7 @@ class CodingService:
         """Get coding activities for a given week."""
         notion_service = NotionService() if not notion_service else notion_service
         self.start_date_str, self.end_date_str = notion_service.start_end_dates(week_number, year_number)
-        print(__class__.__name__, self.start_date_str, self.end_date_str, "w"+str(week_number))   
+        print(__class__.__name__, self.start_date_str, self.end_date_str, f"w{week_number:02}")   
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_CODIN}/query"
         data = {

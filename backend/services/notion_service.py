@@ -322,32 +322,62 @@ class NotionService:
         return self.translate_adventure([response.json()] if response.json() else [])[0]
     
     def start_end_dates(self, week_number, year_number=None):
-        week_number = int(week_number)
-        # Get the current year
-        current_year = datetime.now().year if not year_number else year_number
+        """
+        Calculate the start and end dates for a given week number and year.
+        Uses ISO week date standard (weeks start on Monday and end on Sunday).
         
-        # Calculate the first day of the year
-        first_day_of_year = datetime(current_year, 1, 1)
+        Args:
+            week_number (int): The ISO week number (1-53)
+            year_number (int, optional): The year. Defaults to current year if None.
         
-        # Calculate the first Monday of the year
-        first_monday = first_day_of_year + timedelta(days=(7 - first_day_of_year.weekday()) % 7)
-        
-        # Calculate the start date (Monday) of the specified week
-        start_date = first_monday + timedelta(weeks=week_number - 1)
-        
-        # Calculate the end date (Sunday) of the specified week
-        end_date = start_date + timedelta(days=6)
+        Returns:
+            tuple: (start_date_str, end_date_str) in 'YYYY-MM-DD' format
+        """
+        try:
+            # Convert to integers
+            week_number = int(week_number)
+            if year_number is None:
+                year_number = datetime.now().year
+            else:
+                year_number = int(year_number)
 
-        # Format dates to yyyy-mm-dd
-        start_date_str = start_date.strftime('%Y-%m-%d')
-        end_date_str = end_date.strftime('%Y-%m-%d')
-        return start_date_str, end_date_str
+            # Create a date object for the specified week and year
+            # %G: ISO year number
+            # %V: ISO week number
+            # %u: Weekday (1-7, 1=Monday)
+            temp_date = datetime.strptime(f'{year_number}-W{week_number:02d}-1', '%G-W%V-%u')
+            
+            # Calculate start date (Monday) and end date (Sunday)
+            start_date = temp_date
+            end_date = temp_date + timedelta(days=6)
+
+            # Handle year boundary cases
+            if start_date.year != year_number:
+                # If the week starts in previous year, adjust the date
+                if week_number == 1:
+                    temp_date = datetime.strptime(f'{year_number}-W01-1', '%G-W%V-%u')
+                    start_date = temp_date
+                    end_date = temp_date + timedelta(days=6)
+                # If it's the last week of the year
+                elif week_number > 51:
+                    temp_date = datetime.strptime(f'{year_number}-W{week_number:02d}-1', '%G-W%V-%u')
+                    start_date = temp_date
+                    end_date = temp_date + timedelta(days=6)
+
+            return start_date.strftime('%Y-%m-%d'), end_date.strftime('%Y-%m-%d')
+
+        except ValueError as e:
+            print(f"Error calculating dates for week {week_number}, year {year_number}: {str(e)}")
+            # Return the first and last day of the given year as fallback
+            fallback_start = datetime(year_number, 1, 1)
+            fallback_end = datetime(year_number, 12, 31)
+            return fallback_start.strftime('%Y-%m-%d'), fallback_end.strftime('%Y-%m-%d')
 
 
     def get_challenges_by_week(self, week_number, year_number, name_str):
         """Retrieve challenges for a specific week."""
         start_date_str, end_date_str = self.start_end_dates(week_number, year_number)
-        print(name_str,start_date_str,end_date_str, "w"+str(week_number))
+        print(name_str,start_date_str,end_date_str, f"w{week_number:02}")
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
         data = {
@@ -362,7 +392,7 @@ class NotionService:
                     {
                         "property": "name",
                         "rich_text": {
-                        "contains": "w"+str(week_number)
+                        "contains": f"w{week_number:02}"
                         }
                     },
                     {
@@ -541,7 +571,7 @@ class NotionService:
                 "name": {
                     "title": [
                         {"text": {
-                            "content": "CHALLENGE | w" + str(week_number) 
+                            "content": "CHALLENGE | " + f"w{week_number:02}"
                         }}
                     ]
                 },
