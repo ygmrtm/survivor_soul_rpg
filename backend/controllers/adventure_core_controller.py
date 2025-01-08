@@ -50,12 +50,17 @@ def create_challenges(week_number, year_number):
     result = adventure_service.create_challenges(week_number, year_number)
     return jsonify(result)
 
+@adventure_bp.route('/challenges/expired/<int:week_number>/<int:year_number>', methods=['POST'])
+def evaluate_expired_challenges(week_number, year_number):
+    result = adventure_service.evaluate_expired_challenges(week_number, year_number)
+    return jsonify(result)
+
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/evaluate', methods=['POST'])
 def evaluate_challenges(week_number, year_number):
     # Call the service to create challenges for the specified week
     challenges_cons = adventure_service.evaluate_consecutivedays_challenges(week_number, year_number)
     challenges_habits = adventure_service.evaluate_weekhabits_challenges(week_number, year_number)
-    challenges_expired = adventure_service.evaluate_expired_challenges()
+    challenges_expired = adventure_service.evaluate_expired_challenges(week_number, year_number)
     # Call Specify Ability Challenges
     challenges_coding = coding_service.evaluate_challenges(week_number, year_number)
     challenges_biking = bike_service.evaluate_challenges(week_number, year_number)

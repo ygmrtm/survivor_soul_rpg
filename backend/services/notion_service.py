@@ -395,10 +395,16 @@ class NotionService:
             response.raise_for_status() 
         return None
 
-    def get_due_challenges(self):
-        today = datetime.now().strftime('%Y-%m-%d')
-        one_month_ago = datetime.now() - timedelta(days=15)
-        one_month_ago = one_month_ago.strftime('%Y-%m-%d')
+    def get_due_challenges(self, week_number, year_number, extra_weeks):
+        print( week_number, year_number, extra_weeks)
+        _, end_date_str = self.start_end_dates(week_number, year_number)
+        week_number_back = week_number - extra_weeks
+        year_number_back = year_number - 1 if week_number_back <= 0 else year_number
+        week_number_back = 52 if week_number_back <= 0 else week_number_back
+        start_date_str,_ = self.start_end_dates(week_number_back, year_number_back)
+
+        print("{}🗓️{} | w{}➡️w{} | nameContains CHALLENGE".format(start_date_str,end_date_str
+                                ,str(week_number_back),str(week_number)))
 
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
@@ -408,13 +414,13 @@ class NotionService:
                     {
                         "property": "due",
                         "date": {
-                            "on_or_after": one_month_ago
+                            "on_or_after": start_date_str
                         }
                     },
                     {
                         "property": "due",
                         "date": {
-                            "before": today
+                            "before": end_date_str
                         }
                     },
                     {
@@ -527,6 +533,9 @@ class NotionService:
                     ,"path": [path['name'] for path in adventure['properties']['path']['multi_select']] if adventure['properties']['path']['multi_select'] else None
                     ,"last_edited_time": str(adventure['last_edited_time']).split('T')[0] if adventure['last_edited_time'] else None
                     ,"url": adventure['id']
+                    ,"alive_range":{ "start": adventure['properties']['dateRangeAlive']['formula']['date']['start'].split('T')[0]
+                                    , "end": adventure['properties']['dateRangeAlive']['formula']['date']['end'].split('T')[0]}
+
                 })
         except Exception as e:
             print("XXXX translate_adventure ",e) 
