@@ -93,9 +93,9 @@ class AdventureService:
             consecutive = max_consecutive = 0
             for dly_card in daily_checklist:
                 if habit['name'] in dly_card['achieved']:
-                    habit['xp'] += self.add_encounter_log(1, 'xp', dly_card['cuando'] + ' | ' + habit['name'] )
-                    who['xp'] += self.add_encounter_log(1, 'xp', dly_card['cuando'] + ' | ' + who['name'] )
-                    who['sanity'] += self.add_encounter_log(1, 'sanity', dly_card['cuando'] + ' | ' + who['name'] )
+                    habit['xp'] += self.add_encounter_log(10, 'xp', dly_card['cuando'] + ' | ' + habit['name'] )
+                    who['xp'] += self.add_encounter_log(10, 'xp', dly_card['cuando'] + ' | ' + who['name'] )
+                    who['sanity'] += self.add_encounter_log(10, 'sanity', dly_card['cuando'] + ' | ' + who['name'] )
                     consecutive += 1
                     max_consecutive = max(max_consecutive, consecutive)
                     dlylog_array.append({"id":dly_card['id']})
@@ -144,9 +144,9 @@ class AdventureService:
             total_got = 0
             for dly_card in daily_checklist:
                 if habit['name'] in dly_card['achieved']:
-                    habit['xp'] += self.add_encounter_log(1, 'xp', dly_card['cuando'] + ' | ' + habit['name'] )
-                    who['xp'] += self.add_encounter_log(1, 'xp', dly_card['cuando'] + ' | ' + who['name'] )
-                    who['sanity'] += self.add_encounter_log(1, 'sanity', dly_card['cuando'] + ' | ' + who['name'] )
+                    habit['xp'] += self.add_encounter_log(10, 'xp', dly_card['cuando'] + ' | ' + habit['name'] )
+                    who['xp'] += self.add_encounter_log(10, 'xp', dly_card['cuando'] + ' | ' + who['name'] )
+                    who['sanity'] += self.add_encounter_log(10, 'sanity', dly_card['cuando'] + ' | ' + who['name'] )
                     dlylog_array.append({"id":dly_card['id']})
                     total_got += 1
             if total_got >= int(xTimesWeek[:1]):
@@ -188,16 +188,18 @@ class AdventureService:
 
         return challenges
 
-    def evaluate_expired_challenges(self):
+    def evaluate_expired_challenges(self,week_number, year_number):
         notion_service = NotionService()
         ### by Week Habits
-        challenges_all = notion_service.get_due_challenges()
+        challenges_all = notion_service.get_due_challenges(week_number, year_number, 1 )
         due_challenges = [challenge for challenge in challenges_all if challenge['status'] in ('accepted','on going','created','missed')]
         won_challenges = [challenge for challenge in challenges_all if challenge['status'] in ('won')]
         print("{} due challenges found ".format(len(due_challenges)))
         print("{} won challenges found ".format(len(won_challenges)))
         upd_challenges = []
         for challenge in due_challenges:
+            days_off = abs((datetime.strptime(challenge['alive_range']['end'], '%Y-%m-%d') 
+                    - datetime.strptime(challenge['due'], '%Y-%m-%d')).days)        
             print(challenge['name'], challenge['status'], challenge['xpRwd'], challenge['coinRwd'])
             self.encounter_log = []
             notion_service = NotionService()
@@ -205,15 +207,22 @@ class AdventureService:
             pool_whos = []
             for habit in challenge['habits']:
                 habit_obj = notion_service.get_habits_by_id_or_name(habit['id'], None)
-                habit_obj['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp","Failed challenge for {}".format(habit_obj['name'] ))
+                habit_obj['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp"
+                                                ,"Failed challenge for {}".format(habit_obj['name'] ))
+                habit_obj['xp'] += self.add_encounter_log(days_off*-1,"xp"
+                                                ,"Failed challenge for {} w {} days off".format(habit_obj['name'], days_off ))
                 notion_service.persist_habit(habit_obj)
                 who = notion_service.get_character_by_id(habit_obj['who'])
-                who['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp","got failure for {}".format(who['name'] ))
-                who['sanity'] += self.add_encounter_log(challenge['xpRwd']*-1,"sanity","got failure for {}".format(who['name'] ))
+                who['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp"
+                                                    ,"got failure for {}".format(who['name'] ))
+                who['xp'] += self.add_encounter_log(days_off*-1,"xp"
+                                                    ,"got failure for {} w {} days off".format(who['name'], days_off))
+                who['sanity'] += self.add_encounter_log(challenge['xpRwd']*-1,"sanity"
+                                                        ,"got failure for {}".format(who['name'] ))
             if who['id'] not in [character['id'] for character in pool_whos]:
                 pool_whos.append(who)
             prev_status = challenge['status']
-            self.add_encounter_log(0, "status", 'old status [{}]'.format(prev_status))
+            self.add_encounter_log(self.GOLDEN_RATIO, "status", 'old status [{}]'.format(prev_status))
             challenge['status'] = 'lost'
             challenge['encounter_log'] = self.encounter_log
             upd_adventure, upd_character = notion_service.persist_adventure(adventure=challenge, characters=pool_whos)
@@ -225,8 +234,38 @@ class AdventureService:
         
         for challenge in won_challenges:
             print(challenge['name'], challenge['status'], challenge['xpRwd'], challenge['coinRwd'])
-            #TODO: WON challenges
-
+            days_alive = abs((datetime.strptime(challenge['alive_range']['end'], '%Y-%m-%d') 
+                    - datetime.strptime(challenge['alive_range']['start'], '%Y-%m-%d')).days)
+            self.encounter_log = []
+            notion_service = NotionService()
+            who = None
+            pool_whos = []
+            for habit in challenge['habits']:
+                habit_obj = notion_service.get_habits_by_id_or_name(habit['id'], None)
+                habit_obj['xp'] += self.add_encounter_log(challenge['xpRwd'],"xp"
+                                                        ,"Won challenge for {}".format(habit_obj['name'] ))
+                habit_obj['xp'] += self.add_encounter_log(days_alive,"xp"
+                                                        ,"Won challenge for {} w {} days alive".format(habit_obj['name'], days_alive ))
+                notion_service.persist_habit(habit_obj)
+                who = notion_service.get_character_by_id(habit_obj['who'])
+                who['xp'] += self.add_encounter_log(challenge['xpRwd'],"xp"
+                                                    ,"got victory for {}".format(who['name'] ))
+                who['xp'] += self.add_encounter_log(days_alive,"xp"
+                                                    ,"got victory for {} w {} alive".format(who['name'], days_alive ))
+                who['sanity'] += self.add_encounter_log(challenge['xpRwd'],"sanity"
+                                                    ,"got victory for {}".format(who['name'] ))
+            if who['id'] not in [character['id'] for character in pool_whos]:
+                pool_whos.append(who)
+            prev_status = challenge['status']
+            self.add_encounter_log(0, "status", 'old status [{}]'.format(prev_status))
+            challenge['status'] = 'Archived'
+            challenge['encounter_log'] = self.encounter_log
+            upd_adventure, upd_character = notion_service.persist_adventure(adventure=challenge, characters=pool_whos)
+            upd_challenges.append({ 'adventure_id':upd_adventure['id']
+                                , 'who_id':upd_character['id']
+                                , 'challenge_name':challenge['name']
+                                , 'status':challenge['status'] 
+                                , 'status_old':prev_status })
         return upd_challenges
     
     def execute_adventure(self, adventure_id):
@@ -338,9 +377,12 @@ class AdventureService:
             rounds += 1
             damage = 0
             if random.randint(0, 1) % 2 == 0: #Magic Attack
-                damage = who['magic'] + god['magic'] + random.randint(1, self.dice_size) - enemy['magic'] - random.randint(1, self.dice_size)
+                whopts = who['magic'] + god['magic'] + random.randint(1, self.dice_size)
+                enemypts = enemy['magic'] + random.randint(1, self.dice_size)
             else: #Physical Attack
-                damage = who['attack'] + god['attack'] + random.randint(1, self.dice_size) - enemy['defense'] - random.randint(1, self.dice_size)
+                whopts = who['attack'] + god['attack'] + random.randint(1, self.dice_size)
+                enemypts = enemy['defense'] + random.randint(1, self.dice_size)
+            damage = whopts - enemypts
             if random.randint(0, 2) % 3 != 0: #aimed attack
                 enemy['hp'] += self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | You aimed your attack.'.format(rounds))
             else:
@@ -348,11 +390,10 @@ class AdventureService:
             if random.randint(0, 1) % 2 == 0: #Magic Defense
                 enemypts = enemy['magic'] + random.randint(1, self.dice_size) + (enemy['magic'] if random.randint(0, 3) % 4 == 0 else 0 )
                 whopts = who['magic'] + god['magic'] + random.randint(1, self.dice_size)
-                damage = enemypts - whopts
             else: #Physical Defense
                 enemypts = enemy['attack'] + random.randint(1, self.dice_size) 
                 whopts = who['defense'] + god['defense'] + random.randint(1, self.dice_size)
-                damage = enemypts - whopts
+            damage = enemypts - whopts
             #print(damage, enemy['name'])
             if random.randint(0, 2) % 3 != 0: #aimed defense
                 who['hp'] += self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | Enemy aimed the attack.'.format(rounds))
@@ -471,7 +512,7 @@ class AdventureService:
         all_adventures = notion_service.get_underworld_adventures()
         if len(all_adventures) <= 0:
             print("no underworld adventures")
-            return return_array
+            return return_array, None
         to_execute = 0
         if len(all_adventures) <= 5:
             to_execute = len(all_adventures)
