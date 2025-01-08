@@ -177,3 +177,17 @@ feat: won past challenges
         - [x]  missed
 ---
 
+## [1.0.10] - 2025-01-08
+Merge d122995c49c74b5cf402e557572b78b272eae6a5 into 1f29470eed9857c85c68e671928cfd17d51d2c2b
+
+Merge pull request #26 from ygmrtm/feat_whatthefucktodo_wonchallenges_adventures
+
+[CODE-41 ] feat: won past challenges
+Merge pull request #22 from ygmrtm/feal_dlylog_abilities
+
+[CODE-41] Feat: dlylog abilities
+Update CHANGELOG for version 1.0.9
+
+Merge fa087d45b486cc3444c62a8a86f78fdb63cb6c68 into 539912a9459e30c23cc0a336ab4751d80f8db9c2
+---
+
