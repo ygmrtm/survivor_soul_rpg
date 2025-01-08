@@ -127,3 +127,32 @@ feat: Integration with **Stencil**
     - [x]  Consider not punishment if status Stand-by
 ---
 
+## [1.0.8] - 2025-01-08
+Merge 7f79ba6e9aa3b591e1018627e63319af87922e93 into e9a9ac621f4c27f6cbb7b4b3efb68a438d19ad73
+
+feat: won past challenges
+
+- [x]  feat: Execute Challenge
+    - [x]  Old **Challenges**
+        - [x]  expired
+        - [x]  won
+            - [x]  Integration with dlychcklst
+        - [x]  missed
+
+Merge pull request #20 from ygmrtm/feat_epics
+
+[CODE-41] Integration with **Epics** to Abilities branch
+Integration with **Epics**
+
+- [x]  feat:Update abilities (like habits)
+    - [x]  Integration with **Code**
+    - [x]  Integration with **Stencil**
+    - [x]  Integration with **Bike**
+    - [x]  Integration with **Epics**
+    - [x]  Consider not punishment if status Stand-by
+
+Merge pull request #19 from ygmrtm/main
+
+[CODE-41] main branch to abilities
+---
+
