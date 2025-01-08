@@ -55,7 +55,7 @@ class AdventureService:
         challenges_all = notion_service.get_challenges_by_week(week_number, year_number, "CHALLENGE") 
         challenges = [challenge for challenge in challenges_all if challenge['status'] in ('created','accepted','on going')]
         if len(challenges) <= 0:
-            print("no challenges found for weeek ", week_number)
+            print("no challenges found for weeek ", f"w{week_number:02}")
             habits = notion_service.get_all_habits()
             how_many_challenges = random.randint(1,int(len(habits) * self.percentage_habits))
             sample_habits = random.sample(habits, min(how_many_challenges, len(habits)))
