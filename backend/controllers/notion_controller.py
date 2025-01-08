@@ -15,6 +15,10 @@ def countdeadpeople():
     filtered_characters = [c for c in l3_characters if c['status'] == 'dead']    
     return jsonify({"count": len(filtered_characters)}), 200
 
+@notion_bp.route('/dlychcklst/week/<int:week_number>/<int:year_number>', methods=['GET'])
+def get_daily_checklist(week_number, year_number):
+    result = notion_service.get_daily_checklist(week_number, year_number)
+    return jsonify(result)
 
 @notion_bp.route('/characters/<id>', methods=['PUT'])
 def update_character(id):
