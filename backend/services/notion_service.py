@@ -229,6 +229,19 @@ class NotionService:
                                             , 'plain_text': mas_menos + encounter['type'], 'href': None })
         return translated_encounter
 
+    def translate_execution_log(self, execution_log):
+        execution_log_translated = []
+        colors = ['green','blue','red','orange','purple','yellow','gray','brown']
+        onetime = True
+        for execution in execution_log:
+            execution_log_translated.append({'type': 'text','text': {'content': '\n' + str(execution),'link': None}
+                                        , 'annotations': {'bold': onetime,'italic': False,'strikethrough': False
+                                        , 'underline': onetime, 'code': False
+                                        , 'color': random.choice(colors) + ('' if onetime else '_background') }
+                                        , 'plain_text': '\n' + str(execution), 'href': None })
+            onetime = False
+        return execution_log_translated
+
     def get_characters_by_deep_level(self, deep_level, is_npc=False):
         """Filter characters by deep level and is_npc, returning 4 random characters."""
         characters = self.get_all_raw_characters()
@@ -464,18 +477,8 @@ class NotionService:
         data = {
             "filter": {
                 "and": [
-                    {
-                        "property": "cuando",
-                        "date": {
-                            "on_or_after": start_date_str
-                        }
-                    },
-                    {
-                        "property": "cuando",
-                        "date": {
-                            "on_or_before": end_date_str
-                        }
-                    }
+                    { "property": "cuando", "date": { "on_or_after": start_date_str } }
+                    ,{ "property": "cuando", "date": { "on_or_before": end_date_str } }
                 ]
             },
             "sorts":[{"property": "cuando", "direction" : "ascending"}]
@@ -528,6 +531,16 @@ class NotionService:
             response.raise_for_status()  
             return []
             
+    dlychcklst_map = {
+        '[c]od[e]' : ['tech']
+        ,'[i]llustratio[n]' : ['prsnl']
+        ,'[p]ersonal growt[h]' : ['gym','outdoors','teeth','bike','meals','bed','cook','social','shower','deew','beer','prsnl']
+        ,'[r]eading & comic[s]' : ['read']
+        ,'[s]treet ar[t]' : ['outdoors','prsnl']
+        ,'[t]rading crypt[o]' : ['trade']
+        ,'[w]rittin[g]' : ['read']
+    }
+
     def translate_adventure(self, adventures):
         array_adventures = []
         #print(adventures)
