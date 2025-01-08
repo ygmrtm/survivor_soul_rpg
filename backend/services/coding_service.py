@@ -61,7 +61,7 @@ class CodingService:
                 ,"week_range":{ "start": self.start_date_str, "end": self.end_date_str }
                 ,"alive_range":{ "start": task['properties']['dateRangeAlive']['formula']['date']['start'].split('T')[0]
                                 , "end": task['properties']['dateRangeAlive']['formula']['date']['end'].split('T')[0]}
-                ,"github_prs": task['properties']['GitHub Pull Requests']['relation'] if task['properties']['GitHub Pull Requests']['relation'] else None
+                ,"github_prs": task['properties']['GitHub Pull Requests']['relation'] if task['properties']['GitHub Pull Requests']['relation'] else []
             })
         return array_tasks
 
