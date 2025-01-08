@@ -156,3 +156,24 @@ Merge pull request #19 from ygmrtm/main
 [CODE-41] main branch to abilities
 ---
 
+## [1.0.9] - 2025-01-08
+Merge fa087d45b486cc3444c62a8a86f78fdb63cb6c68 into 539912a9459e30c23cc0a336ab4751d80f8db9c2
+
+Issue with start and end dates by week
+
+[Week 1 start and end dates is not accurate](https://github.com/ygmrtm/survivor_soul_rpg/issues/23)
+
+Update CHANGELOG for version 1.0.8
+
+Merge 7f79ba6e9aa3b591e1018627e63319af87922e93 into e9a9ac621f4c27f6cbb7b4b3efb68a438d19ad73
+
+feat: won past challenges
+
+- [x]  feat: Execute Challenge
+    - [x]  Old **Challenges**
+        - [x]  expired
+        - [x]  won
+            - [x]  Integration with dlychcklst
+        - [x]  missed
+---
+
