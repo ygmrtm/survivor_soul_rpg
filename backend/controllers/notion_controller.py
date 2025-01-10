@@ -32,5 +32,5 @@ def get_characters_by_deep_level():
 
 @notion_bp.route('/characters', methods=['GET'])
 def get_all_characters():
-    # Retrieve characters via Notion API
-    return jsonify([])
+    result = notion_service.get_all_raw_characters()
+    return jsonify(result)

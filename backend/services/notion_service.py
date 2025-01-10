@@ -1,6 +1,7 @@
 import requests
 import random 
 import json
+from backend.services.redis_service import RedisService
 from datetime import datetime, timedelta
 from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN,NOTION_DBID_DLYLG, CREATED_LOG, CLOSED_LOG, WON_LOG, LOST_LOG, MISSED_LOG
 from config import NOTION_DBID_HABIT, NOTION_DBID_ABILI
@@ -27,46 +28,41 @@ class NotionService:
             "Notion-Version": "2022-06-28",
             'Content-Type': 'application/json'
         }
-        self._cached_characters = None  # Initialize cache
+        self.redis_service = RedisService()
 
     def get_all_raw_characters(self):
-        """
-        Retrieve all characters from the Notion database and cache the results.
+        # Try to get from cache first
+        cache_key = self.redis_service.get_cache_key('characters', 'all')
+        cached_characters = self.redis_service.get(cache_key)
+        
+        if cached_characters is not None:
+            print("Using cached characters:", len(cached_characters))
+            return cached_characters
 
-        If the characters are already cached, return the cached data.
-        Otherwise, fetch the characters from the Notion database, cache
-        the results, and return them.
+        # If not in cache, fetch from Notion
+        url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
+        all_characters = []
+        has_more = True
+        start_cursor = None
 
-        Returns:
-            list: A list of character data retrieved from the Notion database.
-        """
-        if self._cached_characters is None:  # Check if cache is empty
-            url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
-            all_characters = []  # Initialize a list to hold all characters
-            has_more = True  # Flag to check if there are more pages
-            start_cursor = None  # Initialize the start cursor
+        while has_more:
+            payload = {}
+            if start_cursor:
+                payload['start_cursor'] = start_cursor
 
-            while has_more:
-                # Prepare the request payload
-                payload = {}
-                if start_cursor:
-                    payload['start_cursor'] = start_cursor  # Add the cursor if it exists
+            response = requests.post(url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
 
-                response = requests.post(url, headers=self.headers, json=payload)
-                response.raise_for_status()  # Raise an error for bad responses
-                data = response.json()
+            all_characters.extend(data.get("results", []))
+            has_more = data.get("has_more", False)
+            start_cursor = data.get("next_cursor")
 
-                # Append the results to the all_characters list
-                all_characters.extend(data.get("results", []))
-                has_more = data.get("has_more", False)  # Check if there are more pages
-                start_cursor = data.get("next_cursor")  # Update the cursor for the next request
-
-            self._cached_characters = all_characters  # Cache the result
-            print("Fetched and cached characters:", len(self._cached_characters))
-        else:
-            print("Using cached characters:", len(self._cached_characters))
-
-        return self._cached_characters
+        # Cache the results
+        self.redis_service.set_with_expiry(cache_key, all_characters, expiry_hours=1)
+        print("Fetched and cached characters:", len(all_characters))
+        
+        return all_characters
     
     def get_character_by_id(self, character_id):
         """Retrieve a character by its ID from the cached characters."""
