@@ -19,6 +19,7 @@ class AdventureService:
         
         # Retrieve the character using the character_id
         character = notion_service.get_character_by_id(character_id)
+
         
         if not character:
             raise ValueError(f"Character with ID {character_id} not found.")
@@ -34,20 +35,23 @@ class AdventureService:
             max_coinrwd *= self.GOLDEN_RATIO
         
         # Get NPC characters for enemies
-        npc_characters = notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
-        npc_gods = notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
-        filtered_enemies = [c for c in npc_characters if c['status'] == 'alive']
-        filtered_death_gods = [c for c in npc_gods if c['status'] == 'dead']
-        enemies_to_encounter = random.randint(1, max_chapters)
-        final_enemies = random.sample(filtered_enemies, min(enemies_to_encounter, len(filtered_enemies)))
-        final_enemies_ids = [{"id":enemy['id']} for enemy in final_enemies]
         xp_reward = random.randint(1, max_xprwd)
         coin_reward = random.randint(1, max_coinrwd)
-        description = "dummy desc" #TODO generate with groq
+        description = "dummy desc"
+        #print(final_enemies,"\n\n")
         if underworld is False:
+            npc_characters = notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
+            filtered_enemies = [c for c in npc_characters if c['status'] == 'alive']
+            enemies_to_encounter = random.randint(1, max_chapters)
+            final_enemies = random.sample(filtered_enemies, min(enemies_to_encounter, len(filtered_enemies)))
+            final_enemies_ids = [{"id":enemy['id']} for enemy in final_enemies]
+            description = "Adventure to die for..." 
             response = notion_service.create_adventure(character_id, final_enemies_ids, xp_reward, coin_reward, description)
         else:
-            response = notion_service.create_adventure(character_id, [{"id":random.choice(filtered_death_gods)['id']}], xp_reward *-1, coin_reward=0, description="Underworld Training 101")
+            npc_gods = notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
+            filtered_death_gods = [c for c in npc_gods if c['status'] == 'dead']
+            description = "Underworld Training 101"
+            response = notion_service.create_adventure(character_id, [{"id":random.choice(filtered_death_gods)['id']}], xp_reward *-1, coin_reward=0, description=description)
         return response
     
     def create_challenges(self, week_number, year_number):
@@ -283,8 +287,10 @@ class AdventureService:
                 adventure['status'] = 'missed'
             elif "encounter" in adventure['path']:
                 # Get NPC GODS characters for support and pick only one.
-                npc_characters = notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
-                high_gods = [c for c in npc_characters if c['status'] == 'high']
+                high_gods = notion_service.get_characters_by_property('status', 'high')
+                if len(high_gods) == 0:
+                    npc_characters = notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
+                    high_gods = [c for c in npc_characters if c['status'] == 'high']
                 god_support = random.choice(high_gods) if high_gods else None
                 self.add_encounter_log(god_support['level'], "level",'powered⚡️by⚡️{}'.format(god_support['name']))
                 for vs in adventure['vs']:
@@ -479,14 +485,18 @@ class AdventureService:
             datau = {"properties": { "coins": {"number": alter_ego['coins']} 
                                     , "xp": {"number": alter_ego['xp']}  
                                     , "level": {"number": alter_ego['level']} }  }
-            upd_character = notion_service.update_character(alter_ego['id'], datau)
+            upd_character = notion_service.update_character(alter_ego, datau)
         except Exception as e:
             print("Error distributing tribute:", e.__traceback__)
         return upd_character
 
-    def create_underworld_4_deadpeople(self, notion_service=None):
-        notion_service = NotionService() if not notion_service else notion_service
-        l3_characters = notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False) + notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
+    def create_underworld_4_deadpeople(self):
+        notion_service = NotionService() 
+        characters_dead = notion_service.get_characters_by_property('status', 'dead')
+        l3_characters = [c for c in characters_dead if c['deep_level'] == 'l3']  
+        if len(l3_characters) <= 0:
+            l3_characters = notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False) 
+            l3_characters += notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
         filtered_characters = [c for c in l3_characters if c['status'] == 'dead']  
         dead_people_count = len(filtered_characters)
         filtered_characters =  [c for c in filtered_characters if c['pending_reborn'] is None]   
@@ -499,20 +509,22 @@ class AdventureService:
         done = 1
         return_array = []
         for character in sample_characters:
-            print("underworld for "+character['name'],' | {}/{} [{}]'.format(done, len(sample_characters), len(filtered_characters)))
+            print("💀 underworld for "+character['name'],' | {}/{} [{}]'.format(done, len(sample_characters), len(filtered_characters)))
             adventure = self.create_adventure(character['id'], underworld=True, notion_service=notion_service )
-            return_array.append({"adventure_id": adventure['adventure_id'], "character_id": character['id'], "character_name": character['name']})
-            time.sleep(random.randint(1, 5))
+            return_array.append({"adventure_id": adventure['adventure_id']
+                                , "character_id": character['id']
+                                , "character_name": character['name']})
+            #time.sleep(random.randint(1, 5))
             done += 1
-        return return_array, dead_people_count, notion_service
+        return return_array, dead_people_count
     
-    def execute_underworld(self, notion_service=None):
-        notion_service = NotionService() if not notion_service else notion_service
+    def execute_underworld(self):
+        notion_service = NotionService() 
         return_array = []
         all_adventures = notion_service.get_underworld_adventures()
         if len(all_adventures) <= 0:
             print("no underworld adventures")
-            return return_array, None
+            return return_array
         to_execute = 0
         if len(all_adventures) <= 5:
             to_execute = len(all_adventures)
@@ -528,7 +540,6 @@ class AdventureService:
             print("underworld exec "+deaadventure['name']+"|"+who['name'],'| {}/{} [{}]'.format(done, len(sample_adventures), len(all_adventures)))
             for vs in deaadventure['vs']:
                 if vs['id'].replace('-','') in dead_gods_pool:
-                    notion_service = NotionService() #forcing new w/o cached info
                     dead_gods_pool = []
                 enemy = notion_service.get_character_by_id(vs['id'])
                 dead_gods_pool.append(enemy['id'])
@@ -554,13 +565,18 @@ class AdventureService:
                 time.sleep(random.randint(1, 5))
             return_array.append({"adventure_id": deaadventure['id'], "character_id": who['id'], "character_name": who['name'], "deadgod_name": enemy['name'],"adventure_status": deaadventure['status']})
             done += 1
-        return return_array, notion_service
+        return return_array
 
-    def awake_characters(self, notion_service=None):
-        notion_service = NotionService() if not notion_service else notion_service
-        return_array = []
-        l3_characters = notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False) + notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
+    def awake_characters(self):
+        notion_service = NotionService() 
+        characters = notion_service.get_characters_by_property('status', 'rest')
+        characters += notion_service.get_characters_by_property('status', 'dying')
+        l3_characters = [c for c in characters if c['deep_level'] == 'l3']  
+        if len(l3_characters) <= 0:
+            l3_characters = notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False) 
+            l3_characters += notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
         filtered_characters = [c for c in l3_characters if c['status'] == 'rest' or c['status'] == 'dying']
+        return_array = []
         for character in filtered_characters:
             pct_before = character['hp'] / character['max_hp']
             pct_after = (character['hp'] + character['hours_recovered']) / character['max_hp']
@@ -568,28 +584,28 @@ class AdventureService:
                 character['hp'] += character['hours_recovered']
                 character['status'] = 'alive'
                 datau = {"properties": { "hp": {"number": character['hp']},"status": {"select": {"name":character['status']} } }}
-                upd_character = notion_service.update_character(character['id'], datau)
+                upd_character = notion_service.update_character(character, datau)
                 return_array.append({ "character_id": character['id'], "character_name": character['name'], "character_hp": character['hp']})
                 print(character['hours_recovered'],character['name'],'{}->{} awakening'.format(pct_before,pct_after))
-        return return_array, notion_service
+        return return_array
     
-    def apply_punishment(self, notion_service=None):
-        _notion_service = NotionService() if not notion_service else notion_service
+    def apply_punishment(self):
+        notion_service = NotionService() 
         return_array = []
-        all_adventures = _notion_service.get_punishment_adventures()
+        all_adventures = notion_service.get_punishment_adventures()
         if len(all_adventures) <= 0:
             print("no punishment adventures")
-            return return_array, _notion_service
+            return return_array
         for adventure in all_adventures:
             self.encounter_log = []
-            character = _notion_service.get_character_by_id(adventure['who'])
+            character = notion_service.get_character_by_id(adventure['who'])
             character['xp'] += self.add_encounter_log(adventure['xpRwd'], 'xp', '{} has decreased by'.format(character['name']))
             habit_id = adventure['habits'][0]
-            habit = _notion_service.get_habits_by_id_or_name(habit_id['id'], None)
+            habit = notion_service.get_habits_by_id_or_name(habit_id['id'], None)
             habit['xp'] += self.add_encounter_log(adventure['xpRwd'], 'xp', '{} has decreased by'.format(habit['name']))
             adventure['status'] = 'lost'
             adventure['encounter_log'] = self.encounter_log
-            _notion_service.persist_habit(habit)
-            _notion_service.persist_adventure(adventure=adventure, characters=[character])
+            notion_service.persist_habit(habit)
+            notion_service.persist_adventure(adventure=adventure, characters=[character])
             return_array.append({"adventure_id": adventure['id'], "character_id": character['id'], "character_name": character['name'],"adventure_status": adventure['status']})
-        return return_array, _notion_service
+        return return_array

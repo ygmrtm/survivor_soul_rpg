@@ -139,7 +139,7 @@ class CodingService:
             datau = {"properties": { "coins": {"number": who['coins']} 
                                     , "xp": {"number": who['xp']}  
                                     , "level": {"number": who['level']} } }
-            characters.append(notion_service.update_character(who['id'], datau))
+            characters.append(notion_service.update_character(who, datau))
 
         for ability in challenge['abilities']:
             dlylog_array = []

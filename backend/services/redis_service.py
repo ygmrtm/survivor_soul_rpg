@@ -143,7 +143,36 @@ class RedisService:
         except Exception as e:
             print(f"Error flushing Redis database: {str(e)}")
             return False
-
+        
+    def flush_keys_by_pattern(self, pattern):
+        """
+        Flush (delete) all keys matching a specific pattern in Redis using SCAN.
+        Args:
+            pattern (str): The pattern to match keys (e.g., 'character:*').
+        Returns:
+            int: The number of keys deleted.
+        """
+        try:
+            cursor = 0
+            num_deleted = 0
+            while True:
+                # Use SCAN to get keys matching the pattern
+                cursor, keys_to_delete = self.redis_client.scan(cursor, match=pattern)
+                if keys_to_delete:
+                    # Delete each key
+                    self.redis_client.delete(*keys_to_delete)
+                    num_deleted += len(keys_to_delete)
+                
+                # If cursor is 0, we are done
+                if cursor == 0:
+                    break
+            
+            print(f"✅ Deleted {num_deleted} keys matching pattern '{pattern}'.")
+            return num_deleted
+        except Exception as e:
+            print(f"❌ Error flushing keys by pattern '{pattern}': {str(e)}")
+            return 0
+        
     def get_cache_key(self, prefix, *args):
         """
         Generate a cache key from prefix and arguments.

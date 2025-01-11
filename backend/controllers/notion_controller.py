@@ -1,8 +1,10 @@
 from flask import Blueprint, jsonify
 from backend.services.notion_service import NotionService
+from backend.services.redis_service import RedisService
 
 notion_bp = Blueprint('notion', __name__)
 notion_service = NotionService()
+redis_service = RedisService()
 
 @notion_bp.route('/characters/<id>', methods=['GET'])
 def get_character_by_id(id):
@@ -11,9 +13,16 @@ def get_character_by_id(id):
 
 @notion_bp.route('/countdeadpeople', methods=['GET'])
 def countdeadpeople():
-    l3_characters = notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False) + notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
-    filtered_characters = [c for c in l3_characters if c['status'] == 'dead']    
-    return jsonify({"count": len(filtered_characters)}), 200
+    count_dead_people = notion_service.count_dead_people('l3')
+    return jsonify({"count": count_dead_people}), 200
+
+@notion_bp.route('/flushredis', methods=['POST'])
+def flush_redis_cache():
+    characters_del = redis_service.flush_keys_by_pattern('characters:*')
+    indicators_del = redis_service.flush_keys_by_pattern('loaded_characters_*:*')
+    return jsonify({"message": "Redis cache flushed successfully"
+                    ,"characters:*": characters_del
+                    ,"loaded_characters_*:*": indicators_del}), 200
 
 @notion_bp.route('/dlychcklst/week/<int:week_number>/<int:year_number>', methods=['GET'])
 def get_daily_checklist(week_number, year_number):
