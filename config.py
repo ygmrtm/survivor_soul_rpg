@@ -1,5 +1,6 @@
 import os
 from datetime import datetime
+from urllib.parse import urlparse
 today_date = datetime.now()
 
 
@@ -14,6 +15,15 @@ NOTION_DBID_EPICS = os.getenv('NOTION_DBID_EPICS')
 NOTION_DBID_BIKES = os.getenv('NOTION_DBID_BIKES')
 NOTION_DBID_STENC = os.getenv('NOTION_DBID_STENC')
 NOTION_DBID_CODIN = os.getenv('NOTION_DBID_CODIN')
+# Redis Cloud Configuration
+REDIS_URL = os.getenv('REDIS_URL', 'redis://default:password@host.cloud.redislabs.com:port')
+# Parse Redis URL
+redis_url = urlparse(REDIS_URL)
+REDIS_HOST = redis_url.hostname
+REDIS_PORT = redis_url.port
+REDIS_PASSWORD = redis_url.password
+REDIS_DB = 0  # Usually 0 for Redis Cloud
+REDIS_SSL = True  # Enable SSL/TLS for Redis Cloud
 
 # Todoist API credentials
 TODOIST_API_KEY = os.getenv('TODOIST_API_KEY')

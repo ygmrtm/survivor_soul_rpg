@@ -1,6 +1,8 @@
 import requests
 import random 
 import json
+from flask import jsonify
+from backend.services.redis_service import RedisService
 from datetime import datetime, timedelta
 from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN,NOTION_DBID_DLYLG, CREATED_LOG, CLOSED_LOG, WON_LOG, LOST_LOG, MISSED_LOG
 from config import NOTION_DBID_HABIT, NOTION_DBID_ABILI
@@ -13,6 +15,7 @@ class NotionService:
     max_sanity = 60    
     max_prop_limit = 20
     lines_per_paragraph = 90
+    expiry_hours = 0.2
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
     def __init__(self):
@@ -27,55 +30,154 @@ class NotionService:
             "Notion-Version": "2022-06-28",
             'Content-Type': 'application/json'
         }
-        self._cached_characters = None  # Initialize cache
+        self.redis_service = RedisService()
 
     def get_all_raw_characters(self):
-        """
-        Retrieve all characters from the Notion database and cache the results.
+        # Try to get from cache first
+        cache_key = self.redis_service.get_cache_key('characters', 'all')
+        cached_characters = self.redis_service.get(cache_key)
+        if cached_characters is not None:
+            print("Using ALL cached characters:", len(cached_characters))
+            return cached_characters
+        # If not in cache, fetch from Notion
+        url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
+        all_characters = []
+        has_more = True
+        start_cursor = None
+        while has_more:
+            payload = {}
+            if start_cursor:
+                payload['start_cursor'] = start_cursor
+            response = requests.post(url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+            all_characters.extend(data.get("results", []))
+            has_more = data.get("has_more", False)
+            start_cursor = data.get("next_cursor")
+        # Cache the results
+        self.redis_service.set_with_expiry(cache_key, all_characters, expiry_hours=self.expiry_hours)
+        print("Fetched and cached ALL characters:", len(all_characters))
+        return all_characters
 
-        If the characters are already cached, return the cached data.
-        Otherwise, fetch the characters from the Notion database, cache
-        the results, and return them.
+    def count_dead_people(self, deep_level):
+        """Count the number of dead people in the database."""
+        url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
+        headcount = 0
+        try:
+            dead_people = self.redis_service.query_characters('status', 'dead')
+            by_level_dp = [c for c in dead_people if c['deep_level'] == deep_level]
+            headcount = len(by_level_dp)
+            if headcount <= 0:
+                data_filter = {
+                    "filter": {
+                        "and": [
+                            {"property": "deeplevel", "formula": {"string": {"equals": deep_level}}},
+                            {"property": "status", "select": {"equals": 'dead'}},
+                        ]
+                    }
+                }
+                has_more = True
+                start_cursor = None
 
-        Returns:
-            list: A list of character data retrieved from the Notion database.
-        """
-        if self._cached_characters is None:  # Check if cache is empty
-            url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
-            all_characters = []  # Initialize a list to hold all characters
-            has_more = True  # Flag to check if there are more pages
-            start_cursor = None  # Initialize the start cursor
-
-            while has_more:
-                # Prepare the request payload
-                payload = {}
-                if start_cursor:
-                    payload['start_cursor'] = start_cursor  # Add the cursor if it exists
-
-                response = requests.post(url, headers=self.headers, json=payload)
-                response.raise_for_status()  # Raise an error for bad responses
-                data = response.json()
-
-                # Append the results to the all_characters list
-                all_characters.extend(data.get("results", []))
-                has_more = data.get("has_more", False)  # Check if there are more pages
-                start_cursor = data.get("next_cursor")  # Update the cursor for the next request
-
-            self._cached_characters = all_characters  # Cache the result
-            print("Fetched and cached characters:", len(self._cached_characters))
-        else:
-            print("Using cached characters:", len(self._cached_characters))
-
-        return self._cached_characters
+                while has_more:
+                    if start_cursor:
+                        data_filter['start_cursor'] = start_cursor
+                    response = requests.post(url, headers=self.headers, json=data_filter)
+                    response.raise_for_status()  # Raise an error for bad responses
+                    data = response.json()
+                    # Extend the characters list with the results from this page
+                    headcount += len(data.get('results', []))
+                    # Check if there are more pages
+                    has_more = data.get("has_more", False)
+                    start_cursor = data.get("next_cursor")  
+                print(f"☠️ counted {headcount} from source")
+        except Exception as e:
+            print(f"Failed to count dead people: {e}")
+            response.raise_for_status()  # Raise an error for bad responses
+        return headcount
     
     def get_character_by_id(self, character_id):
         """Retrieve a character by its ID from the cached characters."""
-        print("🚹 ",character_id)
-        # replace - with space
-        character_id = character_id.replace('-','')
-        characters = self.get_all_raw_characters()  # Ensure we have the latest characters
-        for character in characters:
-            if character['id'].replace('-','') == character_id:
+        print("👁️‍🗨️ ",character_id)
+        character_id_replaced = character_id.replace('-','')
+        character = None
+        try:
+            cache_key = self.redis_service.get_cache_key('characters', character_id_replaced)
+            character = self.redis_service.get(cache_key)
+            if character is None:
+                print("👁️‍🗨️ not in cache, going to the source")
+                url = f"{self.base_url}/pages/{character_id}"
+                response = requests.get(url, headers=self.headers)
+                character = self.translate_characters([response.json()] if response.json() else [])[0]
+                self.redis_service.set_with_expiry(cache_key, character, expiry_hours=self.expiry_hours)
+        except Exception as e:
+            print("Failed to fetch character:", e)
+            response.raise_for_status()  # Raise an error for bad responses
+        return character
+    
+    def get_characters_by_property(self, property, value):
+        url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
+        try:
+            return self.redis_service.query_characters(property, value)                
+        except Exception as e:
+            print(f"Failed to fetch characters by properties {property} = {value}: {e}")
+            raise
+
+    def get_characters_by_deep_level(self, deep_level, is_npc=False):
+        """Filter characters by deep level and is_npc, returning all matching characters."""
+        url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
+        characters = []
+        try:
+            npc = '' if is_npc is True else 'no'
+            are_cached_chars = self.redis_service.exists(self.redis_service.get_cache_key('loaded_characters_level' 
+                                                                                , f"{deep_level}{npc}npc"))
+            if are_cached_chars:
+                print(f"Using cached characters for deep level {deep_level}")
+                characters_by_level = self.redis_service.query_characters('deep_level', deep_level)
+                # filter characters based on is_npc
+                for character in characters_by_level:
+                    if character['npc'] == is_npc:
+                        characters.append(character)
+            else:    
+                data_filter = {
+                    "filter": {
+                        "and": [
+                            {"property": "deeplevel", "formula": {"string": {"equals": deep_level}}},
+                            {"property": "npc", "checkbox": {"equals": is_npc}}
+                        ]
+                    }
+                }
+                has_more = True
+                start_cursor = None
+                while has_more:
+                    if start_cursor:
+                        data_filter['start_cursor'] = start_cursor
+                    response = requests.post(url, headers=self.headers, json=data_filter)
+                    response.raise_for_status()  # Raise an error for bad responses
+                    data = response.json()
+                    # Extend the characters list with the results from this page
+                    characters.extend(self.translate_characters(data.get('results', [])))
+                    # Check if there are more pages
+                    has_more = data.get("has_more", False)
+                    start_cursor = data.get("next_cursor")  
+                    print(f"Fetched {len(data.get('results', []))} characters, total so far: {len(characters)}")
+                # Cache the characters if needed
+                self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level'
+                                                                                    , f"{deep_level}{npc}npc")
+                                                , data_filter, self.expiry_hours)
+                for character in characters:
+                    cache_key = self.redis_service.get_cache_key('characters', character['id'])
+                    if not self.redis_service.exists(cache_key):
+                        self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
+        except Exception as e:
+            print(f"Failed to fetch characters by deep level {deep_level}: {e}")
+            response.raise_for_status()  # Raise an error for bad responses
+        return characters if is_npc else random.sample(characters, min(4, len(characters)))
+
+    def translate_characters(self, characters=[]):
+        try:
+            return_characters = []
+            for character in characters:
                 pictures = character['properties']['picture']['files']
                 random_picture = random.choice(pictures) if pictures else None
                 character_level = character['properties']['level']['number']
@@ -86,7 +188,7 @@ class NotionService:
                     max_xp *= self.GOLDEN_RATIO
                     max_hp *= self.GOLDEN_RATIO
                     max_sanity *= self.GOLDEN_RATIO
-                return { 
+                return_characters.append({ 
                 "id": character['id'].replace('-','')
                 ,"name": character['properties']['name']['title'][-1]['plain_text']
                 ,"status": character['properties']['status']['select']['name']
@@ -109,20 +211,35 @@ class NotionService:
                 ,"respawn": character['properties']['respawn']['number'] if character['properties']['respawn']['number'] else 0
                 ,"pending_reborn": character['properties']['pendingToReborn']['formula']['string']
                 ,"hours_recovered": character['properties']['hours_recovered']['formula']['number']
-                }
-        return None  # Return None if the character is not found
-
-    def update_character(self, character_id, updates):
+                })
+            return return_characters
+        except Exception as e:
+            print("😓 Damn it i can't translate characters:", e)
+            raise
+    
+    def update_character(self, character, updates):
         """Update character attributes."""
+        character_id = character['id']
         url = f"{self.base_url}/pages/{character_id}"
         response = requests.patch(url, headers=self.headers, json=updates)
-        #print("update_character::",response.status_code, response.text)  
         if response.status_code == 200:  # Check if the request was successful
+            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('characters',character_id)
+                                                , character, self.expiry_hours)
             return response.json()
         else:
             print("❌❌","update_character",response.status_code, response.text) 
             response.raise_for_status()  # Raise an error for bad responses
-    
+
+    def update_adventure(self, adventure_id, updates):
+        """Update character attributes."""
+        url = f"{self.base_url}/pages/{adventure_id}"
+        response = requests.patch(url, headers=self.headers, json=updates)
+        if response.status_code == 200:  # Check if the request was successful
+            return response.json()
+        else:
+            print("❌❌","update_adventure",response.status_code, response.text) 
+            response.raise_for_status()  # Raise an error for bad responses
+        
 
     def persist_adventure(self, adventure, characters):
         #print(self.translate_encounter_log(adventure['encounter_log']))
@@ -135,7 +252,7 @@ class NotionService:
         if 'dlylog' in adventure.keys():
             datau['properties']['dlylog'] = { "relation": adventure['dlylog']  }
 
-        upd_adventure = self.update_character(adventure['id'], datau)
+        upd_adventure = self.update_adventure(adventure['id'], datau)
         upd_character = None
 
         # All logic for validating the Character before pushing the changes
@@ -161,7 +278,6 @@ class NotionService:
             character['defense'] = character['defense'] if character['defense'] <= max_prop_limit else max_prop_limit
             character['attack'] = character['attack'] if character['attack'] <= max_prop_limit else max_prop_limit
             character['magic'] = character['magic'] if character['magic'] <= max_prop_limit else max_prop_limit
-            print('--💾💾-->{}'.format(character['name']))
             datau = {"properties": { "level": {"number": character['level']}, 
                                     "hp": {"number": round(character['hp'])}, 
                                     "xp": {"number": character['xp']}, 
@@ -172,7 +288,7 @@ class NotionService:
                                     "coins": {"number": character['coins']}, 
                                     "magic": {"number": round(character['magic'])} ,
                                     "status": {"select": {"name":character['status']} }}}
-            upd_character = self.update_character(character['id'], datau)
+            upd_character = self.update_character(character, datau)
             #print(datau)
         return upd_adventure, upd_character
 
@@ -242,48 +358,6 @@ class NotionService:
             onetime = False
         return execution_log_translated
 
-    def get_characters_by_deep_level(self, deep_level, is_npc=False):
-        """Filter characters by deep level and is_npc, returning 4 random characters."""
-        characters = self.get_all_raw_characters()
-        filtered_characters = [c for c in characters if c['properties']['deeplevel']['formula']['string'] == deep_level and c['properties']['npc']['checkbox'] == is_npc]
-        array_characters = []
-        for character in filtered_characters:
-            pictures = character['properties']['picture']['files']
-            random_picture = random.choice(pictures) if pictures else None
-            character_level = character['properties']['level']['number']
-            max_xp = self.max_xp
-            max_hp = self.max_hp
-            max_sanity = self.max_sanity
-            for i in range(character_level):
-                max_xp *= self.GOLDEN_RATIO
-                max_hp *= self.GOLDEN_RATIO
-                max_sanity *= self.GOLDEN_RATIO
-            array_characters.append({ 
-                "id": character['id'].replace('-','')
-                ,"name": character['properties']['name']['title'][-1]['plain_text']
-                ,"status": character['properties']['status']['select']['name']
-                ,"picture": random_picture['file']['url']
-                ,"level": character_level
-                ,"coins": character['properties']['coins']['number']
-                ,"xp": character['properties']['xp']['number']
-                ,"max_xp": max_xp
-                ,"hp": character['properties']['hp']['number']
-                ,"max_hp": max_hp
-                ,"sanity": character['properties']['sanity']['number']
-                ,"max_sanity": max_sanity
-                ,"attack": character['properties']['force']['number']
-                ,"defense": character['properties']['defense']['number']
-                ,"magic": character['properties']['magic']['number']
-                ,"inventory": character['properties']['inventory']['multi_select']
-                ,"npc": character['properties']['npc']['checkbox']
-                ,"deep_level": character['properties']['deeplevel']['formula']['string']
-                ,"alter_ego": character['properties']['alter ego']['relation'][0]['id'].replace('-','') if character['properties']['alter ego']['relation'] else None
-                ,"respawn": character['properties']['respawn']['number']
-                ,"pending_reborn": character['properties']['pendingToReborn']['formula']['string']
-                ,"hours_recovered": character['properties']['hours_recovered']['formula']['number']
-            })
-        return array_characters if is_npc else random.sample(array_characters, min(4, len(array_characters)))
-    
     def create_adventure(self, character_id, final_enemies, xp_reward, coin_reward, description):
         today_date = datetime.now()
         end_date = today_date + timedelta(days=2) 
@@ -616,50 +690,6 @@ class NotionService:
             response.raise_for_status() 
             return None  
 
-    def get_all_habits(self):
-        url = f"{self.base_url}/databases/{NOTION_DBID_HABIT}/query"
-        response = requests.post(url, headers=self.headers)
-        if response.status_code != 200:  
-            print("❌❌","get_all_habits",response.status_code, response.text) 
-            response.raise_for_status()  # Raise an error for bad responses
-            return []  # Return None if the request was not successful
-
-        max_xp = self.max_xp
-
-        habits = response.json().get("results", [])  
-        translated_habits = []
-        for habit in habits:
-            habit_level = int(habit['properties']['level']['number'])
-            for i in range(habit_level):
-                max_xp *= self.GOLDEN_RATIO
-            translated_habits.append({
-                "id": habit['id']
-                ,"emoji": habit['icon']['emoji']
-                ,"name": habit['properties']['name']['title'][-1]['plain_text']
-                ,"level": habit_level
-                ,"xp": habit['properties']['xp']['number']
-                ,"max_xp": max_xp
-                ,"coins": habit['properties']['coins']['number']
-                ,"timesXweek": habit['properties']['timesXweek']['number']
-                ,"who": habit['properties']['who']['relation'][0]['id'] if habit['properties']['who']['relation'] else None
-            })
-        return translated_habits
-    
-    def get_habits_by_id_or_name(self, habit_id, habit_name):
-        habits = self.get_all_habits()
-        for habit in habits:
-            if habit['id'] == habit_id or habit['name'] == habit_name:
-                return habit
-        return None
-
-    def persist_habit(self, habit):
-        habit['level'] += 1 if habit['xp'] >= habit['max_xp'] else 0
-        datau = {"properties": { "level": {"number": habit['level']}, 
-                                    "xp": {"number": habit['xp']}, 
-                                    "coins": {"number": habit['coins']}}}
-        upd_habit = self.update_character(habit['id'], datau)   
-        return upd_habit  
-
     def get_underworld_adventures(self):
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
@@ -710,6 +740,50 @@ class NotionService:
             print("-->",response.status_code, response.text)  # Debugging: Print the response
             response.raise_for_status()  # Raise an error for bad responses        
 
+    def get_all_habits(self):
+        url = f"{self.base_url}/databases/{NOTION_DBID_HABIT}/query"
+        response = requests.post(url, headers=self.headers)
+        if response.status_code != 200:  
+            print("❌❌","get_all_habits",response.status_code, response.text) 
+            response.raise_for_status()  # Raise an error for bad responses
+            return []  # Return None if the request was not successful
+
+        max_xp = self.max_xp
+
+        habits = response.json().get("results", [])  
+        translated_habits = []
+        for habit in habits:
+            habit_level = int(habit['properties']['level']['number'])
+            for i in range(habit_level):
+                max_xp *= self.GOLDEN_RATIO
+            translated_habits.append({
+                "id": habit['id']
+                ,"emoji": habit['icon']['emoji']
+                ,"name": habit['properties']['name']['title'][-1]['plain_text']
+                ,"level": habit_level
+                ,"xp": habit['properties']['xp']['number']
+                ,"max_xp": max_xp
+                ,"coins": habit['properties']['coins']['number']
+                ,"timesXweek": habit['properties']['timesXweek']['number']
+                ,"who": habit['properties']['who']['relation'][0]['id'] if habit['properties']['who']['relation'] else None
+            })
+        return translated_habits
+    
+    def get_habits_by_id_or_name(self, habit_id, habit_name):
+        habits = self.get_all_habits()
+        for habit in habits:
+            if habit['id'] == habit_id or habit['name'] == habit_name:
+                return habit
+        return None
+
+    def persist_habit(self, habit):
+        habit['level'] += 1 if habit['xp'] >= habit['max_xp'] else 0
+        datau = {"properties": { "level": {"number": habit['level']}, 
+                                    "xp": {"number": habit['xp']}, 
+                                    "coins": {"number": habit['coins']}}}
+        upd_habit = self.update_adventure(habit['id'], datau)   
+        return upd_habit  
+
     def get_all_abilities(self):
         url = f"{self.base_url}/databases/{NOTION_DBID_ABILI}/query"
         response = requests.post(url, headers=self.headers)
@@ -751,5 +825,5 @@ class NotionService:
         if 'dlylog' in ability.keys():
             datau['properties']['dlylog'] = { "relation": ability['dlylog']  }
         
-        upd_ability = self.update_character(ability['id'], datau)   
+        upd_ability = self.update_adventure(ability['id'], datau)   
         return upd_ability                

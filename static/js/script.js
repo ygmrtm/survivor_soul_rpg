@@ -171,6 +171,7 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(data => {
             document.getElementById('dead-people').innerText = "(" + data.count + "☠️)";
+            document.getElementById('underworld-button').disabled = false;
         })
         .catch(error => {
             console.error('Error fetching counts:', error);
