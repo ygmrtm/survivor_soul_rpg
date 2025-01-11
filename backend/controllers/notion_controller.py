@@ -25,10 +25,13 @@ def update_character(id):
     # Update character details
     return jsonify(success=True)
 
-@notion_bp.route('/characters/deep_level', methods=['GET'])
-def get_characters_by_deep_level():
-    # Filter characters based on deep level criteria
-    return jsonify([])
+@notion_bp.route('/characters/deep_level/<deep_level>/<is_npc>', methods=['GET'])
+def get_characters_by_deep_level(deep_level, is_npc ):
+    # validate deep_level is valid "l"+int
+    if not deep_level.startswith('l'):
+        return jsonify({"error": "Invalid deep_level"}), 400
+    result = notion_service.get_characters_by_deep_level(deep_level, is_npc == 'yes')
+    return jsonify(result)
 
 @notion_bp.route('/characters', methods=['GET'])
 def get_all_characters():

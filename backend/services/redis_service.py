@@ -69,12 +69,29 @@ class RedisService:
             expiry_hours (int): Hours until the key expires
         """
         try:
+            #print(f"Setting key: {key}, value type: {type(value)}")
             serialized_value = json.dumps(value)
             expiry_seconds = int(expiry_hours * 3600)  # Convert hours to seconds
             return self.redis_client.setex(key, expiry_seconds, serialized_value)
         except Exception as e:
             print(f"Error setting Redis key {key}: {str(e)}")
             return False
+
+    def set_without_expiry(self, key, value):
+        """
+        Set a key-value pair without expiration time.
+        
+        Args:
+            key (str): Redis key
+            value (any): Value to store (will be JSON serialized)
+        """
+        try:
+            serialized_value = json.dumps(value)  # Serialize the value to JSON
+            self.redis_client.set(key, serialized_value)  # Store the value without expiration
+            print(f"✅ Set key '{key}' without expiration.")
+        except Exception as e:
+            print(f"❌ Error setting Redis key {key}: {str(e)}")
+
 
     def get(self, key):
         """
@@ -136,3 +153,33 @@ class RedisService:
             *args: Variable arguments to include in the key
         """
         return f"{prefix}:{':'.join(str(arg) for arg in args)}"
+    
+    def query_characters(self, field, value):
+        """
+        Query characters based on a specific field and value.
+        
+        Args:
+            field (str): The field to query (e.g., 'name', 'deeplevel').
+            value (str): The value to match against the field.
+        
+        Returns:
+            list: A list of character IDs that match the query.
+        """
+        matching_characters = []
+        try:
+            # Get all keys that match the character pattern
+            keys = self.redis_client.keys("characters:*")
+            
+            for key in keys:
+                # Get character data and convert it to a dictionary
+                character_data = self.redis_client.get(key)
+                if character_data:
+                    character_data = json.loads(character_data)  
+                    if character_data and character_data[field] == value:
+                        matching_characters.append(character_data)  
+            
+            print(f"✅ Found {len(matching_characters)} matching characters for {field} = {value}.")
+        except Exception as e:
+            print(f"❌ Error querying characters: {str(e)}")
+        
+        return matching_characters    
