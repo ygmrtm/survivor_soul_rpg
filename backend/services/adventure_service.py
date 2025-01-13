@@ -1,6 +1,13 @@
-from datetime import date, datetime
+from datetime import  datetime, timedelta
 from backend.services import notion_service
 from backend.services.notion_service import NotionService
+from backend.services.coding_service import CodingService
+from backend.services.bike_service import BikingService
+from backend.services.stencil_service import StencilService
+from backend.services.epics_service import EpicsService
+
+from config import NOTION_DBID_CODIN, NOTION_DBID_BIKES, NOTION_DBID_STENC, NOTION_DBID_EPICS
+
 import random 
 import time
 
@@ -16,11 +23,8 @@ class AdventureService:
     def create_adventure(self, character_id, underworld=False, notion_service=None):
         """Create a new adventure based on specified parameters."""
         notion_service = NotionService() if not notion_service else notion_service
-        
         # Retrieve the character using the character_id
         character = notion_service.get_character_by_id(character_id)
-
-        
         if not character:
             raise ValueError(f"Character with ID {character_id} not found.")
         
@@ -189,13 +193,12 @@ class AdventureService:
             challenge['encounter_log'] = self.encounter_log
             challenge['dlylog'] = dlylog_array
             notion_service.persist_adventure(adventure=challenge, characters=gods_winner)
-
         return challenges
 
     def evaluate_expired_challenges(self,week_number, year_number):
         notion_service = NotionService()
         ### by Week Habits
-        challenges_all = notion_service.get_due_challenges(week_number, year_number, 1 )
+        challenges_all = notion_service.get_due_challenges_by_week(week_number, year_number, 1 )
         due_challenges = [challenge for challenge in challenges_all if challenge['status'] in ('accepted','on going','created','missed')]
         won_challenges = [challenge for challenge in challenges_all if challenge['status'] in ('won')]
         print("{} due challenges found ".format(len(due_challenges)))
@@ -271,6 +274,35 @@ class AdventureService:
                                 , 'status':challenge['status'] 
                                 , 'status_old':prev_status })
         return upd_challenges
+    
+    def evaluate_challenges_due_soon(self, lookforward):
+        notion_service = NotionService()
+        #today_str = datetime.today().strftime('%Y-%m-%d')
+        end_date = datetime.today() + timedelta(days=lookforward)
+        end_date_str = end_date.strftime('%Y-%m-%d')
+        challenges_array = []
+        for dbid in [{"id":NOTION_DBID_CODIN,"notion_char":"c"}
+                    , {"id":NOTION_DBID_BIKES,"notion_char":"b"}
+                    , {"id":NOTION_DBID_STENC,"notion_char":"s"}
+                    , {"id":NOTION_DBID_EPICS,"notion_char":"e"}]:
+            results = notion_service.get_due_soon_challenges(end_date_str, dbid['id'])
+            print(f"🔎 {dbid['notion_char']}:{len(results)} before {end_date}")
+            if dbid['notion_char'] == 'c':
+                coding_service = CodingService()
+                challenges_array.extend(coding_service.translate_coding_tasks(results))
+            elif dbid['notion_char'] == 'b':
+                bike_service = BikingService()
+                challenges_array.extend(bike_service.translate_biking_tasks(results))
+            elif dbid['notion_char'] == 's':
+                stencil_service = StencilService()
+                challenges_array.extend(stencil_service.translate_stencil_tasks(results))
+            elif dbid['notion_char'] == 'e':
+                epics_service = EpicsService()
+                challenges_array.extend(epics_service.translate_epics_tasks(results))
+            else:
+                print(f"❌❌|WTF? {dbid['notion_char']}? as notion_char wrong parameter")
+            break #TODO: quitar esta madre
+        return challenges_array
     
     def execute_adventure(self, adventure_id):
         """Run the logic for executing an adventure."""

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN,NOTION_DBID_DLYLG, CREATED_LOG, CLOSED_LOG, WON_LOG, LOST_LOG, MISSED_LOG
 from config import NOTION_DBID_HABIT, NOTION_DBID_ABILI
 
+
 class NotionService:
     base_url = "https://api.notion.com/v1"
     GOLDEN_RATIO = 1.618033988749895
@@ -499,7 +500,7 @@ class NotionService:
             response.raise_for_status() 
         return None
 
-    def get_due_challenges(self, week_number, year_number, extra_weeks):
+    def get_due_challenges_by_week(self, week_number, year_number, extra_weeks):
         print( week_number, year_number, extra_weeks)
         _, end_date_str = self.start_end_dates(week_number, year_number)
         week_number_back = week_number - extra_weeks
@@ -515,24 +516,9 @@ class NotionService:
         data = {
             "filter": {
                 "and": [
-                    {
-                        "property": "due",
-                        "date": {
-                            "on_or_after": start_date_str
-                        }
-                    },
-                    {
-                        "property": "due",
-                        "date": {
-                            "before": end_date_str
-                        }
-                    },
-                    {
-                        "property": "name",
-                        "rich_text": {
-                        "contains": 'CHALLENGE'
-                        }
-                    }
+                    { "property": "due", "date": { "on_or_after": start_date_str}},
+                    {"property": "due", "date": { "before": end_date_str }},
+                    {"property": "name", "rich_text": { "contains": 'CHALLENGE' }}
                 ]
             }
         }
@@ -540,9 +526,34 @@ class NotionService:
         if response.status_code == 200: 
             return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
         else:
-            print("❌❌","get_due_challenges",response.status_code, response.text)  
+            print("❌❌","get_due_challenges_by_week",response.status_code, response.text)  
             response.raise_for_status() 
         return None
+    
+    def get_due_soon_challenges(self, to_date, notion_dbid):
+        end_date_str = to_date#datetime.strptime(to_date, '%Y-%m-%d')
+        results = []
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{notion_dbid}/query"
+        data = {
+            "filter": {
+                "and": [
+                    {"property": "due", "date": { "on_or_before": end_date_str }}
+                    ,{ "or": [ 
+                        { "property": "status", "status": { "does_not_equal": "Done"} }
+                        ,{ "property": "status", "status": { "does_not_equal": "Archived"} }
+                    ]}
+                ]
+            },
+            "sorts":[{"property": "due", "direction" : "ascending"}]
+        }
+        response = requests.post(url, headers=self.headers, json=data) 
+        if response.status_code == 200: 
+            results = response.json().get("results", [])
+        else:
+            print("❌❌","get_due_soon_challenges",response.status_code, response.text)  
+            response.raise_for_status() 
+        return results
 
     def get_daily_checklist(self, week_number, year_number):
         start_date_str, end_date_str = self.start_end_dates(week_number, year_number)
@@ -827,3 +838,4 @@ class NotionService:
         
         upd_ability = self.update_adventure(ability['id'], datau)   
         return upd_ability                
+

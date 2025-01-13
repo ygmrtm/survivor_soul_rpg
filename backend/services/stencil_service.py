@@ -29,8 +29,8 @@ class StencilService:
         }
         self._cached_characters = None  # Initialize cache
 
-    def translate_stencil_tasks(self, tasks, notion_service=None):
-        notion_service = NotionService() if not notion_service else notion_service        
+    def translate_stencil_tasks(self, tasks):
+        notion_service = NotionService()      
         array_tasks = []
         for task in tasks:
             #print(task)
@@ -63,9 +63,9 @@ class StencilService:
         return array_tasks
 
 
-    def get_by_week(self, week_number, year_number, notion_service=None):
+    def get_by_week(self, week_number, year_number):
         """Get stencil activities for a given week."""
-        notion_service = NotionService() if not notion_service else notion_service
+        notion_service = NotionService() 
         self.start_date_str, self.end_date_str = notion_service.start_end_dates(week_number, year_number)
         print(__class__.__name__, self.start_date_str, self.end_date_str, f"w{week_number:02}")   
         # Prepare the query for Notion API
@@ -84,29 +84,28 @@ class StencilService:
         }
         response = requests.post(url, headers=self.headers, json=data)  
         if response.status_code == 200: 
-            return self.translate_stencil_tasks(response.json().get("results", []), notion_service)
+            return self.translate_stencil_tasks(response.json().get("results", []))
         else:
             print("❌❌ get_by_week",__name__,response.status_code, response.text)  
             response.raise_for_status() 
         return None
     
-    def evaluate_challenges(self, week_number, year_number, notion_service=None):
-        notion_service = NotionService() if not notion_service else notion_service
-        challenges = self.get_by_week(week_number, year_number, notion_service)
+    def evaluate_challenges(self, week_number, year_number):
+        challenges = self.get_by_week(week_number, year_number)
         result = None
         if len(challenges) <= 0:
             print("no stencil challenges found for weeek ", week_number)
             result = {"status": "No stencil challenges found"}
         for challenge in challenges:
-            result = self.evaluate_challenge(challenge, week_number, year_number, notion_service)
+            result = self.evaluate_challenge(challenge, week_number, year_number)
         return result
 
-    def evaluate_challenge(self, challenge, week_number, year_number, notion_service=None):
+    def evaluate_challenge(self, challenge, week_number, year_number):
         #print("✅",challenge)
         characters = []
         abilities = []
         self.execution_log = []
-        notion_service = NotionService() if not notion_service else notion_service
+        notion_service = NotionService() 
         pos_or_neg = 1 if challenge['status'] == 'Done' or challenge['status'] == 'Archived' else -1
         multiplier = pos_or_neg * self.multiplier
         xp = 0
