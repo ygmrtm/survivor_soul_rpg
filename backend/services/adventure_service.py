@@ -1,5 +1,6 @@
 from datetime import  datetime, timedelta
-from backend.services import notion_service
+import json
+from backend.services.redis_service import RedisService
 from backend.services.notion_service import NotionService
 from backend.services.coding_service import CodingService
 from backend.services.bike_service import BikingService
@@ -21,6 +22,7 @@ class AdventureService:
     percentage_habits = 0.5 # for challenges how many habits to pick
     encounter_log = []
     dice_size = 16
+    redis_service = RedisService()
 
     def create_adventure(self, character_id, underworld=False, notion_service=None):
         """Create a new adventure based on specified parameters."""
@@ -303,7 +305,6 @@ class AdventureService:
                 challenges_array.extend(epics_service.translate_epics_tasks(results))
             else:
                 print(f"❌❌|WTF? {dbid['notion_char']}? as notion_char wrong parameter")
-            break #TODO: quitar esta madre
         #reorder based on due property
         reorder_challenge = sorted(challenges_array, key=lambda x: x['due'])
         todoist_service = TodoistService()
@@ -325,19 +326,36 @@ class AdventureService:
                 priority = 2
                 description = f'__{daysoff} Days!__ is close, try to start'
             print(priority, challenge['name'], challenge['due'])
-            due_date = challenge['due'] if challenge['due'] < today_str else today_str
-            tasks.append(todoist_service.add_task(TODOIST_PID_INB, { "content": heading + challenge['name']
-                                                                    , "due_date": due_date
-                                                                    , "priority": priority
-                                                                    , "description": description
-                                                                    , "section_id": None, "labels": None}))
-            if challenge['due'] >= today_str:
-                heading = '__deadline ⌛️__ '
-                tasks.append(todoist_service.add_task(TODOIST_PID_CAL, { "content": heading + challenge['name']
-                                                                        , "due_date": challenge['due']
-                                                                        , "priority": 1
-                                                                        , "description": f'last time checked on __{today_str}__'
-                                                                        , "section_id": None, "labels": None}))
+            cached_key = self.redis_service.get_cache_key('todoist_notification', challenge['id'])
+            cached_notification = self.redis_service.get(cached_key)
+            if not cached_notification:
+                due_date = challenge['due'] if challenge['due'] < today_str else today_str
+                task = todoist_service.add_task(TODOIST_PID_INB, { "content": heading + challenge['name']
+                                                                        , "due_date": due_date
+                                                                        , "priority": priority
+                                                                        , "description": description
+                                                                        , "section_id": None, "labels": None})
+                tasks.append(task)
+                expirity_hours = 24 * (daysoff if challenge['due'] > today_str else 7 )
+                #print("TASK:",task)
+                # Serialize the Task object to a JSON string
+                task_dict_raw = task.__dict__
+                task_dict = {
+                    "is_completed": task_dict_raw['is_completed']
+                    ,"content": task_dict_raw['content']
+                    ,"description": task_dict_raw['description']
+                    ,"id": task_dict_raw['id']
+                    ,"project_id": task_dict_raw['project_id']
+                    ,"url": task_dict_raw['url']
+                }
+                self.redis_service.set_with_expiry(cached_key, {"challenge": challenge, "todoist_task":task_dict}, expirity_hours)
+                if challenge['due'] >= today_str:
+                    heading = '__deadline ⌛️__ '
+                    tasks.append(todoist_service.add_task(TODOIST_PID_CAL, { "content": heading + challenge['name']
+                                                                            , "due_date": challenge['due']
+                                                                            , "priority": 1
+                                                                            , "description": f'last time checked on __{today_str}__'
+                                                                            , "section_id": None, "labels": None}))
         return {'challenges': reorder_challenge, 'tasks_created': tasks}
     
     def execute_adventure(self, adventure_id):

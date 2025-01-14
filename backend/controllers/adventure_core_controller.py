@@ -71,7 +71,7 @@ def evaluate_challenges(week_number, year_number):
     challenges_biking = bike_service.evaluate_challenges(week_number, year_number)
     challenges_stencil = stencil_service.evaluate_challenges(week_number, year_number)
     challenges_epics = epics_service.evaluate_challenges(week_number, year_number)
-    challenges_due_soon = []#adventure_service.evaluate_challenges_due_soon(lookforward=15)
+    challenges_due_soon = adventure_service.evaluate_challenges_due_soon(lookforward=15)
     return jsonify({"consecutivedays": challenges_cons
                     , "habits": challenges_habits
                     , "expired": challenges_expired
