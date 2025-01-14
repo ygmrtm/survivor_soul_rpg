@@ -43,7 +43,7 @@ class BikingService:
                 character = notion_service.get_character_by_id(character_id['id'])
                 whos.append(character)
             for ability_id in task['properties']['abilities']['relation']:
-                ability = notion_service.get_abilities_by_id_or_name(ability_id['id'], '')
+                ability = notion_service.get_ability_by_id(ability_id['id'], '')
                 abilities.append(ability)
             array_tasks.append({ 
                 "id": task['id']

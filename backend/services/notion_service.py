@@ -98,14 +98,14 @@ class NotionService:
     
     def get_character_by_id(self, character_id):
         """Retrieve a character by its ID from the cached characters."""
-        print("👁️‍🗨️ ",character_id)
+        # print("👁️‍🗨️ ",character_id)
         character_id_replaced = character_id.replace('-','')
         character = None
         try:
             cache_key = self.redis_service.get_cache_key('characters', character_id_replaced)
             character = self.redis_service.get(cache_key)
             if character is None:
-                print("👁️‍🗨️ not in cache, going to the source")
+                print(f"👁️‍🗨️ not in cache [{character_id}], going to the source")
                 url = f"{self.base_url}/pages/{character_id}"
                 response = requests.get(url, headers=self.headers)
                 character = self.translate_characters([response.json()] if response.json() else [])[0]
@@ -722,14 +722,8 @@ class NotionService:
         data = {
             "filter": {
                 "and": [
-                    {
-                        "property": "path",
-                        "multi_select": {"contains": "punishment"}
-                    }
-                    ,{
-                        "property": "status",
-                        "status": { "equals": "accepted"}
-                    }
+                    {  "property": "path", "multi_select": {"contains": "punishment"} }
+                    ,{ "property": "status", "status": { "equals": "accepted"} }
                 ]
             }
         }
@@ -745,36 +739,49 @@ class NotionService:
         response = requests.post(url, headers=self.headers)
         if response.status_code != 200:  
             print("❌❌","get_all_habits",response.status_code, response.text) 
-            response.raise_for_status()  # Raise an error for bad responses
-            return []  # Return None if the request was not successful
-
-        max_xp = self.max_xp
-
+            response.raise_for_status()  
         habits = response.json().get("results", [])  
         translated_habits = []
         for habit in habits:
-            habit_level = int(habit['properties']['level']['number'])
-            for i in range(habit_level):
-                max_xp *= self.GOLDEN_RATIO
-            translated_habits.append({
-                "id": habit['id']
-                ,"emoji": habit['icon']['emoji']
-                ,"name": habit['properties']['name']['title'][-1]['plain_text']
-                ,"level": habit_level
-                ,"xp": habit['properties']['xp']['number']
-                ,"max_xp": max_xp
-                ,"coins": habit['properties']['coins']['number']
-                ,"timesXweek": habit['properties']['timesXweek']['number']
-                ,"who": habit['properties']['who']['relation'][0]['id'] if habit['properties']['who']['relation'] else None
-            })
+            translated = self.translate_habit(habit)
+            translated_habits.append(translated)
+            cache_key = self.redis_service.get_cache_key('habits', translated['id'])
+            self.redis_service.set_with_expiry(cache_key, translated, self.expiry_hours)
         return translated_habits
     
-    def get_habits_by_id_or_name(self, habit_id, habit_name):
-        habits = self.get_all_habits()
-        for habit in habits:
-            if habit['id'] == habit_id or habit['name'] == habit_name:
-                return habit
-        return None
+    def translate_habit(self, habit):
+        habit_level = int(habit['properties']['level']['number'])
+        max_xp = self.max_xp
+        for i in range(habit_level):
+            max_xp *= self.GOLDEN_RATIO
+        return {
+            "id": habit['id'].replace('-','')
+            ,"emoji": habit['icon']['emoji']
+            ,"name": habit['properties']['name']['title'][-1]['plain_text']
+            ,"level": habit_level
+            ,"xp": habit['properties']['xp']['number']
+            ,"max_xp": max_xp
+            ,"coins": habit['properties']['coins']['number']
+            ,"timesXweek": habit['properties']['timesXweek']['number']
+            ,"who": habit['properties']['who']['relation'][0]['id'] if habit['properties']['who']['relation'] else None
+        }
+
+    def get_habit_by_id(self, habit_id):
+        habit_id_replaced = habit_id.replace('-','')
+        habit = None
+        try:
+            cache_key = self.redis_service.get_cache_key('habits', habit_id_replaced)
+            habit = self.redis_service.get(cache_key)
+            if habit is None:
+                print(f"🕯️ not in cache [{habit_id}], going to the source")
+                url = f"{self.base_url}/pages/{habit_id}"
+                response = requests.get(url, headers=self.headers)
+                habit = self.translate_habit(response.json() if response.json() else None)
+                self.redis_service.set_with_expiry(cache_key, habit, expiry_hours=self.expiry_hours)
+        except Exception as e:
+            print("Failed to fetch habit:", e)
+            response.raise_for_status() 
+        return habit    
 
     def persist_habit(self, habit):
         habit['level'] += 1 if habit['xp'] >= habit['max_xp'] else 0
@@ -782,6 +789,8 @@ class NotionService:
                                     "xp": {"number": habit['xp']}, 
                                     "coins": {"number": habit['coins']}}}
         upd_habit = self.update_adventure(habit['id'], datau)   
+        cache_key = self.redis_service.get_cache_key('habits', habit['id'])
+        self.redis_service.set_with_expiry(cache_key, habit, expiry_hours=self.expiry_hours)
         return upd_habit  
 
     def get_all_abilities(self):
@@ -789,33 +798,46 @@ class NotionService:
         response = requests.post(url, headers=self.headers)
         if response.status_code != 200:  
             response.raise_for_status()  
-            return []  
-
-        max_xp = self.max_xp
-
         abilities = response.json().get("results", [])  
         translated_abilities = []
         for ability in abilities:
-            ability_level = int(ability['properties']['level']['number'])
-            for i in range(ability_level):
-                max_xp *= self.GOLDEN_RATIO
-            translated_abilities.append({
-                "id": ability['id']
-                ,"name": ability['properties']['name']['title'][-1]['plain_text']
-                ,"level": ability_level
-                ,"xp": ability['properties']['xp']['number']
-                ,"max_xp": max_xp
-                ,"coins": ability['properties']['coins']['number']
-            })
+            translated = self.translate_ability(ability)
+            translated_abilities.append(translated)
+            cache_key = self.redis_service.get_cache_key('abilities', translated['id'])
+            self.redis_service.set_with_expiry(cache_key, translated, self.expiry_hours)
         return translated_abilities
-    
-    def get_abilities_by_id_or_name(self, ability_id, ability_name):
-        abilities = self.get_all_abilities()
-        print("🚸",ability_id, ability_name)
-        for ability in abilities:
-            if ability['id'] == ability_id or ability['name'] == ability_name:
-                return ability
-        return None
+
+    def translate_ability(self, ability):
+        max_xp = self.max_xp
+        ability_level = int(ability['properties']['level']['number'])
+        for i in range(ability_level):
+            max_xp *= self.GOLDEN_RATIO
+        return {
+            "id": ability['id'].replace('-','')
+            ,"name": ability['properties']['name']['title'][-1]['plain_text']
+            ,"level": ability_level
+            ,"xp": ability['properties']['xp']['number']
+            ,"max_xp": max_xp
+            ,"coins": ability['properties']['coins']['number']
+        }
+
+    def get_ability_by_id(self, ability_id):
+        ability_id_replaced = ability_id.replace('-','')
+        ability = None
+        try:
+            cache_key = self.redis_service.get_cache_key('abilities', ability_id_replaced)
+            ability = self.redis_service.get(cache_key)
+            if ability is None:
+                print(f"🪩 not in cache [{ability_id}], going to the source")
+                url = f"{self.base_url}/pages/{ability_id}"
+                response = requests.get(url, headers=self.headers)
+                ability = self.translate_ability(response.json() if response.json() else None)
+                self.redis_service.set_with_expiry(cache_key, ability, expiry_hours=self.expiry_hours)
+        except Exception as e:
+            print("Failed to fetch ability:", e)
+            response.raise_for_status() 
+        return ability    
+
 
     def persist_ability(self, ability):
         ability['level'] += 1 if ability['xp'] >= ability['max_xp'] else 0
@@ -826,4 +848,6 @@ class NotionService:
             datau['properties']['dlylog'] = { "relation": ability['dlylog']  }
         
         upd_ability = self.update_adventure(ability['id'], datau)   
+        cache_key = self.redis_service.get_cache_key('abilities', ability['id'])
+        self.redis_service.set_with_expiry(cache_key, ability, expiry_hours=self.expiry_hours)
         return upd_ability                
