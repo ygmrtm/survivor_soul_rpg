@@ -539,7 +539,7 @@ class NotionService:
             "filter": {
                 "and": [
                     {"property": "due", "date": { "on_or_before": end_date_str }}
-                    ,{ "or": [ 
+                    ,{ "and": [ 
                         { "property": "status", "status": { "does_not_equal": "Done"} }
                         ,{ "property": "status", "status": { "does_not_equal": "Archived"} }
                     ]}

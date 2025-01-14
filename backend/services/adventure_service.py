@@ -5,8 +5,10 @@ from backend.services.coding_service import CodingService
 from backend.services.bike_service import BikingService
 from backend.services.stencil_service import StencilService
 from backend.services.epics_service import EpicsService
+from backend.services.todoist_service import TodoistService
 
 from config import NOTION_DBID_CODIN, NOTION_DBID_BIKES, NOTION_DBID_STENC, NOTION_DBID_EPICS
+from config import TODOIST_PID_INB, TODOIST_PID_CAL
 
 import random 
 import time
@@ -277,7 +279,7 @@ class AdventureService:
     
     def evaluate_challenges_due_soon(self, lookforward):
         notion_service = NotionService()
-        #today_str = datetime.today().strftime('%Y-%m-%d')
+        today_str = datetime.today().strftime('%Y-%m-%d')
         end_date = datetime.today() + timedelta(days=lookforward)
         end_date_str = end_date.strftime('%Y-%m-%d')
         challenges_array = []
@@ -302,7 +304,26 @@ class AdventureService:
             else:
                 print(f"❌❌|WTF? {dbid['notion_char']}? as notion_char wrong parameter")
             break #TODO: quitar esta madre
-        return challenges_array
+        #reorder based on due property
+        reorder_challenge = sorted(challenges_array, key=lambda x: x['due'])
+        todoist_service = TodoistService()
+        for challenge in reorder_challenge:
+            seven_days = datetime.today() + timedelta(days=7)
+            priority = 1 if challenge['due'] <= today_str else (2 if challenge['due'] <= seven_days.strftime('%Y-%m-%d') else 3 )
+            status = challenge['status']
+            # calculate days off from the due date and today
+            daysoff = abs((datetime.strptime(challenge['due'], '%Y-%m-%d') - datetime.strptime(today_str, '%Y-%m-%d')).days)
+            description = f'ya se te pasó por {daysoff} días y aún está en {status}'
+            print(priority, challenge['name'], challenge['due'])
+            todoist_service.add_task(TODOIST_PID_INB, { "content":challenge['name']
+                                                    , "due_date": challenge['due']
+                                                    , "priority": priority
+                                                    , "description": description
+                                                    , "section_id": None
+                                                    , "labels": None})
+
+        return reorder_challenge
+
     
     def execute_adventure(self, adventure_id):
         """Run the logic for executing an adventure."""
