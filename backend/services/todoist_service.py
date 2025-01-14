@@ -86,7 +86,7 @@ class TodoistService:
                                     , due_date=properties['due_date'], priority=properties['priority']
                                     , description=properties['description'], section_id=properties['section_id']
                                     , labels=properties['labels'])
-            print(task)
+            #print(task)
         except Exception as error:
             print(error)
             raise

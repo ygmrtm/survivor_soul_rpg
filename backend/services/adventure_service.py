@@ -288,7 +288,7 @@ class AdventureService:
                     , {"id":NOTION_DBID_STENC,"notion_char":"s"}
                     , {"id":NOTION_DBID_EPICS,"notion_char":"e"}]:
             results = notion_service.get_due_soon_challenges(end_date_str, dbid['id'])
-            print(f"🔎 {dbid['notion_char']}:{len(results)} before {end_date}")
+            print(f"🔎🔎🔎 {dbid['notion_char']}:{len(results)} before {end_date}")
             if dbid['notion_char'] == 'c':
                 coding_service = CodingService()
                 challenges_array.extend(coding_service.translate_coding_tasks(results))
@@ -307,23 +307,37 @@ class AdventureService:
         #reorder based on due property
         reorder_challenge = sorted(challenges_array, key=lambda x: x['due'])
         todoist_service = TodoistService()
+        tasks = []
         for challenge in reorder_challenge:
             seven_days = datetime.today() + timedelta(days=7)
-            priority = 1 if challenge['due'] <= today_str else (2 if challenge['due'] <= seven_days.strftime('%Y-%m-%d') else 3 )
+            priority = 1
+            heading = '*PROXIMAMENTE|*'
             status = challenge['status']
-            # calculate days off from the due date and today
             daysoff = abs((datetime.strptime(challenge['due'], '%Y-%m-%d') - datetime.strptime(today_str, '%Y-%m-%d')).days)
-            description = f'ya se te pasó por {daysoff} días y aún está en {status}'
+            if challenge['due'] < today_str:
+                priority = 4
+                heading = '*VENCIDO|*'
+                description = f'Ya se te pasó por *{daysoff}* días y aún está en _{status}_'
+            elif challenge['due'] <= seven_days.strftime('%Y-%m-%d'):
+                priority = 3
+                description = f'Within *7 Days!* And Be Kind, Rewind!'
+            else:
+                priority = 2
+                description = f'*{daysoff} Days!* is close, try to start'
             print(priority, challenge['name'], challenge['due'])
-            todoist_service.add_task(TODOIST_PID_INB, { "content":challenge['name']
-                                                    , "due_date": challenge['due']
-                                                    , "priority": priority
-                                                    , "description": description
-                                                    , "section_id": None
-                                                    , "labels": None})
-
-        return reorder_challenge
-
+            due_date = challenge['due'] if challenge['due'] < today_str else today_str
+            tasks.append(todoist_service.add_task(TODOIST_PID_INB, { "content": heading + challenge['name']
+                                                                    , "due_date": due_date
+                                                                    , "priority": priority
+                                                                    , "description": description
+                                                                    , "section_id": None, "labels": None}))
+            if challenge['due'] >= today_str:
+                tasks.append(todoist_service.add_task(TODOIST_PID_CAL, { "content": challenge['name']
+                                                                        , "due_date": challenge['due']
+                                                                        , "priority": 1
+                                                                        , "description": f'was *deadlined⌛️* on {today_str}'
+                                                                        , "section_id": None, "labels": None}))
+        return {'challenges': reorder_challenge, 'tasks_created': tasks}
     
     def execute_adventure(self, adventure_id):
         """Run the logic for executing an adventure."""
