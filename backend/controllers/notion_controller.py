@@ -46,3 +46,20 @@ def get_characters_by_deep_level(deep_level, is_npc ):
 def get_all_characters():
     result = notion_service.get_all_raw_characters()
     return jsonify(result)
+
+@notion_bp.route('/habits/<habits_yn>/abilities/<abilities_yn>', methods=['GET'])
+def get_habits_and_abilities(habits_yn, abilities_yn):
+    return_dict = {}
+    if abilities_yn.startswith('y'):
+        abilities = notion_service.get_all_abilities()
+        return_dict['abilities'] = abilities
+        return_dict['abilities_count'] = len(abilities)
+        if len(abilities) > 0:
+            return_dict['ability_cache'] = notion_service.get_ability_by_id(abilities[0]['id'])
+    if habits_yn.startswith('y'):
+        habits = notion_service.get_all_habits()
+        return_dict['habits'] = habits
+        return_dict['habits_count'] = len(habits)
+        if len(habits) > 0:
+            return_dict['habit_cache'] = notion_service.get_habit_by_id(habits[0]['id'])
+    return jsonify(return_dict)

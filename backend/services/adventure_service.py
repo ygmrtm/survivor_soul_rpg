@@ -95,7 +95,7 @@ class AdventureService:
             self.encounter_log = []
             notion_service = NotionService()
             habit_id = challenge['habits'][0]
-            habit = notion_service.get_habits_by_id_or_name(habit_id['id'], None)
+            habit = notion_service.get_habit_by_id(habit_id['id'])
             who = notion_service.get_character_by_id(habit['who'])
             path_array = challenge['path']
             xTimesWeek = next((item for item in path_array if item[0].isdigit() and 1 <= int(item[0]) <= 7), None)
@@ -146,7 +146,7 @@ class AdventureService:
             self.encounter_log = []
             notion_service = NotionService()
             habit_id = challenge['habits'][0]
-            habit = notion_service.get_habits_by_id_or_name(habit_id['id'], None)
+            habit = notion_service.get_habit_by_id(habit_id['id'])
             who = notion_service.get_character_by_id(habit['who'])
             path_array = challenge['path']
             xTimesWeek = next((item for item in path_array if item[0].isdigit() and 1 <= int(item[0]) <= 7), None)
@@ -215,7 +215,7 @@ class AdventureService:
             who = None
             pool_whos = []
             for habit in challenge['habits']:
-                habit_obj = notion_service.get_habits_by_id_or_name(habit['id'], None)
+                habit_obj = notion_service.get_habit_by_id(habit['id'])
                 habit_obj['xp'] += self.add_encounter_log(challenge['xpRwd']*-1,"xp"
                                                 ,"Failed challenge for {}".format(habit_obj['name'] ))
                 habit_obj['xp'] += self.add_encounter_log(days_off*-1,"xp"
@@ -250,7 +250,7 @@ class AdventureService:
             who = None
             pool_whos = []
             for habit in challenge['habits']:
-                habit_obj = notion_service.get_habits_by_id_or_name(habit['id'], None)
+                habit_obj = notion_service.get_habit_by_id(habit['id'])
                 habit_obj['xp'] += self.add_encounter_log(challenge['xpRwd'],"xp"
                                                         ,"Won challenge for {}".format(habit_obj['name'] ))
                 habit_obj['xp'] += self.add_encounter_log(days_alive,"xp"
@@ -668,7 +668,7 @@ class AdventureService:
             character = notion_service.get_character_by_id(adventure['who'])
             character['xp'] += self.add_encounter_log(adventure['xpRwd'], 'xp', '{} has decreased by'.format(character['name']))
             habit_id = adventure['habits'][0]
-            habit = notion_service.get_habits_by_id_or_name(habit_id['id'], None)
+            habit = notion_service.get_habit_by_id(habit_id['id'])
             habit['xp'] += self.add_encounter_log(adventure['xpRwd'], 'xp', '{} has decreased by'.format(habit['name']))
             adventure['status'] = 'lost'
             adventure['encounter_log'] = self.encounter_log
