@@ -311,19 +311,19 @@ class AdventureService:
         for challenge in reorder_challenge:
             seven_days = datetime.today() + timedelta(days=7)
             priority = 1
-            heading = '*PROXIMAMENTE|*'
+            heading = '__PROXIMAMENTE |__ '
             status = challenge['status']
             daysoff = abs((datetime.strptime(challenge['due'], '%Y-%m-%d') - datetime.strptime(today_str, '%Y-%m-%d')).days)
             if challenge['due'] < today_str:
                 priority = 4
-                heading = '*VENCIDO|*'
-                description = f'Ya se te pasó por *{daysoff}* días y aún está en _{status}_'
+                heading = '__VENCIDO |__ '
+                description = f'Ya se te pasó por __{daysoff}__ días y aún está en _{status}_'
             elif challenge['due'] <= seven_days.strftime('%Y-%m-%d'):
                 priority = 3
-                description = f'Within *7 Days!* And Be Kind, Rewind!'
+                description = f'__7 Days!...__ And Be Kind, Rewind!'
             else:
                 priority = 2
-                description = f'*{daysoff} Days!* is close, try to start'
+                description = f'__{daysoff} Days!__ is close, try to start'
             print(priority, challenge['name'], challenge['due'])
             due_date = challenge['due'] if challenge['due'] < today_str else today_str
             tasks.append(todoist_service.add_task(TODOIST_PID_INB, { "content": heading + challenge['name']
@@ -332,10 +332,11 @@ class AdventureService:
                                                                     , "description": description
                                                                     , "section_id": None, "labels": None}))
             if challenge['due'] >= today_str:
-                tasks.append(todoist_service.add_task(TODOIST_PID_CAL, { "content": challenge['name']
+                heading = '__deadline ⌛️__ '
+                tasks.append(todoist_service.add_task(TODOIST_PID_CAL, { "content": heading + challenge['name']
                                                                         , "due_date": challenge['due']
                                                                         , "priority": 1
-                                                                        , "description": f'was *deadlined⌛️* on {today_str}'
+                                                                        , "description": f'last time checked on __{today_str}__'
                                                                         , "section_id": None, "labels": None}))
         return {'challenges': reorder_challenge, 'tasks_created': tasks}
     
