@@ -15,7 +15,8 @@ class NotionService:
     max_sanity = 60    
     max_prop_limit = 20
     lines_per_paragraph = 90
-    expiry_hours = 0.2
+    expiry_hours = 0.4
+    tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
     def __init__(self):
@@ -108,6 +109,7 @@ class NotionService:
                 print("👁️‍🗨️ not in cache, going to the source")
                 url = f"{self.base_url}/pages/{character_id}"
                 response = requests.get(url, headers=self.headers)
+                print(":::",response.json())
                 character = self.translate_characters([response.json()] if response.json() else [])[0]
                 self.redis_service.set_with_expiry(cache_key, character, expiry_hours=self.expiry_hours)
         except Exception as e:
@@ -251,11 +253,15 @@ class NotionService:
         }  
         if 'dlylog' in adventure.keys():
             datau['properties']['dlylog'] = { "relation": adventure['dlylog']  }
-
+        if adventure['who'] is None or adventure['vs'] is None: #for orphans adventures
+            roots = self.get_characters_by_deep_level(deep_level='l0', is_npc=True)
+            root = roots[0] if len(roots[0]) > 0 else None
+            datau['properties']['who'] = { "relation": [{"id": root['id']}] }
+            datau['properties']['vs'] = { "relation": [{"id": root['id']}] }
         upd_adventure = self.update_adventure(adventure['id'], datau)
-        upd_character = None
 
-        # All logic for validating the Character before pushing the changes
+        ''' All logic for validating the Character before pushing the changes '''
+        upd_character = None
         for character in characters if characters else []:
             character['level'] += 1 if character['xp'] >= character['max_xp'] else 0
             character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp']
@@ -271,7 +277,7 @@ class NotionService:
                 character['status'] = 'high'
             else:
                 character['status'] = 'alive'
-            character['xp'] += 2 if character['hp'] <= 0 else 0
+            character['xp'] += 20 if character['hp'] <= 0 else 0
             max_prop_limit = self.max_prop_limit
             for i in range(character['level']):
                 max_prop_limit *= self.GOLDEN_RATIO
@@ -827,3 +833,58 @@ class NotionService:
         
         upd_ability = self.update_adventure(ability['id'], datau)   
         return upd_ability                
+
+    def get_all_open_tournaments(self):
+        end_date = datetime.now() + timedelta(days = self.tour_days_vigencia) 
+        end_date_str = end_date.strftime('%Y-%m-%d')
+        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
+        data = {
+            "filter": {
+                "and": [
+                    { "property": "path", "multi_select": {"contains": "tournament"} }
+                    ,{ "property": "status", "status": { "equals": "created"} }
+                    ,{ "property": "due", "date": { "on_or_before": end_date_str } }                    
+                ]
+            }
+        }
+        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
+        if response.status_code == 200: 
+            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
+        else:
+            print("-->",response.status_code, response.text)  # Debugging: Print the response
+            response.raise_for_status()  # Raise an error for bad responses        
+
+    def create_tournament(self, character_id, xp_reward, coin_reward, title , description):
+        today_date = datetime.now()
+        end_date = today_date + timedelta(days = self.tour_days_vigencia) 
+        data = {
+            "parent": { "database_id": NOTION_DBID_ADVEN },
+            "icon": {
+                "emoji": "🏟️"
+            },
+            "properties": {
+                "name": {
+                    "title": [
+                        {"text": { "content": title }}
+                    ]
+                },
+                "due": { 
+                    "date": { 'start': end_date.strftime('%Y-%m-%d') }
+                },
+                "xpRwd": { "number": xp_reward },
+                "coinRwd": { "number": coin_reward },
+                "desc": { "rich_text": [{"text": {"content": description}}] }, 
+                "who": { "relation": [{"id": character_id}] },
+                "vs": {"relation": [{"id": character_id}]},
+                "resultlog": { "rich_text": CREATED_LOG  },
+                "path": {"multi_select": [{"name": "tournament"}]}
+            }
+        }
+        url = f"{self.base_url}/pages"
+        response = requests.post(url, headers=self.headers, json=data)  
+        if response.status_code == 200: 
+            return self.translate_adventure([response.json()] if response.json() else [])[0]
+        else:
+            print("❌❌","create_tournament",response.status_code, response.text) 
+            response.raise_for_status() 
+            return None 
