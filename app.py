@@ -7,6 +7,7 @@ from backend.controllers.coding_core_controller import coding_bp
 from backend.controllers.stencil_core_controller import stencil_bp
 from backend.controllers.epics_core_controller import epics_bp
 from backend.controllers.bike_core_controller import biking_bp
+from backend.controllers.tournament_controller import tournament_bp
 from backend.utils.error_handling import handle_api_error, APIError
 from backend.utils.logger import setup_logger
 from backend.services.notion_service import NotionService
@@ -30,6 +31,7 @@ def create_app():
     app.register_blueprint(stencil_bp, url_prefix="/api/stencil")
     app.register_blueprint(epics_bp, url_prefix="/api/epics")
     app.register_blueprint(biking_bp, url_prefix="/api/bike")
+    app.register_blueprint(tournament_bp, url_prefix="/api/tournament")
 
     # Error Handling
     app.register_error_handler(APIError, handle_api_error)
