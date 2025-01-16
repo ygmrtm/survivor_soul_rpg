@@ -1,11 +1,11 @@
 import requests
 import random 
-import json
 from flask import jsonify
 from backend.services.redis_service import RedisService
 from datetime import datetime, timedelta
 from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN,NOTION_DBID_DLYLG, CREATED_LOG, CLOSED_LOG, WON_LOG, LOST_LOG, MISSED_LOG
 from config import NOTION_DBID_HABIT, NOTION_DBID_ABILI
+
 
 class NotionService:
     base_url = "https://api.notion.com/v1"
@@ -18,6 +18,14 @@ class NotionService:
     expiry_hours = 0.4
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
+
+    _instance = None
+
+    def __new__(cls):
+        """Override __new__ to implement Singleton pattern."""
+        if cls._instance is None:
+            cls._instance = super(NotionService, cls).__new__(cls)
+        return cls._instance    
 
     def __init__(self):
         """
@@ -32,7 +40,45 @@ class NotionService:
             'Content-Type': 'application/json'
         }
         self.redis_service = RedisService()
+        # print(self.healthcheck())
 
+    def healthcheck(self):
+        """
+        Check the health status of the Notion service.
+        
+        Returns:
+            dict: A dictionary containing the health status information
+                {
+                    'status': str ('healthy' or 'unhealthy'),
+                    'message': str (status message or error details),
+                    'api_connected': bool (True if API is accessible)
+                }
+        """
+        health_status = {
+            'status': 'unhealthy',
+            'message': '',
+            'api_connected': False
+        }
+
+        try:
+            # Test API Connection by fetching the list of databases
+            response = requests.get(f"{self.base_url}/databases/{NOTION_DBID_HABIT}", headers=self.headers)
+            response.raise_for_status()  # Raise an error for bad responses
+            # If we can fetch databases, the API is working
+            health_status['status'] = 'healthy'
+            health_status['api_connected'] = True
+            health_status['message'] = '✅ Notion service is functioning normally'
+        except requests.exceptions.HTTPError as http_err:
+            health_status['message'] = f"❌ HTTP error occurred: {str(http_err)}"
+            if response.status_code == 401:
+                health_status['message'] = "❌ Authentication failed: Invalid API token"
+            elif response.status_code == 404:
+                health_status['message'] = "❌ Notion API endpoint not found"
+        except Exception as e:
+            health_status['message'] = f"❌ Notion service error: {str(e)}"
+
+        return health_status
+    
     def get_all_raw_characters(self):
         # Try to get from cache first
         cache_key = self.redis_service.get_cache_key('characters', 'all')
@@ -99,14 +145,14 @@ class NotionService:
     
     def get_character_by_id(self, character_id):
         """Retrieve a character by its ID from the cached characters."""
-        print("👁️‍🗨️ ",character_id)
+        # print("👁️‍🗨️ ",character_id)
         character_id_replaced = character_id.replace('-','')
         character = None
         try:
             cache_key = self.redis_service.get_cache_key('characters', character_id_replaced)
             character = self.redis_service.get(cache_key)
             if character is None:
-                print("👁️‍🗨️ not in cache, going to the source")
+                print(f"👁️‍🗨️ not in cache [{character_id}], going to the source")
                 url = f"{self.base_url}/pages/{character_id}"
                 response = requests.get(url, headers=self.headers)
                 print(":::",response.json())
@@ -505,7 +551,7 @@ class NotionService:
             response.raise_for_status() 
         return None
 
-    def get_due_challenges(self, week_number, year_number, extra_weeks):
+    def get_due_challenges_by_week(self, week_number, year_number, extra_weeks):
         print( week_number, year_number, extra_weeks)
         _, end_date_str = self.start_end_dates(week_number, year_number)
         week_number_back = week_number - extra_weeks
@@ -521,24 +567,9 @@ class NotionService:
         data = {
             "filter": {
                 "and": [
-                    {
-                        "property": "due",
-                        "date": {
-                            "on_or_after": start_date_str
-                        }
-                    },
-                    {
-                        "property": "due",
-                        "date": {
-                            "before": end_date_str
-                        }
-                    },
-                    {
-                        "property": "name",
-                        "rich_text": {
-                        "contains": 'CHALLENGE'
-                        }
-                    }
+                    { "property": "due", "date": { "on_or_after": start_date_str}},
+                    {"property": "due", "date": { "before": end_date_str }},
+                    {"property": "name", "rich_text": { "contains": 'CHALLENGE' }}
                 ]
             }
         }
@@ -546,12 +577,65 @@ class NotionService:
         if response.status_code == 200: 
             return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
         else:
-            print("❌❌","get_due_challenges",response.status_code, response.text)  
+            print("❌❌","get_due_challenges_by_week",response.status_code, response.text)  
             response.raise_for_status() 
         return None
+    
+    def get_due_soon_challenges(self, to_date, notion_dbid):
+        end_date_str = to_date#datetime.strptime(to_date, '%Y-%m-%d')
+        results = []
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{notion_dbid}/query"
+        data = {
+            "filter": {
+                "and": [
+                    {"property": "due", "date": { "on_or_before": end_date_str }}
+                    ,{ "and": [ 
+                        { "property": "status", "status": { "does_not_equal": "Done"} }
+                        ,{ "property": "status", "status": { "does_not_equal": "Archived"} }
+                    ]}
+                ]
+            },
+            "sorts":[{"property": "due", "direction" : "ascending"}]
+        }
+        response = requests.post(url, headers=self.headers, json=data) 
+        if response.status_code == 200: 
+            results = response.json().get("results", [])
+        else:
+            print("❌❌","get_due_soon_challenges",response.status_code, response.text)  
+            response.raise_for_status() 
+        return results
+    
+    def get_not_planned_yet(self, notion_dbid):
+        results = []
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{notion_dbid}/query"
+        data = {
+            "filter": {
+                "and": [
+                    {"property": "due", "date": { "is_empty": True }}
+                    ,{ "and": [ 
+                        { "property": "status", "status": { "does_not_equal": "Done"} }
+                        ,{ "property": "status", "status": { "does_not_equal": "Archived"} }
+                    ]}
+                ]
+            },
+            "sorts":[{"property": "due", "direction" : "ascending"}]
+        }
+        response = requests.post(url, headers=self.headers, json=data) 
+        if response.status_code == 200: 
+            results = response.json().get("results", [])
+        else:
+            print("❌❌","get_not_planned_yet",response.status_code, response.text)  
+            response.raise_for_status() 
+        return results            
 
-    def get_daily_checklist(self, week_number, year_number):
-        start_date_str, end_date_str = self.start_end_dates(week_number, year_number)
+    def get_daily_checklist(self, week_number, year_number, start_date=None , end_date=None):
+        if not start_date or not end_date:
+            start_date_str, end_date_str = self.start_end_dates(week_number, year_number)
+        else:
+            start_date_str = start_date.strftime('%Y-%m-%d')
+            end_date_str = end_date.strftime('%Y-%m-%d')
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_DLYLG}/query"
         data = {
@@ -728,14 +812,8 @@ class NotionService:
         data = {
             "filter": {
                 "and": [
-                    {
-                        "property": "path",
-                        "multi_select": {"contains": "punishment"}
-                    }
-                    ,{
-                        "property": "status",
-                        "status": { "equals": "accepted"}
-                    }
+                    {  "property": "path", "multi_select": {"contains": "punishment"} }
+                    ,{ "property": "status", "status": { "equals": "accepted"} }
                 ]
             }
         }
@@ -751,36 +829,49 @@ class NotionService:
         response = requests.post(url, headers=self.headers)
         if response.status_code != 200:  
             print("❌❌","get_all_habits",response.status_code, response.text) 
-            response.raise_for_status()  # Raise an error for bad responses
-            return []  # Return None if the request was not successful
-
-        max_xp = self.max_xp
-
+            response.raise_for_status()  
         habits = response.json().get("results", [])  
         translated_habits = []
         for habit in habits:
-            habit_level = int(habit['properties']['level']['number'])
-            for i in range(habit_level):
-                max_xp *= self.GOLDEN_RATIO
-            translated_habits.append({
-                "id": habit['id']
-                ,"emoji": habit['icon']['emoji']
-                ,"name": habit['properties']['name']['title'][-1]['plain_text']
-                ,"level": habit_level
-                ,"xp": habit['properties']['xp']['number']
-                ,"max_xp": max_xp
-                ,"coins": habit['properties']['coins']['number']
-                ,"timesXweek": habit['properties']['timesXweek']['number']
-                ,"who": habit['properties']['who']['relation'][0]['id'] if habit['properties']['who']['relation'] else None
-            })
+            translated = self.translate_habit(habit)
+            translated_habits.append(translated)
+            cache_key = self.redis_service.get_cache_key('habits', translated['id'])
+            self.redis_service.set_with_expiry(cache_key, translated, self.expiry_hours)
         return translated_habits
     
-    def get_habits_by_id_or_name(self, habit_id, habit_name):
-        habits = self.get_all_habits()
-        for habit in habits:
-            if habit['id'] == habit_id or habit['name'] == habit_name:
-                return habit
-        return None
+    def translate_habit(self, habit):
+        habit_level = int(habit['properties']['level']['number'])
+        max_xp = self.max_xp
+        for i in range(habit_level):
+            max_xp *= self.GOLDEN_RATIO
+        return {
+            "id": habit['id'].replace('-','')
+            ,"emoji": habit['icon']['emoji']
+            ,"name": habit['properties']['name']['title'][-1]['plain_text']
+            ,"level": habit_level
+            ,"xp": habit['properties']['xp']['number']
+            ,"max_xp": max_xp
+            ,"coins": habit['properties']['coins']['number']
+            ,"timesXweek": habit['properties']['timesXweek']['number']
+            ,"who": habit['properties']['who']['relation'][0]['id'] if habit['properties']['who']['relation'] else None
+        }
+
+    def get_habit_by_id(self, habit_id):
+        habit_id_replaced = habit_id.replace('-','')
+        habit = None
+        try:
+            cache_key = self.redis_service.get_cache_key('habits', habit_id_replaced)
+            habit = self.redis_service.get(cache_key)
+            if habit is None:
+                print(f"🕯️ not in cache [{habit_id}], going to the source")
+                url = f"{self.base_url}/pages/{habit_id}"
+                response = requests.get(url, headers=self.headers)
+                habit = self.translate_habit(response.json() if response.json() else None)
+                self.redis_service.set_with_expiry(cache_key, habit, expiry_hours=self.expiry_hours)
+        except Exception as e:
+            print("Failed to fetch habit:", e)
+            response.raise_for_status() 
+        return habit    
 
     def persist_habit(self, habit):
         habit['level'] += 1 if habit['xp'] >= habit['max_xp'] else 0
@@ -788,6 +879,8 @@ class NotionService:
                                     "xp": {"number": habit['xp']}, 
                                     "coins": {"number": habit['coins']}}}
         upd_habit = self.update_adventure(habit['id'], datau)   
+        cache_key = self.redis_service.get_cache_key('habits', habit['id'])
+        self.redis_service.set_with_expiry(cache_key, habit, expiry_hours=self.expiry_hours)
         return upd_habit  
 
     def get_all_abilities(self):
@@ -795,33 +888,46 @@ class NotionService:
         response = requests.post(url, headers=self.headers)
         if response.status_code != 200:  
             response.raise_for_status()  
-            return []  
-
-        max_xp = self.max_xp
-
         abilities = response.json().get("results", [])  
         translated_abilities = []
         for ability in abilities:
-            ability_level = int(ability['properties']['level']['number'])
-            for i in range(ability_level):
-                max_xp *= self.GOLDEN_RATIO
-            translated_abilities.append({
-                "id": ability['id']
-                ,"name": ability['properties']['name']['title'][-1]['plain_text']
-                ,"level": ability_level
-                ,"xp": ability['properties']['xp']['number']
-                ,"max_xp": max_xp
-                ,"coins": ability['properties']['coins']['number']
-            })
+            translated = self.translate_ability(ability)
+            translated_abilities.append(translated)
+            cache_key = self.redis_service.get_cache_key('abilities', translated['id'])
+            self.redis_service.set_with_expiry(cache_key, translated, self.expiry_hours)
         return translated_abilities
-    
-    def get_abilities_by_id_or_name(self, ability_id, ability_name):
-        abilities = self.get_all_abilities()
-        print("🚸",ability_id, ability_name)
-        for ability in abilities:
-            if ability['id'] == ability_id or ability['name'] == ability_name:
-                return ability
-        return None
+
+    def translate_ability(self, ability):
+        max_xp = self.max_xp
+        ability_level = int(ability['properties']['level']['number'])
+        for i in range(ability_level):
+            max_xp *= self.GOLDEN_RATIO
+        return {
+            "id": ability['id'].replace('-','')
+            ,"name": ability['properties']['name']['title'][-1]['plain_text']
+            ,"level": ability_level
+            ,"xp": ability['properties']['xp']['number']
+            ,"max_xp": max_xp
+            ,"coins": ability['properties']['coins']['number']
+        }
+
+    def get_ability_by_id(self, ability_id):
+        ability_id_replaced = ability_id.replace('-','')
+        ability = None
+        try:
+            cache_key = self.redis_service.get_cache_key('abilities', ability_id_replaced)
+            ability = self.redis_service.get(cache_key)
+            if ability is None:
+                print(f"🪩 not in cache [{ability_id}], going to the source")
+                url = f"{self.base_url}/pages/{ability_id}"
+                response = requests.get(url, headers=self.headers)
+                ability = self.translate_ability(response.json() if response.json() else None)
+                self.redis_service.set_with_expiry(cache_key, ability, expiry_hours=self.expiry_hours)
+        except Exception as e:
+            print("Failed to fetch ability:", e)
+            response.raise_for_status() 
+        return ability    
+
 
     def persist_ability(self, ability):
         ability['level'] += 1 if ability['xp'] >= ability['max_xp'] else 0
@@ -832,8 +938,10 @@ class NotionService:
             datau['properties']['dlylog'] = { "relation": ability['dlylog']  }
         
         upd_ability = self.update_adventure(ability['id'], datau)   
+        cache_key = self.redis_service.get_cache_key('abilities', ability['id'])
+        self.redis_service.set_with_expiry(cache_key, ability, expiry_hours=self.expiry_hours)
         return upd_ability                
-
+    
     def get_all_open_tournaments(self):
         end_date = datetime.now() + timedelta(days = self.tour_days_vigencia) 
         end_date_str = end_date.strftime('%Y-%m-%d')

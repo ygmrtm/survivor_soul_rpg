@@ -27,6 +27,9 @@ REDIS_SSL = True  # Enable SSL/TLS for Redis Cloud
 
 # Todoist API credentials
 TODOIST_API_KEY = os.getenv('TODOIST_API_KEY')
+TODOIST_PID_INB = os.getenv('TODOIST_PID_INB')
+TODOIST_PID_CAL = os.getenv('TODOIST_PID_CAL')
+
 
 # Flask app settings
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')
