@@ -1,3 +1,4 @@
+from argparse import Action
 import requests
 import random 
 from datetime import date, datetime
@@ -13,6 +14,7 @@ class StencilService:
     execution_log = []
     start_date_str = None
     end_date_str = None
+    notion_service = None
 
 
     def __init__(self):
@@ -28,9 +30,9 @@ class StencilService:
             'Content-Type': 'application/json'
         }
         self._cached_characters = None  # Initialize cache
+        self.notion_service = NotionService()
 
     def translate_stencil_tasks(self, tasks):
-        notion_service = NotionService()      
         array_tasks = []
         for task in tasks:
             #print(task)
@@ -40,10 +42,10 @@ class StencilService:
             for title in task['properties']['name']['title']:
                 names += title['plain_text'] + " "
             for character_id in task['properties']['who']['relation']:
-                character = notion_service.get_character_by_id(character_id['id'])
+                character = self.notion_service.get_character_by_id(character_id['id'])
                 whos.append(character)
             for ability_id in task['properties']['abilities']['relation']:
-                ability = notion_service.get_ability_by_id(ability_id['id'])
+                ability = self.notion_service.get_ability_by_id(ability_id['id'])
                 abilities.append(ability)
             array_tasks.append({ 
                 "id": task['id']
@@ -53,7 +55,7 @@ class StencilService:
                 ,"coinRwd": task['properties']['coinRwd']['number']
                 ,"xpRwd": task['properties']['xpRwd']['number']
                 ,"abilities": abilities
-                ,"due": task['properties']['due']['date']['start']
+                ,"due": task['properties']['due']['date']['start'] if task['properties']['due']['date'] else None
                 ,"assigned": task['properties']['asignee']['people'][0]['id']
                 ,"last_edited_time": str(task['last_edited_time']).split('T')[0] if task['last_edited_time'] else None
                 ,"week_range":{ "start": self.start_date_str, "end": self.end_date_str }
@@ -65,8 +67,7 @@ class StencilService:
 
     def get_by_week(self, week_number, year_number):
         """Get stencil activities for a given week."""
-        notion_service = NotionService() 
-        self.start_date_str, self.end_date_str = notion_service.start_end_dates(week_number, year_number)
+        self.start_date_str, self.end_date_str = self.notion_service.start_end_dates(week_number, year_number)
         print(__class__.__name__, self.start_date_str, self.end_date_str, f"w{week_number:02}")   
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_STENC}/query"
@@ -105,7 +106,6 @@ class StencilService:
         characters = []
         abilities = []
         self.execution_log = []
-        notion_service = NotionService() 
         pos_or_neg = 1 if challenge['status'] == 'Done' or challenge['status'] == 'Archived' else -1
         multiplier = pos_or_neg * self.multiplier
         xp = 0
@@ -134,7 +134,7 @@ class StencilService:
             datau = {"properties": { "coins": {"number": who['coins']} 
                                     , "xp": {"number": who['xp']}  
                                     , "level": {"number": who['level']} } }
-            characters.append(notion_service.update_character(who, datau))
+            characters.append(self.notion_service.update_character(who, datau))
 
         for ability in challenge['abilities']:
             dlylog_array = []
@@ -150,13 +150,13 @@ class StencilService:
                                     + ability['name'] + (" earned " if multiplier > 0 else " lost ") 
                                     + str(multiplier * challenge['coinRwd']) + " coins and " 
                                     + str(xp) + " xp" )
-            daily_checklist = notion_service.get_daily_checklist(week_number, year_number)
+            daily_checklist = self.notion_service.get_daily_checklist(week_number, year_number)
             #print(daily_checklist)
             for dly_card in daily_checklist:
                 if challenge['due'] == dly_card['cuando']:
                     dlylog_array.append({"id":dly_card['id']})
                     self.execution_log.append("📆 linked bcoz due date {}".format(dly_card['cuando']))
-                arr1 = notion_service.dlychcklst_map[ability['name']]
+                arr1 = self.notion_service.dlychcklst_map[ability['name']]
                 arr2 = dly_card['achieved']
                 result = any(elem in arr2 for elem in arr1)
                 if result is True:
@@ -168,6 +168,6 @@ class StencilService:
                 #dlylog_array = list(dict.fromkeys(dlylog_array))
                 ability['dlylog'] = dlylog_array
 
-            abilities.append(notion_service.persist_ability(ability))
-            notion_service.add_blocks(ability['id'], "callout", notion_service.translate_execution_log(self.execution_log))
+            abilities.append(self.notion_service.persist_ability(ability))
+            self.notion_service.add_blocks(ability['id'], "callout", self.otion_service.translate_execution_log(self.execution_log))
         return {"status":challenge['status'],"characters": characters, "abilities": abilities}

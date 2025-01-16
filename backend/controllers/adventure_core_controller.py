@@ -60,6 +60,11 @@ def evaluate_challenges_due_soon(lookforward):
     result = adventure_service.evaluate_challenges_due_soon(lookforward=lookforward)
     return jsonify(result)
 
+@adventure_bp.route('/challenges/not_planned_yet', methods=['POST'])
+def evaluate_not_planned_yet():
+    result = adventure_service.evaluate_not_planned_yet()
+    return jsonify(result)
+
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/evaluate', methods=['POST'])
 def evaluate_challenges(week_number, year_number):
     # Call the service to create challenges for the specified week

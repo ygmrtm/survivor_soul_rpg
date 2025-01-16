@@ -3,20 +3,31 @@ from config import TODOIST_API_KEY
 
 class TodoistService:
     base_url = "https://api.todoist.com/rest/v2"
-
-    def __init__(self):
-        self.headers = {
-            "Authorization": f"Bearer {TODOIST_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        self._api = None  # Initialize _api to None
-
+    _instance = None  # Class variable to hold the single instance
     @property
     def api(self):
         """Lazy loading of Todoist API client."""
         if self._api is None:
             self._api = TodoistAPI(TODOIST_API_KEY)  # Initialize _api here
         return self._api
+    
+
+    def __new__(cls, *args, **kwargs):
+        """Override __new__ to implement Singleton pattern."""
+        if cls._instance is None:
+            cls._instance = super(TodoistService, cls).__new__(cls)
+        return cls._instance
+
+    def __init__(self):
+        """Initialize the Todoist service."""
+        if not hasattr(self, 'initialized'):  # Check if already initialized
+            self.headers = {
+                "Authorization": f"Bearer {TODOIST_API_KEY}",
+                "Content-Type": "application/json"
+            }
+            self._api = None  # Initialize _api to None
+            self.initialized = True  # Mark as initialized
+            print(self.healthcheck())
 
     def healthcheck(self):
         """
@@ -33,7 +44,7 @@ class TodoistService:
         """
         health_status = {
             'status': 'unhealthy',
-            'message': '',
+            'message': '❌',
             'api_connected': False,
             'projects_accessible': False
         }
@@ -46,19 +57,19 @@ class TodoistService:
             health_status['api_connected'] = True
             health_status['projects_accessible'] = True
             health_status['status'] = 'healthy'
-            health_status['message'] = 'Todoist service is functioning normally'
+            health_status['message'] = '✅ Todoist service is functioning normally'
             
             # Additional connection info
             health_status['project_count'] = len(projects)
             
         except Exception as e:
-            health_status['message'] = f"Todoist service error: {str(e)}"
+            health_status['message'] = f"❌ Todoist service error: {str(e)}"
             
             # Try to provide more specific error information
             if "Unauthorized" in str(e):
-                health_status['message'] = "Authentication failed: Invalid API token"
+                health_status['message'] = "❌ Authentication failed: Invalid API token"
             elif "Connection" in str(e):
-                health_status['message'] = "Could not connect to Todoist API: Connection error"
+                health_status['message'] = "❌ Could not connect to Todoist API: Connection error"
             
         return health_status
 
