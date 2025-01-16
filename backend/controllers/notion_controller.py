@@ -1,4 +1,5 @@
 from flask import Blueprint, jsonify
+from datetime import datetime, timedelta
 from backend.services.notion_service import NotionService
 from backend.services.redis_service import RedisService
 
@@ -27,6 +28,9 @@ def flush_redis_cache():
 @notion_bp.route('/dlychcklst/week/<int:week_number>/<int:year_number>', methods=['GET'])
 def get_daily_checklist(week_number, year_number):
     result = notion_service.get_daily_checklist(week_number, year_number)
+    today_date = datetime.now()
+    start_date = today_date + timedelta(days=-30) 
+    # result = notion_service.get_daily_checklist(week_number, year_number, start_date=start_date, end_date=today_date)
     return jsonify(result)
 
 @notion_bp.route('/characters/<id>', methods=['PUT'])

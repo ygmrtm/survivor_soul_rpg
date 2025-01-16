@@ -1,6 +1,5 @@
 import requests
 import random 
-import json
 from flask import jsonify
 from backend.services.redis_service import RedisService
 from datetime import datetime, timedelta
@@ -544,8 +543,12 @@ class NotionService:
             response.raise_for_status() 
         return None
 
-    def get_daily_checklist(self, week_number, year_number):
-        start_date_str, end_date_str = self.start_end_dates(week_number, year_number)
+    def get_daily_checklist(self, week_number, year_number, start_date=None , end_date=None):
+        if not start_date or not end_date:
+            start_date_str, end_date_str = self.start_end_dates(week_number, year_number)
+        else:
+            start_date_str = start_date.strftime('%Y-%m-%d')
+            end_date_str = end_date.strftime('%Y-%m-%d')
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_DLYLG}/query"
         data = {

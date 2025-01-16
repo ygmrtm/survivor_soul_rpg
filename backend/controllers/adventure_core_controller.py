@@ -61,6 +61,7 @@ def evaluate_challenges(week_number, year_number):
     challenges_cons = adventure_service.evaluate_consecutivedays_challenges(week_number, year_number)
     challenges_habits = adventure_service.evaluate_weekhabits_challenges(week_number, year_number)
     challenges_expired = adventure_service.evaluate_expired_challenges(week_number, year_number)
+    ## TODO: Implement logic for Best Strikes per Habit
     # Call Specify Ability Challenges
     challenges_coding = coding_service.evaluate_challenges(week_number, year_number)
     challenges_biking = bike_service.evaluate_challenges(week_number, year_number)
