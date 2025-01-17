@@ -8,7 +8,7 @@ from backend.services.stencil_service import StencilService
 from backend.services.epics_service import EpicsService
 from backend.services.todoist_service import TodoistService
 
-from config import NOTION_DBID_CODIN, NOTION_DBID_BIKES, NOTION_DBID_STENC, NOTION_DBID_EPICS
+from config import NOTION_DBID_CODIN, NOTION_DBID_BIKES, NOTION_DBID_STENC, NOTION_DBID_EPICS, NOTION_PGID_HABIT
 from config import TODOIST_PID_INB, TODOIST_PID_CAL
 
 import random 
@@ -22,6 +22,7 @@ class AdventureService:
     percentage_habits = 0.5 # for challenges how many habits to pick
     encounter_log = []
     dice_size = 16
+    expiry_hours = 0.4    
     redis_service = RedisService()
     todoist_service = TodoistService()
     notion_service = NotionService()
@@ -395,8 +396,61 @@ class AdventureService:
                         ,"url": task_dict_raw['url']
                     }
                     self.redis_service.set_with_expiry(cached_key, {"challenge": challenge, "todoist_task":task_dict}, 24 * 7)
-
         return {'total_tasks': len(tasks), 'tasks_created': tasks}
+
+    def evaluate_habit_longest_streak(self, last_days = 6, create_challenge = False):
+        tasks = []
+        output = {}
+        today_str = datetime.today().strftime('%Y-%m-%d')
+        key_str = f"habits:longeststreak:{last_days}days"
+        habit_dummy = self.redis_service.get(self.redis_service.get_cache_key(key_str,'prsnl'))
+        start_date_loopback = datetime.today() - timedelta(days=last_days)
+        if not habit_dummy:
+            for card in self.notion_service.get_daily_checklist(1, 1, start_date_loopback, datetime.today()):
+                keys = list(card.keys())
+                keys.remove('achieved')
+                keys.remove('id')
+                keys.remove('meals')
+                keys.remove('cuando')
+                for habit in keys:
+                    if habit not in output.keys():
+                        output[habit] = {'consecutive': 0, 'max_consecutive': 0, 'last_date':card['cuando']}
+                    consecutive_ = 0 if card[habit] is False else output[habit]['consecutive'] + 1
+                    cuando_ = card['cuando'] if output[habit]['max_consecutive'] <= consecutive_ else output[habit]['last_date']
+                    output[habit] = {'consecutive': consecutive_
+                                    ,'max_consecutive':max(output[habit]['max_consecutive'], consecutive_ )
+                                    ,'last_date' : cuando_ }
+            for key in keys:
+                cached_key = self.redis_service.get_cache_key('todoist_notification:' + key_str, key )
+                cached_notification = self.redis_service.get(cached_key)
+                if not cached_notification:
+                    max_days = output[key]['max_consecutive']
+                    days_since_last_date = (datetime.today() - datetime.strptime(output[key]['last_date'], '%Y-%m-%d')).days
+                    output[key]['days_since_last_date'] = days_since_last_date
+                    next_suggested_streak = round(output[key]['max_consecutive'] * self.GOLDEN_RATIO)
+                    output[key]['next_suggested_streak'] = next_suggested_streak
+                    content = f"__{key.upper()}__| longest:_{max_days} days_| nextSuggested:_{next_suggested_streak} days_"
+                    description =  f"daysSince:_{days_since_last_date} days_ | last time checked on __{today_str}__"
+                    task = self.todoist_service.add_task(TODOIST_PID_INB, { "content": content
+                                                                            , "due_date":  output[key]['last_date']
+                                                                            , "priority": 1
+                                                                            , "description": description
+                                                                            , "section_id": None, "labels": [f"notion:{key}"]})
+                    tasks.append(task)
+                    task_dict_raw = task.__dict__
+                    task_dict = {
+                        "is_completed": task_dict_raw['is_completed']
+                        ,"content": task_dict_raw['content']
+                        ,"description": task_dict_raw['description']
+                        ,"id": task_dict_raw['id']
+                        ,"project_id": task_dict_raw['project_id']
+                        ,"url": task_dict_raw['url']
+                    }
+                    self.redis_service.set_with_expiry(cached_key, {"counts": output[key], "todoist_task":task_dict}, 24 * 7)
+                    if create_challenge is True:
+                        print(f"") #TODO : implement this based on self.notion_service.create_challenge
+                self.redis_service.set_with_expiry(self.redis_service.get_cache_key(key_str,key), {"counts": output[key]}, self.expiry_hours)
+        return {'total_tasks': len(tasks), 'tasks_created': tasks, 'output': output}
 
 
     def execute_adventure(self, adventure_id):

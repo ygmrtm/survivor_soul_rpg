@@ -19,8 +19,8 @@ def countdeadpeople():
 
 @notion_bp.route('/flushredis', methods=['POST'])
 def flush_redis_cache():
-    characters_del = redis_service.flush_keys_by_pattern('characters:*')
-    indicators_del = redis_service.flush_keys_by_pattern('loaded_characters_*:*')
+    characters_del = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('characters','*'))
+    indicators_del = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('loaded_characters_*','*'))
     return jsonify({"message": "Redis cache flushed successfully"
                     ,"characters:*": characters_del
                     ,"loaded_characters_*:*": indicators_del}), 200

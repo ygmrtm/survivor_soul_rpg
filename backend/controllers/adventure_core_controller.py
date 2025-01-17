@@ -65,13 +65,18 @@ def evaluate_not_planned_yet():
     result = adventure_service.evaluate_not_planned_yet()
     return jsonify(result)
 
+@adventure_bp.route('/challenges/habit_longest_streak', methods=['POST'])
+def evaluate_habit_longest_streak():
+    result = adventure_service.evaluate_habit_longest_streak()
+    return jsonify(result)
+
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/evaluate', methods=['POST'])
 def evaluate_challenges(week_number, year_number):
     # Call the service to create challenges for the specified week
     challenges_cons = adventure_service.evaluate_consecutivedays_challenges(week_number, year_number)
     challenges_habits = adventure_service.evaluate_weekhabits_challenges(week_number, year_number)
     challenges_expired = adventure_service.evaluate_expired_challenges(week_number, year_number)
-    ## TODO: Implement logic for Best Strikes per Habit
+    habit_longest_streak = adventure_service.evaluate_habit_longest_streak(last_days=365)
     # Call Specify Ability Challenges
     challenges_coding = coding_service.evaluate_challenges(week_number, year_number)
     challenges_biking = bike_service.evaluate_challenges(week_number, year_number)
@@ -80,6 +85,7 @@ def evaluate_challenges(week_number, year_number):
     challenges_due_soon = adventure_service.evaluate_challenges_due_soon(lookforward=15)
     return jsonify({"consecutivedays": challenges_cons
                     , "habits": challenges_habits
+                    , "habit_longest_streak":habit_longest_streak
                     , "expired": challenges_expired
                     , "coding": challenges_coding
                     , "biking": challenges_biking

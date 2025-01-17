@@ -7,6 +7,7 @@ today_date = datetime.now()
 # Notion API credentials
 NOTION_API_KEY = os.getenv('NOTION_API_KEY')
 NOTION_DBID_CHARS = os.getenv('NOTION_DBID_CHARS')
+NOTION_PGID_HABIT = os.getenv('NOTION_PGID_HABIT')
 NOTION_DBID_HABIT = os.getenv('NOTION_DBID_HABIT')
 NOTION_DBID_ABILI = os.getenv('NOTION_DBID_ABILI')
 NOTION_DBID_DLYLG = os.getenv('NOTION_DBID_DLYLG')

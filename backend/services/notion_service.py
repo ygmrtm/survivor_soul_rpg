@@ -155,7 +155,7 @@ class NotionService:
                 print(f"👁️‍🗨️ not in cache [{character_id}], going to the source")
                 url = f"{self.base_url}/pages/{character_id}"
                 response = requests.get(url, headers=self.headers)
-                print(":::",response.json())
+                #print(":::",response.json())
                 character = self.translate_characters([response.json()] if response.json() else [])[0]
                 self.redis_service.set_with_expiry(cache_key, character, expiry_hours=self.expiry_hours)
         except Exception as e:
@@ -683,6 +683,7 @@ class NotionService:
                     ,"cook" : habit_daily_card['properties']['🍚']['checkbox']
                     ,"bed" : habit_daily_card['properties']['🛏️']['checkbox']
                     ,"meals" : habit_daily_card['properties']['🥣']['number']
+                    ,"mealsb" : habit_daily_card['properties']['🥣']['number'] == 3
                     ,"bike" : habit_daily_card['properties']['🚲']['checkbox']
                     ,"teeth" : habit_daily_card['properties']['🦷']['checkbox']
                     ,"outdoors" : habit_daily_card['properties']['🏜️']['checkbox']
