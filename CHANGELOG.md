@@ -191,3 +191,29 @@ Update CHANGELOG for version 1.0.9
 Merge fa087d45b486cc3444c62a8a86f78fdb63cb6c68 into 539912a9459e30c23cc0a336ab4751d80f8db9c2
 ---
 
+## [1.1.11] - 2025-01-11
+Merge 0b349afceb64821d6ff62daf6ed0949812bfabaf into 378d165bc09874bc62cc0873d8986590b9c425fe
+
+Caching Characters release
+
+- [x]  **enhance:** *Caching* Characters by key
+    - [x]  Integration with redis
+    - [x]  by DeepLevel
+    - [x]  By ID
+    - [x]  feat: Flush Cache
+
+**enhance:** *Caching* Characters by key
+
+- [x]  **enhance:** *Caching* Characters by key
+    - [x]  Integration with redis
+    - [x]  by DeepLevel
+    - [x]  By ID
+
+Integration with redis first draft
+
+- [ ]  **enhance:** *Caching* Characters by key
+    - [x]  Integration with redis
+
+Update CHANGELOG for version 1.0.10
+---
+
