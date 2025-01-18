@@ -180,12 +180,17 @@ class NotionService:
             are_cached_chars = self.redis_service.exists(self.redis_service.get_cache_key('loaded_characters_level' 
                                                                                 , f"{deep_level}{npc}npc"))
             if are_cached_chars:
-                print(f"Using cached characters for deep level {deep_level}")
-                characters_by_level = self.redis_service.query_characters('deep_level', deep_level)
-                # filter characters based on is_npc
-                for character in characters_by_level:
-                    if character['npc'] == is_npc:
-                        characters.append(character)
+                characters = self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level:completerray',f"{deep_level}"))
+                if not characters:
+                    characters = []
+                    print(f"Using cached characters for deep level {deep_level}")
+                    characters_by_level = self.redis_service.query_characters('deep_level', deep_level)
+                    # filter characters based on is_npc
+                    for character in characters_by_level:
+                        if character['npc'] == is_npc:
+                            characters.append(character)
+                else:
+                    print(f"Using complete cached array for deep level {deep_level}")
             else:    
                 data_filter = {
                     "filter": {
@@ -210,13 +215,14 @@ class NotionService:
                     start_cursor = data.get("next_cursor")  
                     print(f"Fetched {len(data.get('results', []))} characters, total so far: {len(characters)}")
                 # Cache the characters if needed
-                self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level'
-                                                                                    , f"{deep_level}{npc}npc")
+                self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level', f"{deep_level}{npc}npc")
                                                 , data_filter, self.expiry_hours)
                 for character in characters:
                     cache_key = self.redis_service.get_cache_key('characters', character['id'])
                     if not self.redis_service.exists(cache_key):
                         self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
+            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:completerray',f"{deep_level}")
+                                            , characters, self.expiry_hours)
         except Exception as e:
             print(f"Failed to fetch characters by deep level {deep_level}: {e}")
             response.raise_for_status()  # Raise an error for bad responses
@@ -236,6 +242,7 @@ class NotionService:
                     max_xp *= self.GOLDEN_RATIO
                     max_hp *= self.GOLDEN_RATIO
                     max_sanity *= self.GOLDEN_RATIO
+                description = f"{character['properties']['name']['title'][-1]['plain_text']} | L{character['properties']['level']['number']} | X{character['properties']['xp']['number']} | 🫀{character['properties']['hp']['number']} | 🧠{character['properties']['sanity']['number']}"
                 return_characters.append({ 
                 "id": character['id'].replace('-','')
                 ,"name": character['properties']['name']['title'][-1]['plain_text']
@@ -259,6 +266,7 @@ class NotionService:
                 ,"respawn": character['properties']['respawn']['number'] if character['properties']['respawn']['number'] else 0
                 ,"pending_reborn": character['properties']['pendingToReborn']['formula']['string']
                 ,"hours_recovered": character['properties']['hours_recovered']['formula']['number']
+                ,"description": description
                 })
             return return_characters
         except Exception as e:
@@ -271,8 +279,8 @@ class NotionService:
         url = f"{self.base_url}/pages/{character_id}"
         response = requests.patch(url, headers=self.headers, json=updates)
         if response.status_code == 200:  # Check if the request was successful
-            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('characters',character_id)
-                                                , character, self.expiry_hours)
+            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('characters',character_id), character, self.expiry_hours)
+            self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:completerray',character['deep_level']))
             return response.json()
         else:
             print("❌❌","update_character",response.status_code, response.text) 
@@ -300,10 +308,17 @@ class NotionService:
         if 'dlylog' in adventure.keys():
             datau['properties']['dlylog'] = { "relation": adventure['dlylog']  }
         if adventure['who'] is None or adventure['vs'] is None: #for orphans adventures
-            roots = self.get_characters_by_deep_level(deep_level='l0', is_npc=True)
-            root = roots[0] if len(roots[0]) > 0 else None
+            rest_of_chars = []
+            root = None
+            if len(characters) > 0:
+                root = characters[0]
+                rest_of_chars = characters[-(len(characters)-1):] 
+            else:
+                roots = self.get_characters_by_deep_level(deep_level='l0', is_npc=True)
+                root = roots[0] if len(roots[0]) > 0 else None
+                rest_of_chars = [root]
             datau['properties']['who'] = { "relation": [{"id": root['id']}] }
-            datau['properties']['vs'] = { "relation": [{"id": root['id']}] }
+            datau['properties']['vs'] = { "relation": [{"id": c['id']} for c in rest_of_chars] }
         upd_adventure = self.update_adventure(adventure['id'], datau)
 
         ''' All logic for validating the Character before pushing the changes '''

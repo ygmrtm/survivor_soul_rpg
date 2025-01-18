@@ -72,28 +72,34 @@ class TournamentService:
     def evaluate_all_tournaments(self, full_hp=True):
         try:
             tournaments = self.get_all_open_tournaments()
-            l3_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)        
-            l3_characters += self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False)        
             for tournament in tournaments:
+                l3_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)        
+                l3_characters += self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False)        
                 self.encounter_log = []
                 whos = []
                 print(f"🏟️ {tournament['name']} | {tournament['desc']}")
                 if 'l.c.s.' in tournament['path']:
                     whos = self.last_cryptid_stand(l3_characters=l3_characters, full_hp=full_hp)
-                    tournament['status'] = 'won'
-                    tournament['encounter_log'] = self.encounter_log
-                    tournament['top_5'] = whos
                 elif 'g.v.c.' in tournament['path']:
-                    l2_characters = self.notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
-                    #TODO: implement torunament with gods
+                    l2_gods = self.notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
+                    alive_cryptids = self.redis_service.query_characters('status','alive')
+                    l3_cryptids = [c for c in alive_cryptids if c['deep_level'] == 'l3' ]
+                    whos = self.gods_v_cryptids(gods=l2_gods, cryptids=l3_cryptids, full_hp=full_hp)
+                else:
+                    raise ValueError("Invalid tournament path")
+                tournament['who'] = None #Forcing to take the Who from Characters Array / Or Root
+                tournament['status'] = 'won'
+                tournament['encounter_log'] = self.encounter_log
+                tournament['top_5'] = whos
                 hours = abs(datetime.datetime.now() - datetime.datetime.fromisoformat(tournament['due'])).total_seconds() / 3600
                 self.notion_service.persist_adventure(adventure=tournament, characters=whos)
                 self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id'])
                                                                         ,tournament, expiry_hours=hours)
+            remainOpen = len(self.get_all_open_tournaments())
+            return {"tournaments":tournaments, "still_not_executed":remainOpen }
         except Exception as e:
             print(f"Failed to fetch evaluate_all_tournaments ::: {e}")
             raise     
-        return tournament 
 
     def last_cryptid_stand(self, l3_characters, full_hp ):
         cemetery = []
@@ -122,6 +128,43 @@ class TournamentService:
         # get the last 4 elements of cemetery + lead = TOP 5 characters
         return [charLead] + (cemetery[-4:] if len(cemetery) >= 4 else cemetery)
 
+    def gods_v_cryptids(self, gods=[], cryptids=[], full_hp=False):
+        cemetery = { 'gods':[], 'cryptids':[]}
+        fights = 0
+        god = None
+        cry = None
+        alive_criptids = [c for c in cryptids if c['status'] == 'alive']
+        if full_hp is True:
+            alive_criptids = [c for c in alive_criptids if c['hp'] >= c['max_hp']]
+        random.shuffle(alive_criptids)
+        random.shuffle(gods)
+        #print("🔔 Duplicates:",self.check_for_duplicates(alive_criptids),len(alive_criptids))
+        #print("🚨 Duplicates:",self.check_for_duplicates(gods),len(gods))
+        self.add_encounter_log(max(len(gods), len(alive_criptids)), 'fights', f"Gods:{len(gods)} v Cryptids:{len(alive_criptids)} alive {full_hp}")
+        while len(gods) > 0 and len(alive_criptids) > 0 :
+            fights += 1
+            god = gods.pop(0)
+            cry = alive_criptids.pop(0)
+            winner, looser, god_or_cry = self.fight_gods(god, cry)
+            self.add_encounter_log(fights, '#fight#', f"[{winner['description']}] vs [{looser['description']}]")
+            if god_or_cry == 'g':
+                gods.append(god)
+                cemetery['cryptids'].append(looser)
+            else:
+                alive_criptids.append(cry)
+                cemetery['gods'].append(looser)
+        self.add_encounter_log(fights, '+total', f'Tournament fights')
+        self.add_encounter_log(fights, '+winner', winner['description'])
+        print(f"🪦🚨 size {len(cemetery['gods'])} | {len(gods)} left alive")
+        #for cem in cemetery['gods']:
+        #    print(f"🪦🚨 {cem['name']} hp:{cem['hp']}")
+        print(f"🪦🔔 size {len(cemetery['cryptids'])} | {len(alive_criptids)} left alive")
+        #for cem in cemetery['cryptids']:
+        #    print(f"🪦🔔 {cem['name']} hp:{cem['hp']}")
+        return [winner] \
+            + (cemetery['cryptids'][-2:] if len(cemetery['cryptids'][-2:]) >= 2 else cemetery['cryptids']) \
+            + (cemetery['gods'][-2:] if len(cemetery['gods'][-2:]) >= 2 else cemetery['gods']) 
+    
     def check_for_duplicates(self, characters):
         duplicates = []
         for i in range(len(characters)):
@@ -129,6 +172,48 @@ class TournamentService:
                 if characters[i]['name'] == characters[j]['name']:
                     duplicates.append(characters[i])
         return duplicates
+    
+    def fight_gods(self, god, cryptid):
+        # print("😇'⚔️🗺️",god['name'], cryptid['name'])
+        character_level = max(god['level'], cryptid['level'] )
+        god['hp'] = abs(god['hp']) # handle death gods
+        max_xprwd = self.max_xprwd
+        for i in range(character_level):
+            max_xprwd *= self.GOLDEN_RATIO
+        xp_reward = random.randint(1, max_xprwd)
+        rounds = 0
+        while god['hp'] > 0 and cryptid['hp'] > 0:
+            rounds += 1
+            damage = 0
+            # Gods attack
+            m_godpts = god['magic'] + random.randint(1, self.dice_size)
+            m_cryptidpts = cryptid['magic'] + random.randint(1, self.dice_size)
+            p_godpts = god['attack'] + random.randint(1, self.dice_size)
+            p_cryptidpts = cryptid['defense'] + random.randint(1, self.dice_size)
+            damage = (p_godpts - p_cryptidpts) + (m_godpts - m_cryptidpts)
+            if random.randint(0, 2) % 3 != 0 : #aimed attack
+                cryptid['hp'] -= damage if damage > 0 else 0
+            # Cryptid attack
+            m_cryptidpts = cryptid['magic'] + random.randint(1, self.dice_size) 
+            m_godpts = god['magic'] + random.randint(1, self.dice_size)
+            p_cryptidpts = cryptid['attack'] + random.randint(1, self.dice_size) 
+            p_godpts = god['defense'] + random.randint(1, self.dice_size)
+            damage = (m_cryptidpts - m_godpts) + (p_cryptidpts - p_godpts)
+            if random.randint(0, 2) % 3 != 0 : #aimed attack
+                god['hp'] -= damage if damage > 0 else 0
+        winner = cryptid if cryptid['hp'] > 0 else god
+        looser = cryptid if cryptid['hp'] <= 0 else god
+        rounds_rwd = xp_reward if rounds > xp_reward else rounds
+        looser['xp'] += (rounds_rwd + xp_reward)
+        looser['description'] = f"{looser['name']} | L{looser['level']} | X{looser['xp']} | 🫀{looser['hp']} | 🧠{looser['sanity']}"
+        #self.add_encounter_log(points=rounds_rwd, type="xp" , why=f"{winner['name']} defeated {looser['name']} in {rounds} rounds")
+        winner['xp'] += (rounds_rwd + xp_reward)
+        winner['description'] = f"{winner['name']} | L{winner['level']} | X{winner['xp']} | 🫀{winner['hp']} | 🧠{winner['sanity']}"
+        winner['hp'] = winner['max_hp'] # semilla del ermitaño
+        god['hp'] = (god['hp']*-1) if god['hp'] > 0 and god['status'] == 'dead' else god['hp'] # handle death gods
+        #print(f"w-> {winner['name']} xp:{winner['xp']} hp:{winner['hp']}")
+        #print(f"l-> {looser['name']} xp:{looser['xp']} hp:{looser['hp']}")
+        return winner, looser, 'c' if cryptid['hp'] > 0 else 'g'
     
     def fight(self, who, enemy):
         character_level = who['level']
@@ -160,9 +245,10 @@ class TournamentService:
         looser = who if who['hp'] < 0 else enemy
         rounds_rwd = xp_reward if rounds > xp_reward else rounds
         looser['xp'] += (rounds_rwd + xp_reward)
-        winner['xp'] += self.add_encounter_log(points=rounds_rwd, type="xp"
-                                        , why=f"{winner['name']} defeated {looser['name']} in {rounds} rounds")
-        winner['xp'] += xp_reward
+        looser['description'] = f"{looser['name']} | L{looser['level']} | X{looser['xp']} | 🫀{looser['hp']} | 🧠{looser['sanity']}"
+        #self.add_encounter_log(points=rounds_rwd, type="xp", why=f"{winner['name']} defeated {looser['name']} in {rounds} rounds")
+        winner['xp'] += (rounds_rwd + xp_reward)
+        winner['description'] = f"{winner['name']} | L{winner['level']} | X{winner['xp']} | 🫀{winner['hp']} | 🧠{winner['sanity']}"
         #print(f"-> {winner['name']} xp:{winner['xp']} hp:{winner['hp']}")
         return winner, looser 
     

@@ -12,7 +12,7 @@ def get_by_id(tournament_id):
 @tournament_bp.route('/all', methods=['GET'])
 def get_all_open_tournaments():
     result = tournament_service.get_all_open_tournaments()
-    return jsonify(result)
+    return jsonify({'open_tournaments':result, 'pending_tournaments': len(result)})
 
 @tournament_bp.route('/evaluate/all', methods=['GET'])
 def evaluate_all_tournaments():
