@@ -752,13 +752,16 @@ class AdventureService:
             l3_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False) 
             l3_characters += self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
         filtered_characters = [c for c in l3_characters if c['status'] == 'rest' or c['status'] == 'dying']
+        gods = self.notion_service.get_characters_by_deep_level('l2', is_npc=True)
+        add_characters = [ char for char in gods if (len(char['alter_subego']) > 0 and char['status'] == 'dead')] 
         return_array = []
-        for character in filtered_characters:
+        for character in filtered_characters + add_characters:
             pct_before = character['hp'] / character['max_hp']
             pct_after = (character['hp'] + character['hours_recovered']) / character['max_hp']
             if pct_after > 0.3:
                 character['hp'] += character['hours_recovered']
-                character['status'] = 'alive'
+                character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp'] 
+                character['status'] = 'high' if character['deep_level'] == 'l2' else 'alive'
                 datau = {"properties": { "hp": {"number": character['hp']},"status": {"select": {"name":character['status']} } }}
                 upd_character = self.notion_service.update_character(character, datau)
                 return_array.append({ "character_id": character['id'], "character_name": character['name'], "character_hp": character['hp']})

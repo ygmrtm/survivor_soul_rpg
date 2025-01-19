@@ -111,9 +111,11 @@ class NotionService:
         url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
         headcount = 0
         try:
-            dead_people = self.redis_service.query_characters('status', 'dead')
-            by_level_dp = [c for c in dead_people if c['deep_level'] == deep_level]
-            headcount = len(by_level_dp)
+            headcount = self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',deep_level))
+            if headcount is None:
+                dead_people = self.redis_service.query_characters('status', 'dead')
+                by_level_dp = [c for c in dead_people if c['deep_level'] == deep_level]
+                headcount = len(by_level_dp)
             if headcount <= 0:
                 data_filter = {
                     "filter": {
@@ -138,6 +140,8 @@ class NotionService:
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")  
                 print(f"☠️ counted {headcount} from source")
+            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',deep_level)
+                                        , headcount, self.expiry_hours)
         except Exception as e:
             print(f"Failed to count dead people: {e}")
             response.raise_for_status()  # Raise an error for bad responses
@@ -263,6 +267,7 @@ class NotionService:
                 ,"npc": character['properties']['npc']['checkbox']
                 ,"deep_level": character['properties']['deeplevel']['formula']['string']
                 ,"alter_ego": character['properties']['alter ego']['relation'][0]['id'].replace('-','') if character['properties']['alter ego']['relation'] else None
+                ,"alter_subego": character['properties']['alter subego']['relation'] if character['properties']['alter ego'] else None
                 ,"respawn": character['properties']['respawn']['number'] if character['properties']['respawn']['number'] else 0
                 ,"pending_reborn": character['properties']['pendingToReborn']['formula']['string']
                 ,"hours_recovered": character['properties']['hours_recovered']['formula']['number']
@@ -281,6 +286,7 @@ class NotionService:
         if response.status_code == 200:  # Check if the request was successful
             self.redis_service.set_with_expiry(self.redis_service.get_cache_key('characters',character_id), character, self.expiry_hours)
             self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:completerray',character['deep_level']))
+            self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',character['deep_level']))
             return response.json()
         else:
             print("❌❌","update_character",response.status_code, response.text) 
