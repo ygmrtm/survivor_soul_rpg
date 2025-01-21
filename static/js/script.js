@@ -125,6 +125,8 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('underworld-button').addEventListener('click', function() {
         const button = this;
         button.disabled = true;
+        still_dead = 0
+        reborn = 0
 
         // First endpoint to 
         fetch(`/api/adventure/underworld`, {
@@ -133,13 +135,42 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(response => response.json())
         .then(data => {
             console.log('underworld for current week:', data);
-            document.getElementById('dead-people').innerText = "(" + data.reborn  + " but "+ data.still_dead +" still ☠️)";
+            still_dead = data.still_dead 
+            reborn = data.reborn
         })
         .catch(error => {
             console.error('Error in underworld:', error);
         })
         .finally(() => {
-            button.disabled = false;
+            if (still_dead > 0){
+                document.getElementById('dead-people').innerText = "(" + reborn  + " but "+ still_dead +" still ☠️)";
+                button.disabled = false;
+            }
+        });
+    });
+
+    document.getElementById('tournament-button').addEventListener('click', function() {
+        const button = this;
+        button.disabled = true;
+        still_not_executed = 0;
+
+        // First endpoint to 
+        fetch(`/api/tournament/evaluate/all`, {
+            method: 'GET'
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('tournaments response', data);
+            still_not_executed = data.still_not_executed
+        })
+        .catch(error => {
+            console.error('Error in tournament:', error);
+        })
+        .finally(() => {
+            document.getElementById('pending-tournaments').innerText = "(" + still_not_executed + ")";
+            if(still_not_executed > 0){
+                button.disabled = false;
+            }
         });
     });
 
@@ -170,11 +201,31 @@ document.addEventListener("DOMContentLoaded", function () {
             return response.json();
         })
         .then(data => {
-            document.getElementById('dead-people').innerText = "(" + data.count + "☠️)";
-            document.getElementById('underworld-button').disabled = false;
+            if(data.count > 0){
+                document.getElementById('underworld-button').disabled = false;
+                document.getElementById('dead-people').innerText = "(" + data.count + "☠️)";
+            }
         })
         .catch(error => {
             console.error('Error fetching counts:', error);
             document.getElementById('dead-people').innerText = '0'; // Fallback version
         });
+
+        fetch('/api/tournament/all')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if(data.pending_tournaments > 0){
+                document.getElementById('tournament-button').disabled = false;
+                document.getElementById('pending-tournaments').innerText = "(" + data.pending_tournaments + ")";
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching counts:', error);
+            document.getElementById('pending-tournaments').innerText = '0'; // Fallback version
+        })        
 });

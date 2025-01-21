@@ -1,11 +1,11 @@
 import requests
 import random 
-import json
 from flask import jsonify
 from backend.services.redis_service import RedisService
 from datetime import datetime, timedelta
 from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN,NOTION_DBID_DLYLG, CREATED_LOG, CLOSED_LOG, WON_LOG, LOST_LOG, MISSED_LOG
 from config import NOTION_DBID_HABIT, NOTION_DBID_ABILI
+
 
 class NotionService:
     base_url = "https://api.notion.com/v1"
@@ -15,8 +15,17 @@ class NotionService:
     max_sanity = 60    
     max_prop_limit = 20
     lines_per_paragraph = 90
-    expiry_hours = 0.2
+    expiry_hours = 0.8
+    tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
+
+    _instance = None
+
+    def __new__(cls):
+        """Override __new__ to implement Singleton pattern."""
+        if cls._instance is None:
+            cls._instance = super(NotionService, cls).__new__(cls)
+        return cls._instance    
 
     def __init__(self):
         """
@@ -31,7 +40,45 @@ class NotionService:
             'Content-Type': 'application/json'
         }
         self.redis_service = RedisService()
+        # print(self.healthcheck())
 
+    def healthcheck(self):
+        """
+        Check the health status of the Notion service.
+        
+        Returns:
+            dict: A dictionary containing the health status information
+                {
+                    'status': str ('healthy' or 'unhealthy'),
+                    'message': str (status message or error details),
+                    'api_connected': bool (True if API is accessible)
+                }
+        """
+        health_status = {
+            'status': 'unhealthy',
+            'message': '',
+            'api_connected': False
+        }
+
+        try:
+            # Test API Connection by fetching the list of databases
+            response = requests.get(f"{self.base_url}/databases/{NOTION_DBID_HABIT}", headers=self.headers)
+            response.raise_for_status()  # Raise an error for bad responses
+            # If we can fetch databases, the API is working
+            health_status['status'] = 'healthy'
+            health_status['api_connected'] = True
+            health_status['message'] = '✅ Notion service is functioning normally'
+        except requests.exceptions.HTTPError as http_err:
+            health_status['message'] = f"❌ HTTP error occurred: {str(http_err)}"
+            if response.status_code == 401:
+                health_status['message'] = "❌ Authentication failed: Invalid API token"
+            elif response.status_code == 404:
+                health_status['message'] = "❌ Notion API endpoint not found"
+        except Exception as e:
+            health_status['message'] = f"❌ Notion service error: {str(e)}"
+
+        return health_status
+    
     def get_all_raw_characters(self):
         # Try to get from cache first
         cache_key = self.redis_service.get_cache_key('characters', 'all')
@@ -64,9 +111,11 @@ class NotionService:
         url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
         headcount = 0
         try:
-            dead_people = self.redis_service.query_characters('status', 'dead')
-            by_level_dp = [c for c in dead_people if c['deep_level'] == deep_level]
-            headcount = len(by_level_dp)
+            headcount = self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',deep_level))
+            if headcount is None:
+                dead_people = self.redis_service.query_characters('status', 'dead')
+                by_level_dp = [c for c in dead_people if c['deep_level'] == deep_level]
+                headcount = len(by_level_dp)
             if headcount <= 0:
                 data_filter = {
                     "filter": {
@@ -91,6 +140,8 @@ class NotionService:
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")  
                 print(f"☠️ counted {headcount} from source")
+            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',deep_level)
+                                        , headcount, self.expiry_hours)
         except Exception as e:
             print(f"Failed to count dead people: {e}")
             response.raise_for_status()  # Raise an error for bad responses
@@ -98,16 +149,17 @@ class NotionService:
     
     def get_character_by_id(self, character_id):
         """Retrieve a character by its ID from the cached characters."""
-        print("👁️‍🗨️ ",character_id)
+        # print("👁️‍🗨️ ",character_id)
         character_id_replaced = character_id.replace('-','')
         character = None
         try:
             cache_key = self.redis_service.get_cache_key('characters', character_id_replaced)
             character = self.redis_service.get(cache_key)
             if character is None:
-                print("👁️‍🗨️ not in cache, going to the source")
+                print(f"👁️‍🗨️ not in cache [{character_id}], going to the source")
                 url = f"{self.base_url}/pages/{character_id}"
                 response = requests.get(url, headers=self.headers)
+                #print(":::",response.json())
                 character = self.translate_characters([response.json()] if response.json() else [])[0]
                 self.redis_service.set_with_expiry(cache_key, character, expiry_hours=self.expiry_hours)
         except Exception as e:
@@ -132,12 +184,17 @@ class NotionService:
             are_cached_chars = self.redis_service.exists(self.redis_service.get_cache_key('loaded_characters_level' 
                                                                                 , f"{deep_level}{npc}npc"))
             if are_cached_chars:
-                print(f"Using cached characters for deep level {deep_level}")
-                characters_by_level = self.redis_service.query_characters('deep_level', deep_level)
-                # filter characters based on is_npc
-                for character in characters_by_level:
-                    if character['npc'] == is_npc:
-                        characters.append(character)
+                characters = self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level:completerray',f"{deep_level}"))
+                if not characters:
+                    characters = []
+                    print(f"Using cached characters for deep level {deep_level}")
+                    characters_by_level = self.redis_service.query_characters('deep_level', deep_level)
+                    # filter characters based on is_npc
+                    for character in characters_by_level:
+                        if character['npc'] == is_npc:
+                            characters.append(character)
+                else:
+                    print(f"Using complete cached array for deep level {deep_level}")
             else:    
                 data_filter = {
                     "filter": {
@@ -162,13 +219,14 @@ class NotionService:
                     start_cursor = data.get("next_cursor")  
                     print(f"Fetched {len(data.get('results', []))} characters, total so far: {len(characters)}")
                 # Cache the characters if needed
-                self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level'
-                                                                                    , f"{deep_level}{npc}npc")
+                self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level', f"{deep_level}{npc}npc")
                                                 , data_filter, self.expiry_hours)
                 for character in characters:
                     cache_key = self.redis_service.get_cache_key('characters', character['id'])
                     if not self.redis_service.exists(cache_key):
                         self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
+            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:completerray',f"{deep_level}")
+                                            , characters, self.expiry_hours)
         except Exception as e:
             print(f"Failed to fetch characters by deep level {deep_level}: {e}")
             response.raise_for_status()  # Raise an error for bad responses
@@ -188,6 +246,7 @@ class NotionService:
                     max_xp *= self.GOLDEN_RATIO
                     max_hp *= self.GOLDEN_RATIO
                     max_sanity *= self.GOLDEN_RATIO
+                description = f"{character['properties']['name']['title'][-1]['plain_text']} | L{character['properties']['level']['number']} | X{character['properties']['xp']['number']} | 🫀{character['properties']['hp']['number']} | 🧠{character['properties']['sanity']['number']}"
                 return_characters.append({ 
                 "id": character['id'].replace('-','')
                 ,"name": character['properties']['name']['title'][-1]['plain_text']
@@ -208,9 +267,11 @@ class NotionService:
                 ,"npc": character['properties']['npc']['checkbox']
                 ,"deep_level": character['properties']['deeplevel']['formula']['string']
                 ,"alter_ego": character['properties']['alter ego']['relation'][0]['id'].replace('-','') if character['properties']['alter ego']['relation'] else None
+                ,"alter_subego": character['properties']['alter subego']['relation'] if character['properties']['alter ego'] else None
                 ,"respawn": character['properties']['respawn']['number'] if character['properties']['respawn']['number'] else 0
                 ,"pending_reborn": character['properties']['pendingToReborn']['formula']['string']
                 ,"hours_recovered": character['properties']['hours_recovered']['formula']['number']
+                ,"description": description
                 })
             return return_characters
         except Exception as e:
@@ -223,8 +284,9 @@ class NotionService:
         url = f"{self.base_url}/pages/{character_id}"
         response = requests.patch(url, headers=self.headers, json=updates)
         if response.status_code == 200:  # Check if the request was successful
-            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('characters',character_id)
-                                                , character, self.expiry_hours)
+            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('characters',character_id), character, self.expiry_hours)
+            self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:completerray',character['deep_level']))
+            self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',character['deep_level']))
             return response.json()
         else:
             print("❌❌","update_character",response.status_code, response.text) 
@@ -251,11 +313,24 @@ class NotionService:
         }  
         if 'dlylog' in adventure.keys():
             datau['properties']['dlylog'] = { "relation": adventure['dlylog']  }
-
+        if adventure['who'] is None or adventure['vs'] is None: #for orphans adventures
+            rest_of_chars = []
+            root = None
+            if len(characters) > 0:
+                root = characters[0]
+                rest_of_chars = characters[-(len(characters)-1):] 
+            else:
+                roots = self.get_characters_by_deep_level(deep_level='l0', is_npc=True)
+                root = roots[0] if len(roots[0]) > 0 else None
+                rest_of_chars = [root]
+            datau['properties']['who'] = { "relation": [{"id": root['id']}] }
+            datau['properties']['vs'] = { "relation": [{"id": c['id']} for c in rest_of_chars] }
         upd_adventure = self.update_adventure(adventure['id'], datau)
-        upd_character = None
 
-        # All logic for validating the Character before pushing the changes
+        ''' 
+        All logic for validating the Character before pushing the changes 
+        '''
+        upd_character = None
         for character in characters if characters else []:
             character['level'] += 1 if character['xp'] >= character['max_xp'] else 0
             character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp']
@@ -271,7 +346,7 @@ class NotionService:
                 character['status'] = 'high'
             else:
                 character['status'] = 'alive'
-            character['xp'] += 2 if character['hp'] <= 0 else 0
+            character['xp'] += 20 if character['hp'] <= 0 else 0
             max_prop_limit = self.max_prop_limit
             for i in range(character['level']):
                 max_prop_limit *= self.GOLDEN_RATIO
@@ -470,24 +545,9 @@ class NotionService:
         data = {
             "filter": {
                 "and": [
-                    {
-                        "property": "due",
-                        "date": {
-                            "on_or_after": start_date_str
-                        }
-                    },
-                    {
-                        "property": "name",
-                        "rich_text": {
-                        "contains": f"w{week_number:02}"
-                        }
-                    },
-                    {
-                        "property": "name",
-                        "rich_text": {
-                        "contains": name_str
-                        }
-                    }
+                    { "property": "due", "date": { "on_or_after": start_date_str}},
+                    { "property": "name", "rich_text": { "contains": f"w{week_number:02}" } },
+                    { "property": "name", "rich_text": { "contains": name_str}}
                 ]
             }
         }
@@ -499,7 +559,28 @@ class NotionService:
             response.raise_for_status() 
         return None
 
-    def get_due_challenges(self, week_number, year_number, extra_weeks):
+    def get_challenges_longeststreak(self, before_when):
+        """Retrieve challenges for a specific week."""
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
+        data = {
+            "filter": {
+                "and": [
+                    { "property": "path", "multi_select": {"contains": "breakstreak"} },
+                    { "property": "status", "status": { "equals": "accepted"} },
+                    { "property": "due", "date": { "on_or_before": before_when}}
+                ]
+            }
+        }
+        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
+        if response.status_code == 200: 
+            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
+        else:
+            print("❌❌","get_challenges_longeststreak",response.status_code, response.text)  
+            response.raise_for_status() 
+        return None
+
+    def get_challenges_due_by_week(self, week_number, year_number, extra_weeks):
         print( week_number, year_number, extra_weeks)
         _, end_date_str = self.start_end_dates(week_number, year_number)
         week_number_back = week_number - extra_weeks
@@ -515,24 +596,9 @@ class NotionService:
         data = {
             "filter": {
                 "and": [
-                    {
-                        "property": "due",
-                        "date": {
-                            "on_or_after": start_date_str
-                        }
-                    },
-                    {
-                        "property": "due",
-                        "date": {
-                            "before": end_date_str
-                        }
-                    },
-                    {
-                        "property": "name",
-                        "rich_text": {
-                        "contains": 'CHALLENGE'
-                        }
-                    }
+                    { "property": "due", "date": { "on_or_after": start_date_str}},
+                    {"property": "due", "date": { "before": end_date_str }},
+                    {"property": "name", "rich_text": { "contains": 'CHALLENGE' }}
                 ]
             }
         }
@@ -540,12 +606,65 @@ class NotionService:
         if response.status_code == 200: 
             return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
         else:
-            print("❌❌","get_due_challenges",response.status_code, response.text)  
+            print("❌❌","get_challenges_due_by_week",response.status_code, response.text)  
             response.raise_for_status() 
         return None
+    
+    def get_due_soon_challenges(self, to_date, notion_dbid):
+        end_date_str = to_date#datetime.strptime(to_date, '%Y-%m-%d')
+        results = []
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{notion_dbid}/query"
+        data = {
+            "filter": {
+                "and": [
+                    {"property": "due", "date": { "on_or_before": end_date_str }}
+                    ,{ "and": [ 
+                        { "property": "status", "status": { "does_not_equal": "Done"} }
+                        ,{ "property": "status", "status": { "does_not_equal": "Archived"} }
+                    ]}
+                ]
+            },
+            "sorts":[{"property": "due", "direction" : "ascending"}]
+        }
+        response = requests.post(url, headers=self.headers, json=data) 
+        if response.status_code == 200: 
+            results = response.json().get("results", [])
+        else:
+            print("❌❌","get_due_soon_challenges",response.status_code, response.text)  
+            response.raise_for_status() 
+        return results
+    
+    def get_not_planned_yet(self, notion_dbid):
+        results = []
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{notion_dbid}/query"
+        data = {
+            "filter": {
+                "and": [
+                    {"property": "due", "date": { "is_empty": True }}
+                    ,{ "and": [ 
+                        { "property": "status", "status": { "does_not_equal": "Done"} }
+                        ,{ "property": "status", "status": { "does_not_equal": "Archived"} }
+                    ]}
+                ]
+            },
+            "sorts":[{"property": "due", "direction" : "ascending"}]
+        }
+        response = requests.post(url, headers=self.headers, json=data) 
+        if response.status_code == 200: 
+            results = response.json().get("results", [])
+        else:
+            print("❌❌","get_not_planned_yet",response.status_code, response.text)  
+            response.raise_for_status() 
+        return results            
 
-    def get_daily_checklist(self, week_number, year_number):
-        start_date_str, end_date_str = self.start_end_dates(week_number, year_number)
+    def get_daily_checklist(self, week_number, year_number, start_date=None , end_date=None):
+        if not start_date or not end_date:
+            start_date_str, end_date_str = self.start_end_dates(week_number, year_number)
+        else:
+            start_date_str = start_date.strftime('%Y-%m-%d')
+            end_date_str = end_date.strftime('%Y-%m-%d')
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_DLYLG}/query"
         data = {
@@ -593,6 +712,7 @@ class NotionService:
                     ,"cook" : habit_daily_card['properties']['🍚']['checkbox']
                     ,"bed" : habit_daily_card['properties']['🛏️']['checkbox']
                     ,"meals" : habit_daily_card['properties']['🥣']['number']
+                    ,"mealsb" : habit_daily_card['properties']['🥣']['number'] == 3
                     ,"bike" : habit_daily_card['properties']['🚲']['checkbox']
                     ,"teeth" : habit_daily_card['properties']['🦷']['checkbox']
                     ,"outdoors" : habit_daily_card['properties']['🏜️']['checkbox']
@@ -631,7 +751,7 @@ class NotionService:
                     ,"timesXweek": adventure['properties']['timesXweek']['rollup']['number']
                     ,"vs": adventure['properties']['vs']['relation'] if adventure['properties']['vs']['relation'] else None
                     ,"habits": adventure['properties']['habits']['relation'] if adventure['properties']['habits']['relation'] else None
-                    ,"due": adventure['properties']['due']['date']['start']
+                    ,"due": adventure['properties']['due']['date']['start'].split('T')[0]
                     ,"assigned": adventure['properties']['assigned']['people'][0]['id']
                     ,"resultlog": adventure['properties']['resultlog']['rich_text']
                     ,"path": [path['name'] for path in adventure['properties']['path']['multi_select']] if adventure['properties']['path']['multi_select'] else None
@@ -646,7 +766,7 @@ class NotionService:
         return array_adventures
     
 
-    def create_challenge(self, emoji, week_number, how_many_times, character_id, xp_reward, coin_reward, habit):
+    def create_challenge(self, emoji, week_number, how_many_times, character_id, xp_reward, coin_reward, habit_id):
         today_date = datetime.now()
         end_date = today_date + timedelta(days=6)
         data = {
@@ -675,7 +795,7 @@ class NotionService:
                 "path": {"multi_select": [ {"name": '{}timesXw'.format(how_many_times)}]},
                 #"assigned": {"people": [self.yogmortuum]},
                 "status": {"status": {"name":"created"}},
-                "habits": { "relation": [{"id": habit}] },
+                "habits": { "relation": [{"id": habit_id}] },
                 "resultlog": { "rich_text": CREATED_LOG  }
             }
         }
@@ -684,6 +804,37 @@ class NotionService:
         response = requests.post(url, headers=self.headers, json=data) 
         if response.status_code == 200: 
             adventure_id = response.json()['id']
+            return  self.translate_adventure([response.json()] if response.json() else [])[0]
+        else:
+            print("❌❌","create_challenge",response.status_code, response.text)  
+            response.raise_for_status() 
+            return None  
+
+    def create_challenge_break_the_streak(self, props):
+        # today_date = datetime.now() + timedelta(days=1)
+        end_date = datetime.now() + timedelta(days=props['how_many_times'])
+        data = {
+            "parent": { "database_id": NOTION_DBID_ADVEN },
+            "icon": {
+                "emoji": props['emoji']
+            },
+            "properties": {
+                "name": { "title": [ {"text": { "content": f"Break ⛓️‍💥 Streak | {props['name']}"  }} ] },
+                "due": {  "date": { 'start': end_date.strftime('%Y-%m-%d') } },
+                "xpRwd": { "number": props['xp_reward'] },
+                "coinRwd": { "number": props['coin_reward'] },
+                "desc": { "rich_text": [{"text": {"content": f"Do it for {props['how_many_times']} consecutive days to break current {props['current']} days"}}] }, 
+                "who": { "relation": [{"id": props['character_id']}] },
+                "vs": { "relation": [{"id": props['character_id']}] },
+                "path": {"multi_select": [ {"name":"breakstreak"},{"name": '{}timesXw'.format(props['how_many_times'])}]},
+                "status": {"status": {"name":"created"}},
+                "habits": { "relation": [{"id": props['habit_id']}] },
+                "resultlog": { "rich_text": CREATED_LOG  }
+            }
+        }
+        url = f"{self.base_url}/pages"
+        response = requests.post(url, headers=self.headers, json=data) 
+        if response.status_code == 200: 
             return  self.translate_adventure([response.json()] if response.json() else [])[0]
         else:
             print("❌❌","create_challenge",response.status_code, response.text)  
@@ -722,14 +873,8 @@ class NotionService:
         data = {
             "filter": {
                 "and": [
-                    {
-                        "property": "path",
-                        "multi_select": {"contains": "punishment"}
-                    }
-                    ,{
-                        "property": "status",
-                        "status": { "equals": "accepted"}
-                    }
+                    {  "property": "path", "multi_select": {"contains": "punishment"} }
+                    ,{ "property": "status", "status": { "equals": "accepted"} }
                 ]
             }
         }
@@ -745,36 +890,49 @@ class NotionService:
         response = requests.post(url, headers=self.headers)
         if response.status_code != 200:  
             print("❌❌","get_all_habits",response.status_code, response.text) 
-            response.raise_for_status()  # Raise an error for bad responses
-            return []  # Return None if the request was not successful
-
-        max_xp = self.max_xp
-
+            response.raise_for_status()  
         habits = response.json().get("results", [])  
         translated_habits = []
         for habit in habits:
-            habit_level = int(habit['properties']['level']['number'])
-            for i in range(habit_level):
-                max_xp *= self.GOLDEN_RATIO
-            translated_habits.append({
-                "id": habit['id']
-                ,"emoji": habit['icon']['emoji']
-                ,"name": habit['properties']['name']['title'][-1]['plain_text']
-                ,"level": habit_level
-                ,"xp": habit['properties']['xp']['number']
-                ,"max_xp": max_xp
-                ,"coins": habit['properties']['coins']['number']
-                ,"timesXweek": habit['properties']['timesXweek']['number']
-                ,"who": habit['properties']['who']['relation'][0]['id'] if habit['properties']['who']['relation'] else None
-            })
+            translated = self.translate_habit(habit)
+            translated_habits.append(translated)
+            cache_key = self.redis_service.get_cache_key('habits', translated['id'])
+            self.redis_service.set_with_expiry(cache_key, translated, self.expiry_hours)
         return translated_habits
     
-    def get_habits_by_id_or_name(self, habit_id, habit_name):
-        habits = self.get_all_habits()
-        for habit in habits:
-            if habit['id'] == habit_id or habit['name'] == habit_name:
-                return habit
-        return None
+    def translate_habit(self, habit):
+        habit_level = int(habit['properties']['level']['number'])
+        max_xp = self.max_xp
+        for i in range(habit_level):
+            max_xp *= self.GOLDEN_RATIO
+        return {
+            "id": habit['id'].replace('-','')
+            ,"emoji": habit['icon']['emoji']
+            ,"name": habit['properties']['name']['title'][-1]['plain_text']
+            ,"level": habit_level
+            ,"xp": habit['properties']['xp']['number']
+            ,"max_xp": max_xp
+            ,"coins": habit['properties']['coins']['number']
+            ,"timesXweek": habit['properties']['timesXweek']['number']
+            ,"who": habit['properties']['who']['relation'][0]['id'] if habit['properties']['who']['relation'] else None
+        }
+
+    def get_habit_by_id(self, habit_id):
+        habit_id_replaced = habit_id.replace('-','')
+        habit = None
+        try:
+            cache_key = self.redis_service.get_cache_key('habits', habit_id_replaced)
+            habit = self.redis_service.get(cache_key)
+            if habit is None:
+                print(f"🕯️ not in cache [{habit_id}], going to the source")
+                url = f"{self.base_url}/pages/{habit_id}"
+                response = requests.get(url, headers=self.headers)
+                habit = self.translate_habit(response.json() if response.json() else None)
+                self.redis_service.set_with_expiry(cache_key, habit, expiry_hours=self.expiry_hours)
+        except Exception as e:
+            print("Failed to fetch habit:", e)
+            response.raise_for_status() 
+        return habit    
 
     def persist_habit(self, habit):
         habit['level'] += 1 if habit['xp'] >= habit['max_xp'] else 0
@@ -782,40 +940,62 @@ class NotionService:
                                     "xp": {"number": habit['xp']}, 
                                     "coins": {"number": habit['coins']}}}
         upd_habit = self.update_adventure(habit['id'], datau)   
+        cache_key = self.redis_service.get_cache_key('habits', habit['id'])
+        self.redis_service.set_with_expiry(cache_key, habit, expiry_hours=self.expiry_hours)
         return upd_habit  
+    
+    def get_habits_by_property(self, property, value):
+        try:
+            return self.redis_service.query_habits(property, value)                
+        except Exception as e:
+            print(f"Failed to fetch habits by properties {property} = {value}: {e}")
+            raise
 
     def get_all_abilities(self):
         url = f"{self.base_url}/databases/{NOTION_DBID_ABILI}/query"
         response = requests.post(url, headers=self.headers)
         if response.status_code != 200:  
             response.raise_for_status()  
-            return []  
-
-        max_xp = self.max_xp
-
         abilities = response.json().get("results", [])  
         translated_abilities = []
         for ability in abilities:
-            ability_level = int(ability['properties']['level']['number'])
-            for i in range(ability_level):
-                max_xp *= self.GOLDEN_RATIO
-            translated_abilities.append({
-                "id": ability['id']
-                ,"name": ability['properties']['name']['title'][-1]['plain_text']
-                ,"level": ability_level
-                ,"xp": ability['properties']['xp']['number']
-                ,"max_xp": max_xp
-                ,"coins": ability['properties']['coins']['number']
-            })
+            translated = self.translate_ability(ability)
+            translated_abilities.append(translated)
+            cache_key = self.redis_service.get_cache_key('abilities', translated['id'])
+            self.redis_service.set_with_expiry(cache_key, translated, self.expiry_hours)
         return translated_abilities
-    
-    def get_abilities_by_id_or_name(self, ability_id, ability_name):
-        abilities = self.get_all_abilities()
-        print("🚸",ability_id, ability_name)
-        for ability in abilities:
-            if ability['id'] == ability_id or ability['name'] == ability_name:
-                return ability
-        return None
+
+    def translate_ability(self, ability):
+        max_xp = self.max_xp
+        ability_level = int(ability['properties']['level']['number'])
+        for i in range(ability_level):
+            max_xp *= self.GOLDEN_RATIO
+        return {
+            "id": ability['id'].replace('-','')
+            ,"name": ability['properties']['name']['title'][-1]['plain_text']
+            ,"level": ability_level
+            ,"xp": ability['properties']['xp']['number']
+            ,"max_xp": max_xp
+            ,"coins": ability['properties']['coins']['number']
+        }
+
+    def get_ability_by_id(self, ability_id):
+        ability_id_replaced = ability_id.replace('-','')
+        ability = None
+        try:
+            cache_key = self.redis_service.get_cache_key('abilities', ability_id_replaced)
+            ability = self.redis_service.get(cache_key)
+            if ability is None:
+                print(f"🪩 not in cache [{ability_id}], going to the source")
+                url = f"{self.base_url}/pages/{ability_id}"
+                response = requests.get(url, headers=self.headers)
+                ability = self.translate_ability(response.json() if response.json() else None)
+                self.redis_service.set_with_expiry(cache_key, ability, expiry_hours=self.expiry_hours)
+        except Exception as e:
+            print("Failed to fetch ability:", e)
+            response.raise_for_status() 
+        return ability    
+
 
     def persist_ability(self, ability):
         ability['level'] += 1 if ability['xp'] >= ability['max_xp'] else 0
@@ -826,4 +1006,61 @@ class NotionService:
             datau['properties']['dlylog'] = { "relation": ability['dlylog']  }
         
         upd_ability = self.update_adventure(ability['id'], datau)   
+        cache_key = self.redis_service.get_cache_key('abilities', ability['id'])
+        self.redis_service.set_with_expiry(cache_key, ability, expiry_hours=self.expiry_hours)
         return upd_ability                
+    
+    def get_all_open_tournaments(self):
+        end_date = datetime.now() + timedelta(days = self.tour_days_vigencia) 
+        end_date_str = end_date.strftime('%Y-%m-%d')
+        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
+        data = {
+            "filter": {
+                "and": [
+                    { "property": "path", "multi_select": {"contains": "tournament"} }
+                    ,{ "property": "status", "status": { "equals": "created"} }
+                    ,{ "property": "due", "date": { "on_or_before": end_date_str } }                    
+                ]
+            }
+        }
+        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
+        if response.status_code == 200: 
+            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
+        else:
+            print("-->",response.status_code, response.text)  # Debugging: Print the response
+            response.raise_for_status()  # Raise an error for bad responses        
+
+    def create_tournament(self, character_id, xp_reward, coin_reward, title , description):
+        today_date = datetime.now()
+        end_date = today_date + timedelta(days = self.tour_days_vigencia) 
+        data = {
+            "parent": { "database_id": NOTION_DBID_ADVEN },
+            "icon": {
+                "emoji": "🏟️"
+            },
+            "properties": {
+                "name": {
+                    "title": [
+                        {"text": { "content": title }}
+                    ]
+                },
+                "due": { 
+                    "date": { 'start': end_date.strftime('%Y-%m-%d') }
+                },
+                "xpRwd": { "number": xp_reward },
+                "coinRwd": { "number": coin_reward },
+                "desc": { "rich_text": [{"text": {"content": description}}] }, 
+                "who": { "relation": [{"id": character_id}] },
+                "vs": {"relation": [{"id": character_id}]},
+                "resultlog": { "rich_text": CREATED_LOG  },
+                "path": {"multi_select": [{"name": "tournament"}]}
+            }
+        }
+        url = f"{self.base_url}/pages"
+        response = requests.post(url, headers=self.headers, json=data)  
+        if response.status_code == 200: 
+            return self.translate_adventure([response.json()] if response.json() else [])[0]
+        else:
+            print("❌❌","create_tournament",response.status_code, response.text) 
+            response.raise_for_status() 
+            return None 
