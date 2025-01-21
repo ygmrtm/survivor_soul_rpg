@@ -15,7 +15,7 @@ class NotionService:
     max_sanity = 60    
     max_prop_limit = 20
     lines_per_paragraph = 90
-    expiry_hours = 0.4
+    expiry_hours = 0.8
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
@@ -327,7 +327,9 @@ class NotionService:
             datau['properties']['vs'] = { "relation": [{"id": c['id']} for c in rest_of_chars] }
         upd_adventure = self.update_adventure(adventure['id'], datau)
 
-        ''' All logic for validating the Character before pushing the changes '''
+        ''' 
+        All logic for validating the Character before pushing the changes 
+        '''
         upd_character = None
         for character in characters if characters else []:
             character['level'] += 1 if character['xp'] >= character['max_xp'] else 0
@@ -743,7 +745,7 @@ class NotionService:
                     ,"timesXweek": adventure['properties']['timesXweek']['rollup']['number']
                     ,"vs": adventure['properties']['vs']['relation'] if adventure['properties']['vs']['relation'] else None
                     ,"habits": adventure['properties']['habits']['relation'] if adventure['properties']['habits']['relation'] else None
-                    ,"due": adventure['properties']['due']['date']['start']
+                    ,"due": adventure['properties']['due']['date']['start'].split('T')[0]
                     ,"assigned": adventure['properties']['assigned']['people'][0]['id']
                     ,"resultlog": adventure['properties']['resultlog']['rich_text']
                     ,"path": [path['name'] for path in adventure['properties']['path']['multi_select']] if adventure['properties']['path']['multi_select'] else None
@@ -758,7 +760,7 @@ class NotionService:
         return array_adventures
     
 
-    def create_challenge(self, emoji, week_number, how_many_times, character_id, xp_reward, coin_reward, habit):
+    def create_challenge(self, emoji, week_number, how_many_times, character_id, xp_reward, coin_reward, habit_id):
         today_date = datetime.now()
         end_date = today_date + timedelta(days=6)
         data = {
@@ -787,7 +789,7 @@ class NotionService:
                 "path": {"multi_select": [ {"name": '{}timesXw'.format(how_many_times)}]},
                 #"assigned": {"people": [self.yogmortuum]},
                 "status": {"status": {"name":"created"}},
-                "habits": { "relation": [{"id": habit}] },
+                "habits": { "relation": [{"id": habit_id}] },
                 "resultlog": { "rich_text": CREATED_LOG  }
             }
         }
@@ -796,6 +798,37 @@ class NotionService:
         response = requests.post(url, headers=self.headers, json=data) 
         if response.status_code == 200: 
             adventure_id = response.json()['id']
+            return  self.translate_adventure([response.json()] if response.json() else [])[0]
+        else:
+            print("❌❌","create_challenge",response.status_code, response.text)  
+            response.raise_for_status() 
+            return None  
+
+    def create_challenge_break_the_streak(self, props):
+        today_date = datetime.now() + timedelta(days=1)
+        end_date = today_date + timedelta(days=props['how_many_times'])
+        data = {
+            "parent": { "database_id": NOTION_DBID_ADVEN },
+            "icon": {
+                "emoji": props['emoji']
+            },
+            "properties": {
+                "name": { "title": [ {"text": { "content": f"Break ⛓️‍💥 Streak | {props['name']}"  }} ] },
+                "due": {  "date": { 'start': end_date.strftime('%Y-%m-%d') } },
+                "xpRwd": { "number": props['xp_reward'] },
+                "coinRwd": { "number": props['coin_reward'] },
+                "desc": { "rich_text": [{"text": {"content": f"Do it for {props['how_many_times']} consecutive days to break current {props['current']} days"}}] }, 
+                "who": { "relation": [{"id": props['character_id']}] },
+                "vs": { "relation": [{"id": props['character_id']}] },
+                "path": {"multi_select": [ {"name":"breakstreak"},{"name": '{}timesXw'.format(props['how_many_times'])}]},
+                "status": {"status": {"name":"created"}},
+                "habits": { "relation": [{"id": props['habit_id']}] },
+                "resultlog": { "rich_text": CREATED_LOG  }
+            }
+        }
+        url = f"{self.base_url}/pages"
+        response = requests.post(url, headers=self.headers, json=data) 
+        if response.status_code == 200: 
             return  self.translate_adventure([response.json()] if response.json() else [])[0]
         else:
             print("❌❌","create_challenge",response.status_code, response.text)  
@@ -904,6 +937,13 @@ class NotionService:
         cache_key = self.redis_service.get_cache_key('habits', habit['id'])
         self.redis_service.set_with_expiry(cache_key, habit, expiry_hours=self.expiry_hours)
         return upd_habit  
+    
+    def get_habits_by_property(self, property, value):
+        try:
+            return self.redis_service.query_habits(property, value)                
+        except Exception as e:
+            print(f"Failed to fetch habits by properties {property} = {value}: {e}")
+            raise
 
     def get_all_abilities(self):
         url = f"{self.base_url}/databases/{NOTION_DBID_ABILI}/query"

@@ -237,6 +237,36 @@ class RedisService:
         
         return matching_characters    
     
+    def query_habits(self, field, value):
+        """
+        Query habits based on a specific field and value.
+        
+        Args:
+            field (str): The field to query (e.g., 'name', 'deeplevel').
+            value (str): The value to match against the field.
+        
+        Returns:
+            list: A list of habits  that match the query.
+        """
+        matching_habits = []
+        try:
+            # Get all keys that match the habit pattern
+            keys = self.redis_client.keys("rpg:habits:*")
+            
+            for key in keys:
+                # Get habit data and convert it to a dictionary
+                habit_data = self.redis_client.get(key)
+                if habit_data:
+                    habit_data = json.loads(habit_data)  
+                    if habit_data and habit_data[field].startswith(value):
+                        matching_habits.append(habit_data)  
+            
+            print(f"✅ Found {len(matching_habits)} matching habits for {field} = {value}.")
+        except Exception as e:
+            print(f"❌ Error querying habits: {str(e)}")
+        
+        return matching_habits    
+    
 
     def get_by_pattern(self, pattern):
         """
