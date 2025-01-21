@@ -191,3 +191,48 @@ Update CHANGELOG for version 1.0.9
 Merge fa087d45b486cc3444c62a8a86f78fdb63cb6c68 into 539912a9459e30c23cc0a336ab4751d80f8db9c2
 ---
 
+## [1.1.11] - 2025-01-11
+Merge 0b349afceb64821d6ff62daf6ed0949812bfabaf into 378d165bc09874bc62cc0873d8986590b9c425fe
+
+Caching Characters release
+
+- [x]  **enhance:** *Caching* Characters by key
+    - [x]  Integration with redis
+    - [x]  by DeepLevel
+    - [x]  By ID
+    - [x]  feat: Flush Cache
+
+**enhance:** *Caching* Characters by key
+
+- [x]  **enhance:** *Caching* Characters by key
+    - [x]  Integration with redis
+    - [x]  by DeepLevel
+    - [x]  By ID
+
+Integration with redis first draft
+
+- [ ]  **enhance:** *Caching* Characters by key
+    - [x]  Integration with redis
+
+Update CHANGELOG for version 1.0.10
+---
+
+## [1.1.12] - 2025-01-21
+Merge 4bf943a3c99e8896e8bccff3f8c03e00a01821c9 into b9c83947c14d6ba28629b599ce80aa874a79e6cd
+
+Merge pull request #35 from ygmrtm/enhace_abilities_habits_caching
+
+[CODE-41] Enhace abilities habits caching
+Feat: Evaluate and Close BreakStreak challenges.
+
+- [x]  **enhance:** Habits and Abilities cache
+    - [x]  Habits and Abilities cache
+    - [x]  Top Racha by habits *w Todoist*
+    - [x]  Create challenge to break last Racha
+    - [x]  Evaluate and Close BreakStreak challenges.
+
+feat: Create challenge to break last Racha
+
+adding cache for deadpeople
+---
+

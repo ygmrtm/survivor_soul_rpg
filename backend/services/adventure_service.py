@@ -8,7 +8,7 @@ from backend.services.stencil_service import StencilService
 from backend.services.epics_service import EpicsService
 from backend.services.todoist_service import TodoistService
 
-from config import NOTION_DBID_CODIN, NOTION_DBID_BIKES, NOTION_DBID_STENC, NOTION_DBID_EPICS
+from config import NOTION_DBID_CODIN, NOTION_DBID_BIKES, NOTION_DBID_STENC, NOTION_DBID_EPICS, NOTION_PGID_HABIT
 from config import TODOIST_PID_INB, TODOIST_PID_CAL
 
 import random 
@@ -22,6 +22,7 @@ class AdventureService:
     percentage_habits = 0.5 # for challenges how many habits to pick
     encounter_log = []
     dice_size = 16
+    expiry_hours = 0.4    
     redis_service = RedisService()
     todoist_service = TodoistService()
     notion_service = NotionService()
@@ -197,7 +198,7 @@ class AdventureService:
 
     def evaluate_expired_challenges(self,week_number, year_number):
         ### by Week Habits
-        challenges_all = self.notion_service.get_due_challenges_by_week(week_number, year_number, 1 )
+        challenges_all = self.notion_service.get_challenges_due_by_week(week_number, year_number, 1 )
         due_challenges = [challenge for challenge in challenges_all if challenge['status'] in ('accepted','on going','created','missed')]
         won_challenges = [challenge for challenge in challenges_all if challenge['status'] in ('won')]
         print("{} due challenges found ".format(len(due_challenges)))
@@ -264,6 +265,55 @@ class AdventureService:
             self.add_encounter_log(0, "status", 'old status [{}]'.format(prev_status))
             challenge['status'] = 'Archived'
             challenge['encounter_log'] = self.encounter_log
+            upd_adventure, upd_character = self.notion_service.persist_adventure(adventure=challenge, characters=pool_whos)
+            upd_challenges.append({ 'adventure_id':upd_adventure['id']
+                                , 'who_id':upd_character['id']
+                                , 'challenge_name':challenge['name']
+                                , 'status':challenge['status'] 
+                                , 'status_old':prev_status })
+        return upd_challenges
+    
+    def evaluate_habit_expired_longest_streak(self, before_when):
+        challenges_all = self.notion_service.get_challenges_longeststreak(before_when=before_when)
+        print(f"{len(challenges_all)} challenges for breakingstreak found ") 
+        upd_challenges = []
+        for challenge in challenges_all:
+            days_off = abs((datetime.strptime(challenge['alive_range']['start'], '%Y-%m-%d') 
+                    - datetime.strptime(challenge['due'], '%Y-%m-%d')).days)        
+            print(challenge['name'], challenge['status'], challenge['xpRwd'], challenge['coinRwd'], f"days off={days_off}")
+            dlylog_array = []
+            pool_whos = []
+            self.encounter_log = []
+            habit_id = challenge['habits'][0]
+            habit = self.notion_service.get_habit_by_id(habit_id['id'])
+            who = self.notion_service.get_character_by_id(habit['who'])
+            xTimesWeek_str = next((item for item in challenge['path'] if item[0].isdigit() and 1 <= int(item[0]) <= 9), None)
+            xTimesTotal = int("".join(filter(str.isdigit, xTimesWeek_str)))
+            start_date = datetime.strptime(before_when, '%Y-%m-%d') + timedelta(days=(xTimesTotal*-1))
+            daily_checklist = self.notion_service.get_daily_checklist(1, 1, start_date , datetime.strptime(before_when, '%Y-%m-%d'))
+            total_got = 0
+            for dly_card in daily_checklist:
+                if habit['name'] in dly_card['achieved']:
+                    dlylog_array.append({"id":dly_card['id']})
+                    total_got += 1
+            prev_status = challenge['status']
+            if total_got >= xTimesTotal:
+                habit['xp'] += challenge['xpRwd']
+                habit['coins'] += challenge['coinRwd']
+                self.notion_service.persist_habit(habit)
+                who['xp'] += challenge['xpRwd']
+                who['coins'] += challenge['coinRwd']
+                who['sanity'] += challenge['xpRwd']
+                challenge['status'] = 'won'
+                self.add_encounter_log(self.GOLDEN_RATIO, "won", f"got [{total_got}/{xTimesTotal}] 🤪")    
+            else:
+                challenge['status'] = 'lost'
+                self.add_encounter_log(self.GOLDEN_RATIO, "lost", f"got [{total_got}/{xTimesTotal}] 😪")    
+            if who['id'] not in [character['id'] for character in pool_whos]:
+                pool_whos.append(who)
+            self.add_encounter_log(self.GOLDEN_RATIO, "status", f"from[{prev_status}]:[{challenge['status']}]to")
+            challenge['encounter_log'] = self.encounter_log
+            challenge['dlylog'] = dlylog_array
             upd_adventure, upd_character = self.notion_service.persist_adventure(adventure=challenge, characters=pool_whos)
             upd_challenges.append({ 'adventure_id':upd_adventure['id']
                                 , 'who_id':upd_character['id']
@@ -394,9 +444,79 @@ class AdventureService:
                         ,"project_id": task_dict_raw['project_id']
                         ,"url": task_dict_raw['url']
                     }
-                    self.redis_service.set_with_expiry(cached_key, {"challenge": challenge, "todoist_task":task_dict}, 24 * 7)
-
+                    self.redis_service.set_with_expiry(cached_key, {"challenge": challenge, "todoist_task":task_dict}, 24 * 6)
         return {'total_tasks': len(tasks), 'tasks_created': tasks}
+
+    def create_habit_longest_streak(self, last_days = 6, create_challenge = False):
+        tasks = []
+        output = {}
+        today_str = datetime.today().strftime('%Y-%m-%d')
+        key_str = f"longeststreak:{last_days}days:habits"
+        start_date_loopback = datetime.today() - timedelta(days=last_days)
+        if not self.redis_service.exists(self.redis_service.get_cache_key(key_str,'prsnl')):
+            for card in self.notion_service.get_daily_checklist(1, 1, start_date_loopback, datetime.today()):   
+                keys = list(card.keys())
+                card['meals'] = card['mealsb']
+                keys.remove('achieved')
+                keys.remove('id')
+                keys.remove('mealsb')
+                keys.remove('cuando')
+                for habit in keys:
+                    if habit not in output.keys():
+                        output[habit] = {'consecutive': 0, 'max_consecutive': 0, 'last_date':card['cuando']}
+                    consecutive_ = 0 if card[habit] is False else output[habit]['consecutive'] + 1
+                    cuando_ = card['cuando'] if output[habit]['max_consecutive'] <= consecutive_ else output[habit]['last_date']
+                    output[habit] = {'consecutive': consecutive_
+                                    ,'max_consecutive':max(output[habit]['max_consecutive'], consecutive_ )
+                                    ,'last_date' : cuando_ }
+            for key in keys:                
+                cached_key = self.redis_service.get_cache_key('todoist_notification:' + key_str, key )
+                next_suggested_streak = round(output[key]['max_consecutive'] * self.GOLDEN_RATIO)
+                next_suggested_streak = 1 if next_suggested_streak <= 0 else next_suggested_streak
+                if not self.redis_service.exists(cached_key):
+                    max_days = output[key]['max_consecutive']
+                    days_since_last_date = (datetime.today() - datetime.strptime(output[key]['last_date'], '%Y-%m-%d')).days
+                    output[key]['days_since_last_date'] = days_since_last_date
+                    output[key]['next_suggested_streak'] = next_suggested_streak
+                    content = f"__{key.upper()}__| longest:_{max_days} days_| nextSuggested:_{next_suggested_streak} days_"
+                    description =  f"daysSince:_{days_since_last_date} days_ | last time checked on __{today_str}__"
+                    task = self.todoist_service.add_task(TODOIST_PID_INB, { "content": content
+                                                                            , "due_date":  output[key]['last_date']
+                                                                            , "priority": 1
+                                                                            , "description": description
+                                                                            , "section_id": None, "labels": [f"notion:{key}"]})
+                    tasks.append(task)
+                    task_dict_raw = task.__dict__
+                    task_dict = {
+                        "is_completed": task_dict_raw['is_completed']
+                        ,"content": task_dict_raw['content']
+                        ,"description": task_dict_raw['description']
+                        ,"id": task_dict_raw['id']
+                        ,"project_id": task_dict_raw['project_id']
+                        ,"url": task_dict_raw['url']
+                    }
+                    self.redis_service.set_with_expiry(cached_key, {"counts": output[key], "todoist_task":task_dict}, 24 * 6)
+                cached_key = self.redis_service.get_cache_key('todoist_notification:' + key_str, key + 'challenge' )    
+                if create_challenge is True and not self.redis_service.exists(cached_key):
+                    self.notion_service.get_all_habits() #force to load all habits
+                    habit = self.notion_service.get_habits_by_property('name', key)[0]
+                    habit_level = habit['level']
+                    max_xprwd = self.max_xprwd
+                    max_coinrwd = self.max_coinrwd
+                    for i in range(habit_level):
+                        max_xprwd *= self.GOLDEN_RATIO
+                        max_coinrwd *= self.GOLDEN_RATIO
+                    xp_reward = random.randint(1, max_xprwd)
+                    coin_reward = random.randint(1, max_coinrwd)                
+                    props = { "how_many_times":next_suggested_streak, "character_id":habit['who']
+                            , "xp_reward":xp_reward, "coin_reward":coin_reward, "habit_id":habit['id']
+                            ,"emoji": habit['emoji'], "name": habit['name'] + f" | {days_since_last_date} days since last"
+                            , "current": output[key]['max_consecutive'] }
+                    new_challenge = self.notion_service.create_challenge_break_the_streak(props)
+                    self.redis_service.set_with_expiry(cached_key, {"counts": output[key]
+                                                                    ,"new_challenge": new_challenge}, 24 * (next_suggested_streak + 1))
+                self.redis_service.set_with_expiry(self.redis_service.get_cache_key(key_str,key), {"counts": output[key]}, self.expiry_hours)
+        return {'total_tasks': len(tasks), 'tasks_created': tasks, 'output': output}
 
 
     def execute_adventure(self, adventure_id):
@@ -561,14 +681,14 @@ class AdventureService:
                 enemy['xp'] += self.add_encounter_log(xpReward, "xp", '{} got '.format(enemy['name']) )
                 lucky_exchange = random.randint(0, 4) % 4
                 if lucky_exchange == 0:
-                    who['magic'] += self.add_encounter_log(enemy['magic'] * 0.1, 'magic', '🍀{}🍀'.format(who['name']))
-                    enemy['magic'] += self.add_encounter_log(who['magic'] * 0.1, 'magic', '🍀{}🍀'.format(enemy['name']))
+                    who['magic'] += self.add_encounter_log(enemy['magic'] * 0.33, 'magic', '🍀{}🍀'.format(who['name']))
+                    enemy['magic'] += self.add_encounter_log(who['magic'] * 0.33, 'magic', '🍀{}🍀'.format(enemy['name']))
                 elif lucky_exchange == 1:
-                    who['attack'] += self.add_encounter_log(enemy['attack'] * 0.1, 'attack', '🍀{}🍀'.format(who['name']))
-                    enemy['attack'] += self.add_encounter_log(who['attack'] * 0.1, 'attack', '🍀{}🍀'.format(enemy['name']))
+                    who['attack'] += self.add_encounter_log(enemy['attack'] * 0.33, 'attack', '🍀{}🍀'.format(who['name']))
+                    enemy['attack'] += self.add_encounter_log(who['attack'] * 0.33, 'attack', '🍀{}🍀'.format(enemy['name']))
                 elif lucky_exchange == 2:
-                    who['defense'] += self.add_encounter_log(enemy['defense'] * 0.1, 'defense', '🍀{}🍀'.format(who['name']))
-                    enemy['defense'] += self.add_encounter_log(who['defense'] * 0.1, 'defense', '🍀{}🍀'.format(enemy['name']))
+                    who['defense'] += self.add_encounter_log(enemy['defense'] * 0.33, 'defense', '🍀{}🍀'.format(who['name']))
+                    enemy['defense'] += self.add_encounter_log(who['defense'] * 0.33, 'defense', '🍀{}🍀'.format(enemy['name']))
             was_too_much = rounds >= 100
         return True
 
@@ -698,13 +818,16 @@ class AdventureService:
             l3_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False) 
             l3_characters += self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
         filtered_characters = [c for c in l3_characters if c['status'] == 'rest' or c['status'] == 'dying']
+        gods = self.notion_service.get_characters_by_deep_level('l2', is_npc=True)
+        add_characters = [ char for char in gods if (len(char['alter_subego']) > 0 and char['status'] == 'dead')] 
         return_array = []
-        for character in filtered_characters:
+        for character in filtered_characters + add_characters:
             pct_before = character['hp'] / character['max_hp']
             pct_after = (character['hp'] + character['hours_recovered']) / character['max_hp']
             if pct_after > 0.3:
                 character['hp'] += character['hours_recovered']
-                character['status'] = 'alive'
+                character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp'] 
+                character['status'] = 'high' if character['deep_level'] == 'l2' else 'alive'
                 datau = {"properties": { "hp": {"number": character['hp']},"status": {"select": {"name":character['status']} } }}
                 upd_character = self.notion_service.update_character(character, datau)
                 return_array.append({ "character_id": character['id'], "character_name": character['name'], "character_hp": character['hp']})
