@@ -217,3 +217,22 @@ Integration with redis first draft
 Update CHANGELOG for version 1.0.10
 ---
 
+## [1.1.12] - 2025-01-21
+Merge 4bf943a3c99e8896e8bccff3f8c03e00a01821c9 into b9c83947c14d6ba28629b599ce80aa874a79e6cd
+
+Merge pull request #35 from ygmrtm/enhace_abilities_habits_caching
+
+[CODE-41] Enhace abilities habits caching
+Feat: Evaluate and Close BreakStreak challenges.
+
+- [x]  **enhance:** Habits and Abilities cache
+    - [x]  Habits and Abilities cache
+    - [x]  Top Racha by habits *w Todoist*
+    - [x]  Create challenge to break last Racha
+    - [x]  Evaluate and Close BreakStreak challenges.
+
+feat: Create challenge to break last Racha
+
+adding cache for deadpeople
+---
+
