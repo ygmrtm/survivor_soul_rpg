@@ -545,24 +545,9 @@ class NotionService:
         data = {
             "filter": {
                 "and": [
-                    {
-                        "property": "due",
-                        "date": {
-                            "on_or_after": start_date_str
-                        }
-                    },
-                    {
-                        "property": "name",
-                        "rich_text": {
-                        "contains": f"w{week_number:02}"
-                        }
-                    },
-                    {
-                        "property": "name",
-                        "rich_text": {
-                        "contains": name_str
-                        }
-                    }
+                    { "property": "due", "date": { "on_or_after": start_date_str}},
+                    { "property": "name", "rich_text": { "contains": f"w{week_number:02}" } },
+                    { "property": "name", "rich_text": { "contains": name_str}}
                 ]
             }
         }
@@ -574,7 +559,28 @@ class NotionService:
             response.raise_for_status() 
         return None
 
-    def get_due_challenges_by_week(self, week_number, year_number, extra_weeks):
+    def get_challenges_longeststreak(self, before_when):
+        """Retrieve challenges for a specific week."""
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
+        data = {
+            "filter": {
+                "and": [
+                    { "property": "path", "multi_select": {"contains": "breakstreak"} },
+                    { "property": "status", "status": { "equals": "accepted"} },
+                    { "property": "due", "date": { "on_or_before": before_when}}
+                ]
+            }
+        }
+        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
+        if response.status_code == 200: 
+            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
+        else:
+            print("❌❌","get_challenges_longeststreak",response.status_code, response.text)  
+            response.raise_for_status() 
+        return None
+
+    def get_challenges_due_by_week(self, week_number, year_number, extra_weeks):
         print( week_number, year_number, extra_weeks)
         _, end_date_str = self.start_end_dates(week_number, year_number)
         week_number_back = week_number - extra_weeks
@@ -600,7 +606,7 @@ class NotionService:
         if response.status_code == 200: 
             return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
         else:
-            print("❌❌","get_due_challenges_by_week",response.status_code, response.text)  
+            print("❌❌","get_challenges_due_by_week",response.status_code, response.text)  
             response.raise_for_status() 
         return None
     
@@ -805,8 +811,8 @@ class NotionService:
             return None  
 
     def create_challenge_break_the_streak(self, props):
-        today_date = datetime.now() + timedelta(days=1)
-        end_date = today_date + timedelta(days=props['how_many_times'])
+        # today_date = datetime.now() + timedelta(days=1)
+        end_date = datetime.now() + timedelta(days=props['how_many_times'])
         data = {
             "parent": { "database_id": NOTION_DBID_ADVEN },
             "icon": {

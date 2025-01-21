@@ -258,7 +258,7 @@ class RedisService:
                 habit_data = self.redis_client.get(key)
                 if habit_data:
                     habit_data = json.loads(habit_data)  
-                    if habit_data and habit_data[field].startswith(value):
+                    if habit_data and habit_data[field] == (value):
                         matching_habits.append(habit_data)  
             
             print(f"✅ Found {len(matching_habits)} matching habits for {field} = {value}.")

@@ -4,7 +4,9 @@ from backend.services.coding_service import CodingService
 from backend.services.bike_service import BikingService
 from backend.services.stencil_service import StencilService
 from backend.services.epics_service import EpicsService
-
+from datetime import datetime
+import time
+import random
 adventure_bp = Blueprint('adventure', __name__)
 adventure_service = AdventureService()
 coding_service = CodingService()
@@ -67,8 +69,11 @@ def evaluate_not_planned_yet():
 
 @adventure_bp.route('/challenges/habit_longest_streak/<int:days_back>', methods=['POST'])
 def create_habit_longest_streak(days_back):
-    result = adventure_service.create_habit_longest_streak(last_days=days_back, create_challenge=True)
-    return jsonify(result)
+    created = adventure_service.create_habit_longest_streak(last_days=days_back, create_challenge=True)
+    print("sleeping...")
+    time.sleep(random.randint(30, 60))
+    executed = adventure_service.evaluate_habit_expired_longest_streak(datetime.today().strftime('%Y-%m-%d'))
+    return jsonify({"created":created, "evaluated":executed})
 
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/evaluate', methods=['POST'])
 def evaluate_challenges(week_number, year_number):
