@@ -82,6 +82,7 @@ def evaluate_challenges(week_number, year_number):
     challenges_habits = adventure_service.evaluate_weekhabits_challenges(week_number, year_number)
     challenges_expired = adventure_service.evaluate_expired_challenges(week_number, year_number)
     habit_longest_streak = adventure_service.create_habit_longest_streak(last_days=365, create_challenge=True)
+    habit_longest_streak_executed = adventure_service.evaluate_habit_expired_longest_streak(datetime.today().strftime('%Y-%m-%d'))
     # Call Specify Ability Challenges
     challenges_coding = coding_service.evaluate_challenges(week_number, year_number)
     challenges_biking = bike_service.evaluate_challenges(week_number, year_number)
@@ -90,7 +91,8 @@ def evaluate_challenges(week_number, year_number):
     challenges_due_soon = adventure_service.evaluate_challenges_due_soon(lookforward=21)
     return jsonify({"consecutivedays": challenges_cons
                     , "habits": challenges_habits
-                    , "habit_longest_streak":habit_longest_streak
+                    , "habit_longest_streak_created":habit_longest_streak
+                    , "habit_longest_streak_executed":habit_longest_streak_executed
                     , "expired": challenges_expired
                     , "coding": challenges_coding
                     , "biking": challenges_biking
