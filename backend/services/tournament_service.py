@@ -31,8 +31,8 @@ class TournamentService:
             for i in range(character_level):
                 max_xprwd *= self.GOLDEN_RATIO
                 max_coinrwd *= self.GOLDEN_RATIO
-            xp_reward = random.randint(1, max_xprwd)
-            coin_reward = random.randint(1, max_coinrwd)      
+            xp_reward = random.randint(1, round(max_xprwd))
+            coin_reward = random.randint(1, round(max_coinrwd))      
 
             tournament = self.notion_service.create_tournament(character_id=character['id']
                                                             , xp_reward=xp_reward, coin_reward=coin_reward
@@ -85,13 +85,28 @@ class TournamentService:
                     alive_cryptids = self.redis_service.query_characters('status','alive')
                     l3_cryptids = [c for c in alive_cryptids if c['deep_level'] == 'l3' ]
                     whos = self.gods_v_cryptids(gods=l2_gods, cryptids=l3_cryptids, full_hp=full_hp)
+                elif 'r.v.w.' in tournament['path']:
+                    root = self.notion_service.get_characters_by_deep_level(deep_level='l0', is_npc=True)[0]
+                    l2_gods = self.notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
+                    sorted_items = sorted(l2_gods, key=lambda x: (x['level'], x['xp']))
+                    the_top_ten = sorted_items[-10:]
+                    the_last_six = sorted_items[:6]
+                    sample_gods = random.sample(the_top_ten, min( 6, len(the_top_ten))) + [random.choice(the_last_six)]
+                    alive_cryptids = self.redis_service.query_characters('status','alive')
+                    l3_cryptids = [c for c in alive_cryptids if c['deep_level'] == 'l3' ]
+                    whos = self.root_gods_v_cryptids(root=root, gods=sample_gods, cryptids=l3_cryptids)
+                    #for x in whos:
+                    #    print(x['name'],x['xp'],x['hp'])
                 else:
                     raise ValueError("Invalid tournament path")
+                whos[0]['xp'] += self.add_encounter_log(tournament['xpRwd'], 'xp',f"{whos[0]['name']} won tournament reward")
+                whos[0]['coins'] += self.add_encounter_log(tournament['coinRwd'], 'coins',f"{whos[0]['name']} won tournament reward")
                 tournament['who'] = None #Forcing to take the Who from Characters Array / Or Root
                 tournament['status'] = 'won'
                 tournament['encounter_log'] = self.encounter_log
                 tournament['top_5'] = whos
                 hours = abs(datetime.datetime.now() - datetime.datetime.fromisoformat(tournament['due'])).total_seconds() / 3600
+                #print(self.encounter_log)
                 self.notion_service.persist_adventure(adventure=tournament, characters=whos)
                 self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id'])
                                                                         ,tournament, expiry_hours=hours)
@@ -165,6 +180,66 @@ class TournamentService:
             + (cemetery['cryptids'][-2:] if len(cemetery['cryptids'][-2:]) >= 2 else cemetery['cryptids']) \
             + (cemetery['gods'][-2:] if len(cemetery['gods'][-2:]) >= 2 else cemetery['gods']) 
     
+    def root_gods_v_cryptids(self, root=None, gods=[], cryptids=[]):
+        need_update = []
+        teams_fighted = 0
+        random.shuffle(cryptids)
+        teamup_members = self.redis_service.get(self.redis_service.get_cache_key('num83r5','teamup_members'))
+        teamup_members = 2 if not teamup_members else teamup_members
+        self.add_encounter_log(0, 'fights', f"Root+Gods:{len(gods)} v Cryptids:{len(cryptids)} alive")
+        total_reward = 0
+        while len(gods) > 0 and len(cryptids) > 0 :
+            team = []
+            teams_fighted += 1
+            if teamup_members < len(cryptids):
+                for i in range(teamup_members):
+                    team.append(cryptids.pop(0))
+            else:
+                team = cryptids
+            god = gods.pop(0)
+            self.add_encounter_log(teams_fighted,"#fight#",f"{root['name']} and {god['name']}|{god['hp']}🫀 vs [{len(team)}:cryptids]")
+            winner, rounds_rwd, gods_bleed, untouchable_c = self.fight_root(root, god, team)
+            total_reward += rounds_rwd
+            self.add_encounter_log(rounds_rwd, '#reward#', f"added to the pot [{total_reward}]")
+            if winner == 'root':
+                gods.append(god)
+                if gods_bleed is False:
+                    teamup_members += 1 
+                    self.add_encounter_log(teamup_members, 'TM', 'Team Members Level Up')
+            else:
+                which_one = random.randint(0, 2) % 3
+                if which_one == 0:
+                    root['attack'] += (god['attack'] * 0.4)
+                elif which_one == 1:
+                    root['defense'] += (god['defense'] * 0.4)
+                elif which_one == 2:
+                    root['magic'] += (god['magic'] * 0.4)
+                god['xp'] += rounds_rwd
+                for cry in team:
+                    cry['xp'] += rounds_rwd
+                need_update.append(god)
+                need_update.extend(team)
+                if untouchable_c is True:
+                    teamup_members -= (0 if teamup_members <= 1 else 1)  
+                    self.add_encounter_log(teamup_members, 'TM', 'Team Members Lowering Down')
+            cryptids.extend([c for c in team if c['hp'] > 0 ])
+        self.add_encounter_log(teams_fighted, '+total+', f'Teams fought Root w Gods')
+        if len(gods) <= 0: # Winners the Cryptids then 1:1 with root
+            self.add_encounter_log(self.GOLDEN_RATIO, '1:1', f"{len(cryptids)} Cryptids vs Root|{root['hp']}🫀")
+            while len(cryptids) > 0 and root['hp'] >= 0:
+                cryp = cryptids.pop(0)
+                winner, looser = self.fight(root, cryp)
+            need_update.append(looser)
+        else:
+            winner = root
+        winner['xp'] += total_reward
+        self.add_encounter_log(total_reward, 'winner', f"final pot got by {winner['name'].upper()}|{winner['hp']}🫀 ")
+        for dude in need_update:
+            dude['xp'] += (total_reward / len(need_update))
+        self.redis_service.set_without_expiry(self.redis_service.get_cache_key('num83r5','teamup_members'),teamup_members)
+        return [winner] + need_update
+
+
     def check_for_duplicates(self, characters):
         duplicates = []
         for i in range(len(characters)):
@@ -173,6 +248,46 @@ class TournamentService:
                     duplicates.append(characters[i])
         return duplicates
     
+    def fight_root(self,root, god, team):
+        # print("🌳 ",root['name'],god['name'], len(team),team[0]['name'])
+        character_level = min(god['level'], root['level'] )
+        god['hp'] = abs(god['hp']) # handle death gods
+        max_xprwd = self.max_xprwd
+        for i in range(character_level):
+            max_xprwd *= self.GOLDEN_RATIO
+        xp_reward = random.randint(1, round(max_xprwd))
+        rounds = 0
+        gods_bleed = False
+        untouchable_c = True
+        while god['hp'] > 0 and len(team) > 0:
+            rounds += 1
+            damage = 0
+            # Cryptid attack
+            m_cryptidpts = sum(c['magic'] + random.randint(1, self.dice_size) for c in team)
+            m_godpts = root['magic'] + god['magic'] + random.randint(1, self.dice_size)
+            p_cryptidpts = sum(c['attack'] + random.randint(1, self.dice_size) for c in team)
+            p_godpts = root['defense'] + god['defense'] + random.randint(1, self.dice_size)
+            damage = (m_cryptidpts - m_godpts) + (p_cryptidpts - p_godpts)
+            if random.randint(0, 2) % 3 != 0 : #aimed attack
+                god['hp'] -= damage if damage > 0 else 0
+                gods_bleed = True
+            # Gods attack
+            m_godpts = root['magic'] + god['magic'] + random.randint(1, self.dice_size)
+            m_cryptidpts = sum(c['magic'] + random.randint(1, self.dice_size) for c in team)
+            p_godpts = root['attack'] + god['attack'] + random.randint(1, self.dice_size)
+            p_cryptidpts = sum(c['defense'] + random.randint(1, self.dice_size) for c in team)
+            damage = (p_godpts - p_cryptidpts) + (m_godpts - m_cryptidpts)
+            if random.randint(0, 2) % 3 != 0 and damage > 0: #aimed attack
+                untouchable_c = False
+                for cry in team:
+                    cry['hp'] -= (damage / len(team))
+                    if cry['hp'] < 0:
+                        team.remove(cry)
+        rounds_rwd = xp_reward if rounds > xp_reward else rounds
+        winner = 'team' if god['hp'] <= 0 else 'root'
+        god['hp'] = (god['hp']*-1) if god['hp'] > 0 and god['status'] == 'dead' else god['hp'] # handle death gods
+        return winner, rounds_rwd, gods_bleed, untouchable_c
+
     def fight_gods(self, god, cryptid):
         # print("😇'⚔️🗺️",god['name'], cryptid['name'])
         character_level = max(god['level'], cryptid['level'] )
@@ -180,7 +295,7 @@ class TournamentService:
         max_xprwd = self.max_xprwd
         for i in range(character_level):
             max_xprwd *= self.GOLDEN_RATIO
-        xp_reward = random.randint(1, max_xprwd)
+        xp_reward = random.randint(1, round(max_xprwd))
         rounds = 0
         while god['hp'] > 0 and cryptid['hp'] > 0:
             rounds += 1
@@ -214,13 +329,13 @@ class TournamentService:
         #print(f"w-> {winner['name']} xp:{winner['xp']} hp:{winner['hp']}")
         #print(f"l-> {looser['name']} xp:{looser['xp']} hp:{looser['hp']}")
         return winner, looser, 'c' if cryptid['hp'] > 0 else 'g'
-    
+        
     def fight(self, who, enemy):
         character_level = who['level']
         max_xprwd = self.max_xprwd
         for i in range(character_level):
             max_xprwd *= self.GOLDEN_RATIO
-        xp_reward = random.randint(1, max_xprwd)
+        xp_reward = random.randint(1, round(max_xprwd))
         rounds = 0
         while who['hp'] > 0 and enemy['hp'] > 0:
             rounds += 1

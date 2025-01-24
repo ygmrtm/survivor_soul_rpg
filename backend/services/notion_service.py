@@ -355,12 +355,12 @@ class NotionService:
             character['magic'] = character['magic'] if character['magic'] <= max_prop_limit else max_prop_limit
             datau = {"properties": { "level": {"number": character['level']}, 
                                     "hp": {"number": round(character['hp'])}, 
-                                    "xp": {"number": character['xp']}, 
+                                    "xp": {"number": round(character['xp'])}, 
                                     "respawn": {"number": character['respawn']}, 
-                                    "sanity": {"number": character['sanity']}, 
+                                    "sanity": {"number": round(character['sanity'])}, 
                                     "force": {"number": round(character['attack'])}, 
                                     "defense": {"number": round(character['defense'])}, 
-                                    "coins": {"number": character['coins']}, 
+                                    "coins": {"number": round(character['coins'])}, 
                                     "magic": {"number": round(character['magic'])} ,
                                     "status": {"select": {"name":character['status']} }}}
             upd_character = self.update_character(character, datau)

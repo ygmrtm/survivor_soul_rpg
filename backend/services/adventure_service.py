@@ -45,14 +45,14 @@ class AdventureService:
             max_coinrwd *= self.GOLDEN_RATIO
         
         # Get NPC characters for enemies
-        xp_reward = random.randint(1, max_xprwd)
-        coin_reward = random.randint(1, max_coinrwd)
+        xp_reward = random.randint(1, round(max_xprwd))
+        coin_reward = random.randint(1, round(max_coinrwd))
         description = "dummy desc"
         #print(final_enemies,"\n\n")
         if underworld is False:
             npc_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
             filtered_enemies = [c for c in npc_characters if c['status'] == 'alive']
-            enemies_to_encounter = random.randint(1, max_chapters)
+            enemies_to_encounter = random.randint(1, round(max_chapters))
             final_enemies = random.sample(filtered_enemies, min(enemies_to_encounter, len(filtered_enemies)))
             final_enemies_ids = [{"id":enemy['id']} for enemy in final_enemies]
             description = "Adventure to die for..." 
@@ -79,8 +79,8 @@ class AdventureService:
                 for i in range(habit_level):
                     max_xprwd *= self.GOLDEN_RATIO
                     max_coinrwd *= self.GOLDEN_RATIO
-                xp_reward = random.randint(1, max_xprwd)
-                coin_reward = random.randint(1, max_coinrwd)                
+                xp_reward = random.randint(1, round(max_xprwd))
+                coin_reward = random.randint(1, round(max_coinrwd))                
                 how_many_times = random.randint(1, 7)
                 challenge = self.notion_service.create_challenge(habit['emoji'], week_number, how_many_times, habit['who'], xp_reward, coin_reward, habit['id'])
                 challenges.append(challenge)
@@ -506,8 +506,8 @@ class AdventureService:
                     for i in range(habit_level):
                         max_xprwd *= self.GOLDEN_RATIO
                         max_coinrwd *= self.GOLDEN_RATIO
-                    xp_reward = random.randint(1, max_xprwd)
-                    coin_reward = random.randint(1, max_coinrwd)                
+                    xp_reward = random.randint(1, round(max_xprwd))
+                    coin_reward = random.randint(1, round(max_coinrwd))                
                     props = { "how_many_times":next_suggested_streak, "character_id":habit['who']
                             , "xp_reward":xp_reward, "coin_reward":coin_reward, "habit_id":habit['id']
                             ,"emoji": habit['emoji'], "name": habit['name'] + f" | {days_since_last_date} days since last"
