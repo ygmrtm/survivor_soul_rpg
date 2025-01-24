@@ -236,3 +236,17 @@ feat: Create challenge to break last Racha
 adding cache for deadpeople
 ---
 
+## [1.1.13] - 2025-01-24
+Merge c25c4b65d6129f14f99103db35cfba2b9229de58 into 75d983282604faa6301f43cd7ee38d950ee61fc7
+
+Merge pull request #39 from ygmrtm/feat_tournaments
+
+[Code-41] Feat tournaments
+feat: Tournament | All(joining forces)(use difficult level = amount of teammates) vs Root+6Bosses
+
+Merge pull request #37 from ygmrtm/main
+
+[CODE-41] Udating Tournament branch
+Update CHANGELOG for version 1.1.12
+---
+
