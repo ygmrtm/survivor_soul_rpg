@@ -77,15 +77,18 @@ class TournamentService:
                 l3_characters += self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False)        
                 self.encounter_log = []
                 whos = []
-                print(f"🏟️ {tournament['name']} | {tournament['desc']}")
+                print(f"🏟️ {tournament['name']} | {tournament['desc']} | {tournament['xpRwd']} reward")
                 if 'l.c.s.' in tournament['path']:
+                    print("l.c.s.")
                     whos = self.last_cryptid_stand(l3_characters=l3_characters, full_hp=full_hp)
                 elif 'g.v.c.' in tournament['path']:
+                    print("g.v.c.")
                     l2_gods = self.notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
                     alive_cryptids = self.redis_service.query_characters('status','alive')
                     l3_cryptids = [c for c in alive_cryptids if c['deep_level'] == 'l3' ]
                     whos = self.gods_v_cryptids(gods=l2_gods, cryptids=l3_cryptids, full_hp=full_hp)
                 elif 'r.v.w.' in tournament['path']:
+                    print("r.v.w.")
                     root = self.notion_service.get_characters_by_deep_level(deep_level='l0', is_npc=True)[0]
                     l2_gods = self.notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
                     sorted_items = sorted(l2_gods, key=lambda x: (x['level'], x['xp']))
@@ -98,7 +101,7 @@ class TournamentService:
                     #for x in whos:
                     #    print(x['name'],x['xp'],x['hp'])
                 else:
-                    raise ValueError("Invalid tournament path")
+                    raise ValueError("🚨 Invalid tournament path")
                 whos[0]['xp'] += self.add_encounter_log(tournament['xpRwd'], 'xp',f"{whos[0]['name']} won tournament reward")
                 whos[0]['coins'] += self.add_encounter_log(tournament['coinRwd'], 'coins',f"{whos[0]['name']} won tournament reward")
                 tournament['who'] = None #Forcing to take the Who from Characters Array / Or Root

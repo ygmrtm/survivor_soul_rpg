@@ -6,13 +6,19 @@ def test_redis_connection():
         redis_service = RedisService()
         
         # Test basic operations
-        redis_service.set_with_expiry('test_key', {'message': 'Hello Redis Cloud!'}, 0.2 )
+        redis_service.set_with_expiry('test_key', {'message': 'Hello Redis Cloud!'}, 0.1 )
         result = redis_service.get('test_key')
         print("Test Result:", result)
         
         # Get connection info
         connection_info = redis_service.get_connection_info()
         print("Redis Connection Info:", connection_info)
+
+        #what_we_got = redis_service.get_smembers('sample_restaurant:*')
+        #print("WwGoT::: ", what_we_got)
+
+        #redis_service.ssad('tournament:'+'test_tournament'
+        #                , {'message': 'Hello Redis Cloud!', 'sacapa': [ {"a": False},{"b": True} ]})
         
         return True
     except Exception as e:

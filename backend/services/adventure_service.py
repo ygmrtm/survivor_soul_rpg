@@ -20,6 +20,7 @@ class AdventureService:
     max_xprwd = 4
     max_coinrwd = 10    
     percentage_habits = 0.5 # for challenges how many habits to pick
+    percentage_execute_dead = 0.75
     encounter_log = []
     dice_size = 16
     expiry_hours = 0.4    
@@ -640,7 +641,7 @@ class AdventureService:
             else:
                 self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | You missed your attack.'.format(rounds))
             if random.randint(0, 1) % 2 == 0: #Magic Defense
-                enemypts = enemy['magic'] + random.randint(1, self.dice_size) + (enemy['magic'] if random.randint(0, 3) % 4 == 0 else 0 )
+                enemypts = enemy['magic'] + random.randint(1, self.dice_size) + (enemy['magic'] if random.randint(0, 2) % 3 == 0 else 0 )
                 whopts = who['magic'] + god['magic'] + random.randint(1, self.dice_size)
             else: #Physical Defense
                 enemypts = enemy['attack'] + random.randint(1, self.dice_size) 
@@ -748,7 +749,7 @@ class AdventureService:
         if len(filtered_characters) <= 5:
             to_execute = len(filtered_characters)
         else:
-            to_execute = random.randint(1, int(len(filtered_characters) * self.percentage_habits))
+            to_execute = int(len(filtered_characters) * self.percentage_execute_dead)
         sample_characters = random.sample(filtered_characters, min( to_execute, len(filtered_characters)))
         done = 1
         return_array = []
@@ -772,7 +773,7 @@ class AdventureService:
         if len(all_adventures) <= 5:
             to_execute = len(all_adventures)
         else:
-            to_execute = random.randint(1, int(len(all_adventures) * self.percentage_habits))
+            to_execute = int(len(all_adventures) * self.percentage_execute_dead)
         sample_adventures = random.sample(all_adventures, min(to_execute, len(all_adventures)))
         done = 1
         dead_gods_pool = []

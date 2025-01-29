@@ -255,11 +255,11 @@ class NotionService:
                 ,"level": character['properties']['level']['number']
                 ,"coins": character['properties']['coins']['number']
                 ,"xp": character['properties']['xp']['number']
-                ,"max_xp": max_xp
+                ,"max_xp": round(max_xp)
                 ,"hp": character['properties']['hp']['number']
-                ,"max_hp": max_hp
+                ,"max_hp": round(max_hp)
                 ,"sanity": character['properties']['sanity']['number']
-                ,"max_sanity": max_sanity
+                ,"max_sanity": round(max_sanity)
                 ,"attack": character['properties']['force']['number']
                 ,"defense": character['properties']['defense']['number']
                 ,"magic": character['properties']['magic']['number']
@@ -350,9 +350,9 @@ class NotionService:
             max_prop_limit = self.max_prop_limit
             for i in range(character['level']):
                 max_prop_limit *= self.GOLDEN_RATIO
-            character['defense'] = character['defense'] if character['defense'] <= max_prop_limit else max_prop_limit
-            character['attack'] = character['attack'] if character['attack'] <= max_prop_limit else max_prop_limit
-            character['magic'] = character['magic'] if character['magic'] <= max_prop_limit else max_prop_limit
+            character['defense'] = character['defense'] if character['defense'] <= max_prop_limit else round(max_prop_limit)
+            character['attack'] = character['attack'] if character['attack'] <= max_prop_limit else round(max_prop_limit)
+            character['magic'] = character['magic'] if character['magic'] <= max_prop_limit else round(max_prop_limit)
             datau = {"properties": { "level": {"number": character['level']}, 
                                     "hp": {"number": round(character['hp'])}, 
                                     "xp": {"number": round(character['xp'])}, 
