@@ -98,21 +98,23 @@ class TournamentService:
                     alive_cryptids = self.redis_service.query_characters('status','alive')
                     l3_cryptids = [c for c in alive_cryptids if c['deep_level'] == 'l3' ]
                     whos = self.root_gods_v_cryptids(root=root, gods=sample_gods, cryptids=l3_cryptids)
-                    #for x in whos:
-                    #    print(x['name'],x['xp'],x['hp'])
                 else:
                     raise ValueError("🚨 Invalid tournament path")
-                whos[0]['xp'] += self.add_encounter_log(tournament['xpRwd'], 'xp',f"{whos[0]['name']} won tournament reward")
-                whos[0]['coins'] += self.add_encounter_log(tournament['coinRwd'], 'coins',f"{whos[0]['name']} won tournament reward")
-                tournament['who'] = None #Forcing to take the Who from Characters Array / Or Root
-                tournament['status'] = 'won'
-                tournament['encounter_log'] = self.encounter_log
-                tournament['top_5'] = whos
-                hours = abs(datetime.datetime.now() - datetime.datetime.fromisoformat(tournament['due'])).total_seconds() / 3600
-                #print(self.encounter_log)
-                self.notion_service.persist_adventure(adventure=tournament, characters=whos)
-                self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id'])
-                                                                        ,tournament, expiry_hours=hours)
+                
+                if len(whos) > 0 and whos[0]['description'] != "dummy":
+                    whos[0]['xp'] += self.add_encounter_log(tournament['xpRwd'], 'xp',f"{whos[0]['name']} won tournament reward")
+                    whos[0]['coins'] += self.add_encounter_log(tournament['coinRwd'], 'coins',f"{whos[0]['name']} won tournament reward")
+                    tournament['who'] = None #Forcing to take the Who from Characters Array / Or Root
+                    tournament['status'] = 'won'
+                    tournament['encounter_log'] = self.encounter_log
+                    tournament['top_5'] = whos
+                    hours = abs(datetime.datetime.now() - datetime.datetime.fromisoformat(tournament['due'])).total_seconds() / 3600
+                    #print(self.encounter_log)
+                    self.notion_service.persist_adventure(adventure=tournament, characters=whos)
+                    self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id'])
+                                                                            ,tournament, expiry_hours=hours)
+                else:
+                    print("No winner")
             remainOpen = len(self.get_all_open_tournaments())
             return {"tournaments":tournaments, "still_not_executed":remainOpen }
         except Exception as e:
@@ -159,6 +161,7 @@ class TournamentService:
         #print("🔔 Duplicates:",self.check_for_duplicates(alive_criptids),len(alive_criptids))
         #print("🚨 Duplicates:",self.check_for_duplicates(gods),len(gods))
         self.add_encounter_log(max(len(gods), len(alive_criptids)), 'fights', f"Gods:{len(gods)} v Cryptids:{len(alive_criptids)} alive {full_hp}")
+        winner = { "description": "dummy"}
         while len(gods) > 0 and len(alive_criptids) > 0 :
             fights += 1
             god = gods.pop(0)
@@ -229,10 +232,12 @@ class TournamentService:
         self.add_encounter_log(teams_fighted, '+total+', f'Teams fought Root w Gods')
         if len(gods) <= 0: # Winners the Cryptids then 1:1 with root
             self.add_encounter_log(self.GOLDEN_RATIO, '1:1', f"{len(cryptids)} Cryptids vs Root|{root['hp']}🫀")
+            looser = None
             while len(cryptids) > 0 and root['hp'] >= 0:
                 cryp = cryptids.pop(0)
                 winner, looser = self.fight(root, cryp)
-            need_update.append(looser)
+            if looser is not None:
+                need_update.append(looser)
         else:
             winner = root
         winner['xp'] += total_reward
