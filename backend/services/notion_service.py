@@ -667,7 +667,7 @@ class NotionService:
             end_date_str = end_date.strftime('%Y-%m-%d')
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_DLYLG}/query"
-        data = {
+        data_filter = {
             "filter": {
                 "and": [
                     { "property": "cuando", "date": { "on_or_after": start_date_str } }
@@ -676,54 +676,66 @@ class NotionService:
             },
             "sorts":[{"property": "cuando", "direction" : "ascending"}]
         }
-        response = requests.post(url, headers=self.headers, json=data)  
-        if response.status_code == 200: 
-            habits_cards_trn = []
-            habits_cards = response.json().get("results", [])
-            for habit_daily_card in habits_cards:
-                achieved = []
-                achieved.append("trade" if habit_daily_card['properties']['📈']['checkbox'] is True else None)
-                achieved.append("prsnl" if habit_daily_card['properties']['🫀']['checkbox'] is True else None)
-                achieved.append("beer" if habit_daily_card['properties']['🍺']['checkbox'] is True else None)
-                achieved.append("read" if habit_daily_card['properties']['📚']['checkbox'] is True else None)
-                achieved.append("tech" if habit_daily_card['properties']['💻']['checkbox'] is True else None)
-                achieved.append("deew" if habit_daily_card['properties']['🍃']['checkbox'] is True else None)
-                achieved.append("shower" if habit_daily_card['properties']['🚿']['checkbox'] is True else None)
-                achieved.append("social" if habit_daily_card['properties']['🛗']['checkbox'] is True else None)
-                achieved.append("cook" if habit_daily_card['properties']['🍚']['checkbox'] is True else None)
-                achieved.append("bed" if habit_daily_card['properties']['🛏️']['checkbox'] is True else None)
-                achieved.append("meals" if habit_daily_card['properties']['🥣']['number'] == 3 else None)
-                achieved.append("bike" if habit_daily_card['properties']['🚲']['checkbox'] is True else None)
-                achieved.append("teeth" if habit_daily_card['properties']['🦷']['checkbox'] is True else None)
-                achieved.append("outdoors" if habit_daily_card['properties']['🏜️']['checkbox'] is True else None)
-                achieved.append("gym" if habit_daily_card['properties']['💪🏼']['checkbox'] is True else None)
-                achieved = [item for item in achieved if item is not None]
-                habits_cards_trn.append({
-                    "id": habit_daily_card['id']
-                    ,"cuando": habit_daily_card['properties']['cuando']['date']['start']
-                    ,"trade" : habit_daily_card['properties']['📈']['checkbox']
-                    ,"prsnl" : habit_daily_card['properties']['🫀']['checkbox']
-                    ,"beer" : habit_daily_card['properties']['🍺']['checkbox']
-                    ,"read" : habit_daily_card['properties']['📚']['checkbox']
-                    ,"tech" : habit_daily_card['properties']['💻']['checkbox']
-                    ,"deew" : habit_daily_card['properties']['🍃']['checkbox']
-                    ,"shower" : habit_daily_card['properties']['🚿']['checkbox']
-                    ,"social" : habit_daily_card['properties']['🛗']['checkbox']
-                    ,"cook" : habit_daily_card['properties']['🍚']['checkbox']
-                    ,"bed" : habit_daily_card['properties']['🛏️']['checkbox']
-                    ,"meals" : habit_daily_card['properties']['🥣']['number']
-                    ,"mealsb" : habit_daily_card['properties']['🥣']['number'] == 3
-                    ,"bike" : habit_daily_card['properties']['🚲']['checkbox']
-                    ,"teeth" : habit_daily_card['properties']['🦷']['checkbox']
-                    ,"outdoors" : habit_daily_card['properties']['🏜️']['checkbox']
-                    ,"gym" : habit_daily_card['properties']['💪🏼']['checkbox']
-                    ,"achieved": achieved
-                })
-            return habits_cards_trn
-        else:
-            print("<x>|",response.status_code, response.text)  
-            response.raise_for_status()  
-            return []
+
+        has_more = True
+        start_cursor = None
+        habits_cards_trn = []
+        while has_more:
+            if start_cursor:
+                data_filter['start_cursor'] = start_cursor
+            response = requests.post(url, headers=self.headers, json=data_filter)
+            data = response.json()
+            if response.status_code == 200: 
+                habits_cards = response.json().get("results", [])
+                for habit_daily_card in habits_cards:
+                    achieved = []
+                    achieved.append("trade" if habit_daily_card['properties']['📈']['checkbox'] is True else None)
+                    achieved.append("prsnl" if habit_daily_card['properties']['🫀']['checkbox'] is True else None)
+                    achieved.append("beer" if habit_daily_card['properties']['🍺']['checkbox'] is True else None)
+                    achieved.append("read" if habit_daily_card['properties']['📚']['checkbox'] is True else None)
+                    achieved.append("tech" if habit_daily_card['properties']['💻']['checkbox'] is True else None)
+                    achieved.append("deew" if habit_daily_card['properties']['🍃']['checkbox'] is True else None)
+                    achieved.append("shower" if habit_daily_card['properties']['🚿']['checkbox'] is True else None)
+                    achieved.append("social" if habit_daily_card['properties']['🛗']['checkbox'] is True else None)
+                    achieved.append("cook" if habit_daily_card['properties']['🍚']['checkbox'] is True else None)
+                    achieved.append("bed" if habit_daily_card['properties']['🛏️']['checkbox'] is True else None)
+                    achieved.append("meals" if habit_daily_card['properties']['🥣']['number'] == 3 else None)
+                    achieved.append("bike" if habit_daily_card['properties']['🚲']['checkbox'] is True else None)
+                    achieved.append("teeth" if habit_daily_card['properties']['🦷']['checkbox'] is True else None)
+                    achieved.append("outdoors" if habit_daily_card['properties']['🏜️']['checkbox'] is True else None)
+                    achieved.append("gym" if habit_daily_card['properties']['💪🏼']['checkbox'] is True else None)
+                    achieved = [item for item in achieved if item is not None]
+                    habits_cards_trn.append({
+                        "id": habit_daily_card['id']
+                        ,"cuando": habit_daily_card['properties']['cuando']['date']['start']
+                        ,"trade" : habit_daily_card['properties']['📈']['checkbox']
+                        ,"prsnl" : habit_daily_card['properties']['🫀']['checkbox']
+                        ,"beer" : habit_daily_card['properties']['🍺']['checkbox']
+                        ,"read" : habit_daily_card['properties']['📚']['checkbox']
+                        ,"tech" : habit_daily_card['properties']['💻']['checkbox']
+                        ,"deew" : habit_daily_card['properties']['🍃']['checkbox']
+                        ,"shower" : habit_daily_card['properties']['🚿']['checkbox']
+                        ,"social" : habit_daily_card['properties']['🛗']['checkbox']
+                        ,"cook" : habit_daily_card['properties']['🍚']['checkbox']
+                        ,"bed" : habit_daily_card['properties']['🛏️']['checkbox']
+                        ,"meals" : habit_daily_card['properties']['🥣']['number']
+                        ,"mealsb" : habit_daily_card['properties']['🥣']['number'] == 3
+                        ,"bike" : habit_daily_card['properties']['🚲']['checkbox']
+                        ,"teeth" : habit_daily_card['properties']['🦷']['checkbox']
+                        ,"outdoors" : habit_daily_card['properties']['🏜️']['checkbox']
+                        ,"gym" : habit_daily_card['properties']['💪🏼']['checkbox']
+                        ,"achieved": achieved
+                    })
+            else:
+                print("<x>|",response.status_code, response.text)  
+                response.raise_for_status()  
+                return []
+            # Check if there are more pages
+            has_more = data.get("has_more", False)
+            start_cursor = data.get("next_cursor")  
+            print(f"Fetched {len(data.get('results', []))} daily cards, total so far: {len(habits_cards_trn)}")
+        return habits_cards_trn
+
             
     dlychcklst_map = {
         '[c]od[e]' : ['tech']
