@@ -676,11 +676,11 @@ class AdventureService:
             else: #Physical Defense
                 damage = enemy['attack'] + random.randint(1, self.dice_size) - who['defense'] - random.randint(1, self.dice_size)
                 versus = '🛡️:{}vs{}={}'.format(enemy['attack'], who['defense'], damage)
+            who['hp'] += self.add_encounter_log(abs(damage), "hp", 'R{} | Enemy aimed {}'.format(rounds, versus))
+            enemy['hp'] -= abs(damage)
+            who['xp'] += self.add_encounter_log(xpReward, "xp", '{} got '.format(who['name']) )
+            enemy['xp'] += self.add_encounter_log(xpReward, "xp", '{} got '.format(enemy['name']) )
             if damage > 0: 
-                who['hp'] += self.add_encounter_log(damage, "hp", 'R{} | Enemy aimed {}'.format(rounds, versus))
-                enemy['hp'] -= damage
-                who['xp'] += self.add_encounter_log(xpReward, "xp", '{} got '.format(who['name']) )
-                enemy['xp'] += self.add_encounter_log(xpReward, "xp", '{} got '.format(enemy['name']) )
                 lucky_exchange = random.randint(0, 4) % 4
                 if lucky_exchange == 0:
                     who['magic'] += self.add_encounter_log(enemy['magic'] * 0.33, 'magic', '🍀{}🍀'.format(who['name']))
@@ -692,7 +692,7 @@ class AdventureService:
                     who['defense'] += self.add_encounter_log(enemy['defense'] * 0.33, 'defense', '🍀{}🍀'.format(who['name']))
                     enemy['defense'] += self.add_encounter_log(who['defense'] * 0.33, 'defense', '🍀{}🍀'.format(enemy['name']))
             was_too_much = rounds >= 100
-        return True
+        return not was_too_much
 
     def add_encounter_log(self, points, type, why):
         self.encounter_log.append({
@@ -806,8 +806,12 @@ class AdventureService:
                 who[minor_prop] += self.add_encounter_log(average_properties, minor_prop, 'Engaging the weakest property')
                 deaadventure['status'] = 'won'
                 deaadventure['encounter_log'] = self.encounter_log
-                self.notion_service.persist_adventure(adventure=deaadventure, characters=[who,enemy])
-                time.sleep(random.randint(1, 5))
+            else:
+                deaadventure['status'] = 'lost'
+                self.add_encounter_log(who['hp'], "hp", 'You have been defeated in 100 encounters.')
+                deaadventure['encounter_log'] = self.encounter_log
+            self.notion_service.persist_adventure(adventure=deaadventure, characters=[who,enemy])
+            time.sleep(random.randint(1, 5))
             return_array.append({"adventure_id": deaadventure['id'], "character_id": who['id'], "character_name": who['name'], "deadgod_name": enemy['name'],"adventure_status": deaadventure['status']})
             done += 1
         return return_array
