@@ -250,3 +250,23 @@ Merge pull request #37 from ygmrtm/main
 Update CHANGELOG for version 1.1.12
 ---
 
+## [1.1.14] - 2025-04-18
+Merge c2b0cf16476b960187bf0744b6e74a278e775871 into 0f19c228831c3780284d8a2dd85323ea51bd6c3b
+
+Merge pull request #43 from ygmrtm/42-in-the-weekly-challenges-create_habit_longest_streak-is-getting-zeroes
+
+[CODE-41] Fix to handle cursor in DailyChecklist
+Fix to handle cursor in DailyChecklist
+
+**enhance:** cards displayed/enabled also consider **status** *(not only hp)*
+
+- [x]  **enhance:** cards displayed/enabled also consider **status** *(not only hp)*
+    - [x]  color of the displayed status
+
+enhacements
+
+- Include Racha from Redis
+- Underworld values
+- Tournament minor changes
+---
+
