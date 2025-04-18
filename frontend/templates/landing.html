@@ -14,38 +14,6 @@
     </header>
     
     <main class="container">
-        <div class="character-grid">
-            <!-- Dynamically render character cards -->
-            {% for character in characters %}
-            <div class="character-card" data-character-id="{{ character.id }}" data-character-hp="{{ character.hp }}">
-                <img src="{{ character.picture }}" alt="{{ character.name }}">
-                <h3>{{ character.name }}</h3>
-                <h4>Level: {{ character.level }} | {{ character.status }}</h4>
-                <p>XP: {{ character.xp }} / {{ character.max_xp }}</p>
-                <p>🫀: {{ character.hp }} / {{ character.max_hp }}</p>
-                <p>🧠: {{ character.sanity }} / {{ character.max_sanity }}</p>
-                <p>Attack: {{ character.attack }}</p>
-                <p>Defense: {{ character.defense }}</p>
-                <p>Magic: {{ character.magic }}</p>
-                <p>🪙: ${{ character.coins }}</p>
-                <p>Inventory:</p>
-                <ul>
-                    {% for item in character.inventory %}
-                        <li>{{ item }}</li>
-                    {% endfor %}
-                </ul>
-            </div>
-            {% endfor %}
-        </div>
-        <!-- Modal for Adventure Details -->
-        <div id="adventure-modal" class="modal">
-            <div class="modal-content">
-                <button class="close-button" onclick="closeModal()">X</button>
-                <h2>Adventure Details</h2>
-                <p id="adventure-info">Loading...</p>
-            </div>
-        </div>
-
         <!-- Button for Challenges -->
         <div class="challenge-button-container">
             <button id="challenges-button" class="flat-button"><img src="{{ url_for('static', filename='img/notion-logo.png') }}" alt="Notion">Click for Challenges in Week&nbsp;<b><span id="week-number"></span></b></button>
@@ -58,9 +26,43 @@
         <div class="challenge-button-container">
             <button id="tournament-button" class="flat-button" disabled><img src="{{ url_for('static', filename='img/tournament-logo.png') }}" alt="tournament">Tournaments&nbsp;<b><span id="pending-tournaments"></span></b></button>
         </div>    
+
+        <div class="character-grid">
+            <!-- Dynamically render character cards -->
+            {% for character in characters %}
+            <div class="character-card" data-character-id="{{ character.id }}" data-character-hp="{{ character.hp }}" data-character-status="{{ character.status }}" data-character-name="{{ character.name }}">
+                <img src="{{ character.picture }}" alt="{{ character.name }}">
+                <h3>{{ character.name }}</h3>
+                <h4>Level: {{ character.level }} | <span class="status-{{ character.status.lower().replace(' ', '-') }}">{{ character.status }}</span></h4>
+                <p>XP: {{ character.xp }} / {{ character.max_xp }}</p>
+                <p>🫀: {{ character.hp }} / {{ character.max_hp }}</p>
+                <p>🧠: {{ character.sanity }} / {{ character.max_sanity }}</p>
+                <p>Attack: {{ character.attack }}</p>
+                <p>Defense: {{ character.defense }}</p>
+                <p>Magic: {{ character.magic }}</p>
+                <p>🪙: ${{ character.coins }}</p>
+                <p>⏰: {{ character.hours_recovered }}/{{ character.max_hp * 0.30}} ⏳ {{ (character.max_hp * 0.30)-character.hp }}</p>
+                <p>Inventory:</p>
+                <ul>
+                    {% for item in character.inventory %}
+                        <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endfor %}
+        </div>
+        <!-- Modal for Adventure Details -->
+        <div id="adventure-modal" class="modal" onclick="closeModal()">
+            <div class="modal-content" >
+                <button class="close-button" onclick="closeModal()">🚪 adios!</button>
+                <h2>Adventure Details</h2>
+                <p id="adventure-info">Loading...</p>
+            </div>
+        </div>
+
     </main>
     <footer>
-        &copy; <span id="current-year"></span> Survivor Soul RPG - Version <span id="version-number"></span>
+        &copy; <span id="current-year"></span> Survivor Soul RPG - v<span id="version-number"></span>
     </footer>
 </body>
 </html>

@@ -19,7 +19,8 @@ class AdventureService:
     max_chapters = 7
     max_xprwd = 4
     max_coinrwd = 10    
-    percentage_habits = 0.5 # for challenges how many habits to pick
+    percentage_habits = 0.6 # for challenges how many habits to pick
+    percentage_execute_dead = 0.90
     encounter_log = []
     dice_size = 16
     expiry_hours = 0.4    
@@ -53,6 +54,7 @@ class AdventureService:
             npc_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
             filtered_enemies = [c for c in npc_characters if c['status'] == 'alive']
             enemies_to_encounter = random.randint(1, round(max_chapters))
+            enemies_to_encounter = 100 if enemies_to_encounter > 100 else enemies_to_encounter
             final_enemies = random.sample(filtered_enemies, min(enemies_to_encounter, len(filtered_enemies)))
             final_enemies_ids = [{"id":enemy['id']} for enemy in final_enemies]
             description = "Adventure to die for..." 
@@ -553,10 +555,10 @@ class AdventureService:
                     self.distribute_tribute(who['alter_ego'], send_coins) 
                     adventure['status'] = 'won'
                     # logic for random creation of underworld for dead enemy
-                    if random.randint(0, 2) % 3 == 0:
-                        random_enemy = random.choice(enemies)
-                        if random_enemy['hp'] < 0:
-                            self.create_adventure(random_enemy['id'], underworld=True)
+                    # if random.randint(0, 9) % 2 == 0:
+                    random_enemy = random.choice(enemies)
+                    if random_enemy['hp'] < 0:
+                        self.create_adventure(random_enemy['id'], underworld=True)
                 else:
                     new_adventure = self.create_adventure(who['id'], underworld=True)
                     self.add_encounter_log(who['hp'], "hp", '‼️You lost the Adventure‼️')
@@ -605,13 +607,11 @@ class AdventureService:
     def negotiate (self, who, enemy)-> bool:
         sanity = who['sanity'] + random.randint(1, self.dice_size)  - enemy['sanity'] - random.randint(1, self.dice_size)
         magic = who['magic'] + random.randint(1, self.dice_size)  - enemy['magic'] - random.randint(1, self.dice_size)
-        if sanity > 0 and magic > 0:
-            who['xp'] += self.add_encounter_log(random.randint(1,5), "xp", "You successfully negotiated with the enemy.")
-            return True
         if sanity < 0 and magic < 0:
             who['sanity'] += self.add_encounter_log(-2, "sanity", "You failed the negotiations.")
             return False
-        if random.randint(0,9) % 2 == 0:
+
+        if random.randint(0,9) % 2 == 0 and (sanity > 0 or magic > 0 ):
             new_sanity = round((who['sanity'] + enemy['sanity']) / 2) 
             new_magic = round((who['magic'] + enemy['magic']) / 2) 
             self.add_encounter_log(0, "", 'You have been Cursed w {} sanity'.format(new_sanity))
@@ -620,7 +620,9 @@ class AdventureService:
             who['magic'] = enemy['magic'] = new_magic
             return False     
         else:
-            return self.negotiate(who, enemy)
+            who['xp'] += self.add_encounter_log(random.randint(1,5), "xp", "You successfully negotiated with the enemy.")
+            enemy['xp'] += random.randint(1,5)
+            return True
 
 
     def fight(self, who, enemy, god) -> bool:
@@ -640,10 +642,10 @@ class AdventureService:
             else:
                 self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | You missed your attack.'.format(rounds))
             if random.randint(0, 1) % 2 == 0: #Magic Defense
-                enemypts = enemy['magic'] + random.randint(1, self.dice_size) + (enemy['magic'] if random.randint(0, 3) % 4 == 0 else 0 )
+                enemypts = enemy['magic'] + random.randint(1, self.dice_size) + (enemy['magic'] if random.randint(0, 2) % 2 == 0 else 0 )
                 whopts = who['magic'] + god['magic'] + random.randint(1, self.dice_size)
             else: #Physical Defense
-                enemypts = enemy['attack'] + random.randint(1, self.dice_size) 
+                enemypts = enemy['attack'] + random.randint(1, self.dice_size) + (enemy['attack'] if random.randint(0, 2) % 2 == 0 else 0 )
                 whopts = who['defense'] + god['defense'] + random.randint(1, self.dice_size)
             damage = enemypts - whopts
             #print(damage, enemy['name'])
@@ -748,7 +750,7 @@ class AdventureService:
         if len(filtered_characters) <= 5:
             to_execute = len(filtered_characters)
         else:
-            to_execute = random.randint(1, int(len(filtered_characters) * self.percentage_habits))
+            to_execute = int(len(filtered_characters) * self.percentage_execute_dead)
         sample_characters = random.sample(filtered_characters, min( to_execute, len(filtered_characters)))
         done = 1
         return_array = []
@@ -772,7 +774,7 @@ class AdventureService:
         if len(all_adventures) <= 5:
             to_execute = len(all_adventures)
         else:
-            to_execute = random.randint(1, int(len(all_adventures) * self.percentage_habits))
+            to_execute = int(len(all_adventures) * self.percentage_execute_dead)
         sample_adventures = random.sample(all_adventures, min(to_execute, len(all_adventures)))
         done = 1
         dead_gods_pool = []

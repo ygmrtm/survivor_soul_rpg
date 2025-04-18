@@ -4,6 +4,7 @@ from backend.services.coding_service import CodingService
 from backend.services.bike_service import BikingService
 from backend.services.stencil_service import StencilService
 from backend.services.epics_service import EpicsService
+from backend.services.redis_service import RedisService
 from datetime import datetime
 import time
 import random
@@ -13,6 +14,7 @@ coding_service = CodingService()
 bike_service = BikingService()
 stencil_service = StencilService()
 epics_service = EpicsService()
+redis_service = RedisService()
 
 @adventure_bp.route('/<id>/create', methods=['POST'])
 def create_adventure(id):
@@ -78,10 +80,14 @@ def create_habit_longest_streak(days_back):
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/evaluate', methods=['POST'])
 def evaluate_challenges(week_number, year_number):
     # Call the service to create challenges for the specified week
+    days_back_racha = redis_service.get(redis_service.get_cache_key('num83r5','days_back_racha'))
+    if days_back_racha is None:
+        days_back_racha = 30
+        redis_service.set(redis_service.get_cache_key('num83r5','days_back_racha'), days_back_racha)
     challenges_cons = adventure_service.evaluate_consecutivedays_challenges(week_number, year_number)
     challenges_habits = adventure_service.evaluate_weekhabits_challenges(week_number, year_number)
     challenges_expired = adventure_service.evaluate_expired_challenges(week_number, year_number)
-    habit_longest_streak = adventure_service.create_habit_longest_streak(last_days=365, create_challenge=True)
+    habit_longest_streak = adventure_service.create_habit_longest_streak(last_days=days_back_racha, create_challenge=True)
     habit_longest_streak_executed = adventure_service.evaluate_habit_expired_longest_streak(datetime.today().strftime('%Y-%m-%d'))
     # Call Specify Ability Challenges
     challenges_coding = coding_service.evaluate_challenges(week_number, year_number)

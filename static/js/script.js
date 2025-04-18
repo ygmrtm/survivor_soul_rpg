@@ -1,15 +1,28 @@
 function closeModal() {
     document.getElementById('adventure-modal').style.display = 'none'; // Hide the modal
+    // Re-enable all character cards
+    const characterCards = document.querySelectorAll(".character-card");
+    characterCards.forEach(card => {
+        const alive_pts = parseInt(card.dataset.characterHp);
+        const characterStatus = card.dataset.characterStatus;
+        if(alive_pts > 0 && characterStatus == 'alive'){
+            card.classList.remove('disabled'); // Remove disabled class
+            card.style.pointerEvents = 'auto'; // Re-enable clicks
+            card.style.transform = "scale(1)"; // Reset scale
+        }
+    });
+
 }
 
 document.addEventListener("DOMContentLoaded", function () {
     const characterCards = document.querySelectorAll(".character-card");
 
     characterCards.forEach(card => {
-        const characterId = card.dataset.characterId; // Get character ID from data attribute
-        const characterHp = parseInt(card.dataset.characterHp); // Assuming you have hp in data attribute
+        const characterId = card.dataset.characterId; 
+        const characterHp = parseInt(card.dataset.characterHp); 
+        const characterStatus = card.dataset.characterStatus;
         // Disable card if character HP is less than zero
-        if (characterHp < 0) {
+        if (characterHp < 0 || characterStatus != 'alive') {
             console.log('Character HP is less than zero. Cannot execute adventure.');
             card.classList.add('disabled'); 
             card.style.pointerEvents = 'none'; 
@@ -25,41 +38,57 @@ document.addEventListener("DOMContentLoaded", function () {
             if (card.classList.contains('disabled')) return; // Prevent action if card is disabled
             card.classList.add('disabled'); // Disable the card
             card.style.pointerEvents = 'none'; // Prevent further clicks
-            document.getElementById('adventure-info').innerText = 'Loading...';
+            console.log(card.dataset.characterName)
+            document.getElementById('adventure-info').innerText = 'Loading... ' + card.dataset.characterName;
             document.getElementById('adventure-modal').style.display = 'block';
             fetch(`/api/adventure/${characterId}/create`, {
                 method: 'POST'
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    // If the response is not ok (not 2xx status), throw an error
+                    throw new Error(`Create adventure failed with status: ${response.status}`);
+                }
+                document.getElementById('adventure-info').innerText += '... ¡created!';
+                return response.json();
+            })
             .then(data => {
-                console.log('Adventure executed:', data);
+                console.log('Adventure created:', data);
+                
+                // Check if we received a valid adventure_id
+                if (!data.adventure_id) {
+                    throw new Error('Invalid adventure data: Missing adventure_id');
+                }
+                
                 const adventureId = data.adventure_id;
-                // Fetch adventure details using the adventure ID
+                
+                // Only proceed to execute if we have a valid adventure_id
                 return fetch(`/api/adventure/${adventureId}/execute`, {
                     method: 'POST'
                 });
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    // If the execute response is not ok, throw an error
+                    throw new Error(`Execute adventure failed with status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 document.getElementById('adventure-info').innerText = `Adventure ID: ${data.adventure_id}, \nCharacter: ${data.who_name}, \nStatus: ${data.status}`;
             })
             .catch(error => {
-                console.error('Error fetching adventure details:', error);
-                document.getElementById('adventure-info').innerText = 'Failed to load adventure details.';
+                console.error('Error in adventure flow:', error);
+                document.getElementById('adventure-info').innerText = `Failed: ${error.message}`;
+                
+                // Re-enable the card if there was an error in the create step
+                card.classList.remove('disabled');
+                card.style.pointerEvents = 'auto';
             });
         });
         // Close modal logic
         document.querySelector('.close-button').addEventListener('click', () => {
             document.getElementById('adventure-modal').style.display = 'none'; // Hide the modal
-            // Re-enable all character cards
-            characterCards.forEach(card => {
-                const alive_pts = parseInt(card.dataset.characterHp)
-                if(alive_pts > 0){
-                    card.classList.remove('disabled'); // Remove disabled class
-                    card.style.pointerEvents = 'auto'; // Re-enable clicks
-                    card.style.transform = "scale(1)"; // Reset scale
-                }
-            });
         });        
     });
 
