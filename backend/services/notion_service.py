@@ -856,7 +856,7 @@ class NotionService:
     def get_underworld_adventures(self):
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
-        data = {
+        data_filter = {
             "filter": {
                 "and": [
                     {
@@ -872,12 +872,23 @@ class NotionService:
                 ]
             }
         }
-        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
-        if response.status_code == 200: 
-            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
-        else:
-            print("-->",response.status_code, response.text)  # Debugging: Print the response
+        has_more = True
+        start_cursor = None
+        adventures = []
+        while has_more:
+            if start_cursor:
+                data_filter['start_cursor'] = start_cursor
+            response = requests.post(url, headers=self.headers, json=data_filter)
             response.raise_for_status()  # Raise an error for bad responses
+            data = response.json()
+            # Extend the characters list with the results from this page
+            adventures.extend(self.translate_adventure(data.get("results", []) if data.get("results", []) else []))
+            # Check if there are more pages
+            has_more = data.get("has_more", False)
+            start_cursor = data.get("next_cursor")  
+            print(f"Fetched {len(data.get('results', []))} deadventures, total so far: {len(adventures)}")
+        
+        return adventures
         
     def get_punishment_adventures(self):
         # Prepare the query for Notion API
