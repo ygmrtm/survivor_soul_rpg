@@ -270,3 +270,16 @@ enhacements
 - Tournament minor changes
 ---
 
+## [1.1.15] - 2025-04-18
+Merge d8624da4bdbf69f4389150299ca640794a29a2bb into 3f9052bda4a3e8cfeaa0331e3bb6a60f1c78b123
+
+Merge branch 'enhacements' of https://github.com/ygmrtm/survivor_soul_rpg into enhacements
+
+Code Change for Undead
+
+Merge pull request #45 from ygmrtm/main
+
+[CODE-41] Refresh
+Update CHANGELOG for version 1.1.14
+---
+
