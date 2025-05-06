@@ -305,7 +305,8 @@ class TournamentService:
             max_xprwd *= self.GOLDEN_RATIO
         xp_reward = random.randint(1, round(max_xprwd))
         rounds = 0
-        while god['hp'] > 0 and cryptid['hp'] > 0:
+        was_too_much = False
+        while god['hp'] > 0 and cryptid['hp'] > 0 and not was_too_much:
             rounds += 1
             damage = 0
             # Gods attack
@@ -324,8 +325,14 @@ class TournamentService:
             damage = (m_cryptidpts - m_godpts) + (p_cryptidpts - p_godpts)
             if random.randint(0, 2) % 3 != 0 : #aimed attack
                 god['hp'] -= damage if damage > 0 else 0
-        winner = cryptid if cryptid['hp'] > 0 else god
-        looser = cryptid if cryptid['hp'] <= 0 else god
+            was_too_much = rounds >= 100
+        winner = looser = None
+        if was_too_much: 
+            winner = god
+            looser = cryptid
+        else:
+            winner = cryptid if cryptid['hp'] > 0 else god
+            looser = cryptid if cryptid['hp'] <= 0 else god
         rounds_rwd = xp_reward if rounds > xp_reward else rounds
         looser['xp'] += (rounds_rwd + xp_reward)
         looser['description'] = f"{looser['name']} | L{looser['level']} | X{looser['xp']} | 🫀{looser['hp']} | 🧠{looser['sanity']}"
@@ -345,7 +352,8 @@ class TournamentService:
             max_xprwd *= self.GOLDEN_RATIO
         xp_reward = random.randint(1, round(max_xprwd))
         rounds = 0
-        while who['hp'] > 0 and enemy['hp'] > 0:
+        was_too_much = False
+        while who['hp'] > 0 and enemy['hp'] > 0 and not was_too_much:
             rounds += 1
             damage = 0
             if random.randint(0, 1) % 2 == 0: #Magic Attack
@@ -364,8 +372,14 @@ class TournamentService:
                 whopts = who['defense'] + random.randint(1, self.dice_size)
             damage = enemypts - whopts
             who['hp'] += (damage*-1) if random.randint(0, 2) % 3 != 0 else 0 #aimed attack
-        winner = who if who['hp'] > 0 else enemy
-        looser = who if who['hp'] < 0 else enemy
+            was_too_much = rounds >= 100
+        winner = looser = None
+        if was_too_much: 
+            winner = enemy
+            looser = who
+        else:
+            winner = who if who['hp'] > 0 else enemy
+            looser = who if who['hp'] < 0 else enemy
         rounds_rwd = xp_reward if rounds > xp_reward else rounds
         looser['xp'] += (rounds_rwd + xp_reward)
         looser['description'] = f"{looser['name']} | L{looser['level']} | X{looser['xp']} | 🫀{looser['hp']} | 🧠{looser['sanity']}"
