@@ -169,5 +169,5 @@ class StencilService:
                 ability['dlylog'] = dlylog_array
 
             abilities.append(self.notion_service.persist_ability(ability))
-            self.notion_service.add_blocks(ability['id'], "callout", self.otion_service.translate_execution_log(self.execution_log))
+            self.notion_service.add_blocks(ability['id'], "callout", self.notion_service.translate_execution_log(self.execution_log))
         return {"status":challenge['status'],"characters": characters, "abilities": abilities}
