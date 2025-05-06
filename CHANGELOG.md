@@ -283,3 +283,17 @@ Merge pull request #45 from ygmrtm/main
 Update CHANGELOG for version 1.1.14
 ---
 
+## [1.1.16] - 2025-05-06
+Merge 2b48bbc0e25bbb51b87c289b9ef22bf6edf2c670 into 1129f0008449528ba3138a04e145b7cbaee0c3d5
+
+fix: was too much implemented on matches
+
+was too much
+
+Update CHANGELOG for version 1.1.15
+
+Merge d8624da4bdbf69f4389150299ca640794a29a2bb into 3f9052bda4a3e8cfeaa0331e3bb6a60f1c78b123
+
+Merge branch 'enhacements' of https://github.com/ygmrtm/survivor_soul_rpg into enhacements
+---
+
