@@ -10,7 +10,7 @@
 <body class="lovecraft-theme">
     <header>
         <h1>Survivor Soul RPG</h1>
-        <h2>Choose Your Survivor</h2>
+        <h2>Choose Your Surv1vor</h2>
     </header>
     
     <main class="container">
@@ -25,6 +25,14 @@
         <!-- Button for tournament -->
         <div class="challenge-button-container">
             <button id="tournament-button" class="flat-button" disabled><img src="{{ url_for('static', filename='img/tournament-logo.png') }}" alt="tournament">Tournaments&nbsp;<b><span id="pending-tournaments"></span></b></button>
+        </div>    
+        <!-- Button for heal -->
+        <div class="challenge-button-container">
+            <button id="heal-button" class="flat-button" disabled><img src="{{ url_for('static', filename='img/heal-logo.png') }}" alt="apply healing">&nbsp;<b><span id="apply-healing"></span></b></button>
+        </div>    
+        <!-- Button for flush -->
+        <div class="challenge-button-container">
+            <button id="flush-button" class="flat-button" ><img src="{{ url_for('static', filename='img/flush-logo.png') }}" alt="flush cache">&nbsp;<b><span id="flush-cache"></span></b></button>
         </div>    
 
         <div class="character-grid">
@@ -43,11 +51,11 @@
                 <p>🪙: ${{ character.coins }}</p>
                 <p>⏰: {{ character.hours_recovered }}/{{ character.max_hp * 0.30}} ⏳ {{ (character.max_hp * 0.30)-character.hp }}</p>
                 <p>Inventory:</p>
-                <ul>
+                <p><ul>
                     {% for item in character.inventory %}
-                        <li>{{ item }}</li>
+                        <li>&nbsp;&nbsp;<span class="{{ item.color.lower() }}-pill">{{ item.name }}</span></li>
                     {% endfor %}
-                </ul>
+                </ul></p>
             </div>
             {% endfor %}
         </div>
@@ -61,6 +69,9 @@
         </div>
 
     </main>
+    <div class="activity-log-container">
+        <textarea id="activity-log" readonly></textarea>
+    </div>    
     <footer>
         &copy; <span id="current-year"></span> Survivor Soul RPG - v<span id="version-number"></span>
     </footer>

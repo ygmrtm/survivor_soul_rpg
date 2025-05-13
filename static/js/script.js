@@ -11,10 +11,32 @@ function closeModal() {
             card.style.transform = "scale(1)"; // Reset scale
         }
     });
-
 }
 
+// Calculate the current week number based on ISO calendar
+function getISOWeekNumber(date) {
+    const tempDate = new Date(date.getTime());
+    tempDate.setDate(tempDate.getDate() + 4 - (tempDate.getDay() || 7));
+    const yearStart = new Date(tempDate.getFullYear(), 0, 1);
+    return Math.ceil((((tempDate - yearStart) / 86400000) + 1) / 7);
+}
+
+const currentDate = new Date();
+const weekNumber = getISOWeekNumber(currentDate);
+const prevWeekNumber = weekNumber - 1;
+console.log(currentDate, weekNumber, prevWeekNumber);
+
+function logActivity(message) {
+    const currentTime = new Date().toLocaleTimeString();
+    const log = document.getElementById('activity-log');
+    log.value += (weekNumber + ' | ' + currentTime + ' | ' + message + '\n'); // Append the new message
+    log.scrollTop = log.scrollHeight; // Scroll to the bottom
+}
+
+
 document.addEventListener("DOMContentLoaded", function () {
+    document.getElementById('week-number').innerText = weekNumber;
+    document.getElementById('current-year').innerText = new Date().getFullYear();
     const characterCards = document.querySelectorAll(".character-card");
 
     characterCards.forEach(card => {
@@ -38,7 +60,7 @@ document.addEventListener("DOMContentLoaded", function () {
             if (card.classList.contains('disabled')) return; // Prevent action if card is disabled
             card.classList.add('disabled'); // Disable the card
             card.style.pointerEvents = 'none'; // Prevent further clicks
-            console.log(card.dataset.characterName)
+            logActivity(`Starting adventure for ${card.dataset.characterName}...`); // Log activity
             document.getElementById('adventure-info').innerText = 'Loading... ' + card.dataset.characterName;
             document.getElementById('adventure-modal').style.display = 'block';
             fetch(`/api/adventure/${characterId}/create`, {
@@ -49,7 +71,8 @@ document.addEventListener("DOMContentLoaded", function () {
                     // If the response is not ok (not 2xx status), throw an error
                     throw new Error(`Create adventure failed with status: ${response.status}`);
                 }
-                document.getElementById('adventure-info').innerText += '... ¡created!';
+                logActivity(`Adventure created for ${card.dataset.characterName}...`);
+                document.getElementById('adventure-info').innerText += '... created 👍';
                 return response.json();
             })
             .then(data => {
@@ -61,6 +84,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
                 
                 const adventureId = data.adventure_id;
+                logActivity(`Executing adventure for ${card.dataset.characterName} ID ${adventureId}.`);
                 
                 // Only proceed to execute if we have a valid adventure_id
                 return fetch(`/api/adventure/${adventureId}/execute`, {
@@ -75,10 +99,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 return response.json();
             })
             .then(data => {
-                document.getElementById('adventure-info').innerText = `Adventure ID: ${data.adventure_id}, \nCharacter: ${data.who_name}, \nStatus: ${data.status}`;
+                let texto = `${data.who_name} has ${data.status} ID: ${data.adventure_id}`;
+                logActivity(texto);
+                document.getElementById('adventure-info').innerText = texto;                
             })
             .catch(error => {
                 console.error('Error in adventure flow:', error);
+                logActivity(`Error: ${error.message}`);
                 document.getElementById('adventure-info').innerText = `Failed: ${error.message}`;
                 
                 // Re-enable the card if there was an error in the create step
@@ -92,18 +119,6 @@ document.addEventListener("DOMContentLoaded", function () {
         });        
     });
 
-    // Calculate the current week number based on ISO calendar
-    function getISOWeekNumber(date) {
-        const tempDate = new Date(date.getTime());
-        tempDate.setDate(tempDate.getDate() + 4 - (tempDate.getDay() || 7));
-        const yearStart = new Date(tempDate.getFullYear(), 0, 1);
-        return Math.ceil((((tempDate - yearStart) / 86400000) + 1) / 7);
-    }
-
-    const currentDate = new Date();
-    const weekNumber = getISOWeekNumber(currentDate);
-    const prevWeekNumber = weekNumber - 1;
-    document.getElementById('week-number').innerText = weekNumber;
 
     // Add event listener to the button
     document.getElementById('challenges-button').addEventListener('click', function() {
@@ -203,7 +218,6 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
-    document.getElementById('current-year').innerText = new Date().getFullYear();
 
     // Fetch the version number from the new endpoint
     fetch('/api/adventure/version')
