@@ -218,6 +218,30 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    document.getElementById('flush-button').addEventListener('click', function() {
+        const button = this;
+        button.disabled = true;
+        still_not_executed = 0;
+        logActivity(`Flushing cache (Redis)...`); 
+        // First endpoint to 
+        fetch(`/api/notion/flushredis`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            logActivity(data.message);
+            logActivity(`characters:* (${data.characters_del})`)
+            logActivity(`loaded_characters_*:* (${data.indicators_del})`)
+        })
+        .catch(error => {
+            console.error('Error flushing:', error);
+            logActivity(`Error: ${error.message}`);
+        })
+        .finally(() => {
+            button.disabled = false;
+        });
+    });
+
 
     // Fetch the version number from the new endpoint
     fetch('/api/adventure/version')
