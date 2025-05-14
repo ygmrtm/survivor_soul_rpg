@@ -146,6 +146,56 @@ class NotionService:
             print(f"Failed to count dead people: {e}")
             response.raise_for_status()  # Raise an error for bad responses
         return headcount
+
+    def count_people_pills(self, deep_level):
+        """Count the number of people with pills in the database."""
+        url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
+        headcount = 0
+        try:
+            characters = self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray',f"{deep_level}"))
+            if not characters:
+                characters = []
+                data_filter = {
+                    "filter": {
+                        "and": [
+                            {"property": "deeplevel", "formula": {"string": {"equals": deep_level}}},
+                            {"property": "status", "select": {"does_not_equal": 'alive'}},
+                            { "or" : [{"property": "inventory", "multi_select": {"contains": "blue.pill"}},
+                                {"property": "inventory", "multi_select": {"contains": "red.pill"}},
+                                {"property": "inventory", "multi_select": {"contains": "yellow.pill"}},
+                                {"property": "inventory", "multi_select": {"contains": "green.pill"}},
+                            ]},
+                        ]
+                    }
+                }
+                has_more = True
+                start_cursor = None
+                while has_more:
+                    if start_cursor:
+                        data_filter['start_cursor'] = start_cursor
+                    response = requests.post(url, headers=self.headers, json=data_filter)
+                    response.raise_for_status()  # Raise an error for bad responses
+                    data = response.json()
+                    # Extend the characters list with the results from this page
+                    characters.extend(self.translate_characters(data.get('results', [])))
+                    # Check if there are more pages
+                    has_more = data.get("has_more", False)
+                    start_cursor = data.get("next_cursor")  
+                    print(f"Fetched {len(data.get('results', []))} characters, total so far: {len(characters)}")
+                for character in characters:
+                    cache_key = self.redis_service.get_cache_key('characters', character['id'])
+                    if not self.redis_service.exists(cache_key):
+                        self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
+            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray',f"{deep_level}")
+                                            , characters, self.expiry_hours)
+            headcount = len(characters)
+            print(f"💊 counted {headcount} from source")
+            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:headcount',deep_level)
+                                        , headcount, self.expiry_hours)
+        except Exception as e:
+            print(f"Failed to count pill people: {e}")
+            response.raise_for_status()  # Raise an error for bad responses
+        return headcount
     
     def get_character_by_id(self, character_id):
         """Retrieve a character by its ID from the cached characters."""

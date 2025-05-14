@@ -17,6 +17,11 @@ def countdeadpeople():
     count_dead_people = notion_service.count_dead_people('l3')
     return jsonify({"count": count_dead_people}), 200
 
+@notion_bp.route('/countpeoplepills', methods=['GET'])
+def countpeoplepills():
+    count_people_pills = notion_service.count_people_pills('l3')
+    return jsonify({"count": count_people_pills}), 200
+
 @notion_bp.route('/flushredis', methods=['POST'])
 def flush_redis_cache():
     characters_del = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('characters','*'))

@@ -229,7 +229,7 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(response => response.json())
         .then(data => {
-            logActivity(data.message);
+            logActivity(`🚽 ${data.message}`);
             logActivity(`characters:* (${data.characters_del})`)
             logActivity(`loaded_characters_*:* (${data.indicators_del})`)
         })
@@ -252,11 +252,13 @@ document.addEventListener("DOMContentLoaded", function () {
             return response.json();
         })
         .then(data => {
+            logActivity(`Version: ${data.version}`);
             document.getElementById('version-number').innerText = data.version;
         })
         .catch(error => {
             console.error('Error fetching version:', error);
-            document.getElementById('version-number').innerText = '1.0.0'; // Fallback version
+            logActivity(`Error: ${error.message}`);
+            document.getElementById('version-number').innerText = '0.0.0'; // Fallback version
         });
 
     // Fetch the dead people number from the new endpoint
@@ -269,16 +271,36 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(data => {
             if(data.count > 0){
+                logActivity(`Dead people 💀 ${data.count}`);
                 document.getElementById('underworld-button').disabled = false;
                 document.getElementById('dead-people').innerText = "(" + data.count + "☠️)";
             }
         })
         .catch(error => {
             console.error('Error fetching counts:', error);
+            logActivity(`Error: ${error.message}`);
             document.getElementById('dead-people').innerText = '0'; // Fallback version
         });
 
-        fetch('/api/tournament/all')
+    fetch('/api/notion/countpeoplepills')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if(data.count > 0){
+                logActivity(`People with pills 💊 ${data.count}`);
+                document.getElementById('heal-button').disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching counts:', error);
+            logActivity(`Error: ${error.message}`);
+        });
+
+    fetch('/api/tournament/all')
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok');
@@ -287,12 +309,14 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(data => {
             if(data.pending_tournaments > 0){
+                logActivity(`Pending tournaments ⚔️ ${data.pending_tournaments}`);
                 document.getElementById('tournament-button').disabled = false;
                 document.getElementById('pending-tournaments').innerText = "(" + data.pending_tournaments + ")";
             }
         })
         .catch(error => {
             console.error('Error fetching counts:', error);
+            logActivity(`Error: ${error.message}`);
             document.getElementById('pending-tournaments').innerText = '0'; // Fallback version
         })        
 });
