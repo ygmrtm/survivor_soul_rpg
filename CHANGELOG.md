@@ -297,3 +297,19 @@ Merge d8624da4bdbf69f4389150299ca640794a29a2bb into 3f9052bda4a3e8cfeaa0331e3bb6
 Merge branch 'enhacements' of https://github.com/ygmrtm/survivor_soul_rpg into enhacements
 ---
 
+## [1.2.1] - 2025-05-14
+Merge fc6db2581e594ad347e6faf8eea50e03f0a78761 into 65f290a327b550918f63670dcd58fe2a025237c2
+
+feature: flush button
+
+feature: Pill | Health
+
+first draft, running only displaying. functionality pending
+
+FIX tournament
+
+Merge pull request #48 from ygmrtm/main
+
+[CODE-41] upd
+---
+
