@@ -23,7 +23,10 @@ def flush_redis_cache():
     indicators_del = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('loaded_characters_*','*'))
     return jsonify({"message": "Redis cache flushed successfully"
                     ,"characters:*": characters_del
-                    ,"loaded_characters_*:*": indicators_del}), 200
+                    ,"loaded_characters_*:*": indicators_del
+                    ,"characters_del": characters_del
+                    ,"indicators_del": indicators_del}
+                    ), 200
 
 @notion_bp.route('/dlychcklst/week/<int:week_number>/<int:year_number>', methods=['GET'])
 def get_daily_checklist(week_number, year_number):

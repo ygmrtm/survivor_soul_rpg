@@ -7,7 +7,7 @@ from backend.services.redis_service import RedisService
 
 class TournamentService:
     GOLDEN_RATIO = 1.618033988749895
-    dice_size = 16
+    dice_size = 180
     notion_service = NotionService()
     redis_service = RedisService()
     encounter_log = []
@@ -207,13 +207,22 @@ class TournamentService:
             winner, rounds_rwd, gods_bleed, untouchable_c = self.fight_root(root, god, team)
             total_reward += rounds_rwd
             self.add_encounter_log(rounds_rwd, '#reward#', f"added to the pot [{total_reward}]")
+            which_one = random.randint(0, 2) % 3
             if winner == 'root':
-                gods.append(god)
                 if gods_bleed is False:
                     teamup_members += 1 
-                    self.add_encounter_log(teamup_members, 'TM', 'Team Members Level Up')
+                    self.add_encounter_log(teamup_members, 'u⬆️p', 'Team Members Level 🆙')
+                if which_one == 0:
+                    god['attack'] += (god['attack'] * 0.4)
+                elif which_one == 1:
+                    god['defense'] += (god['defense'] * 0.4)
+                elif which_one == 2:
+                    god['magic'] += (god['magic'] * 0.4)
+                gods.append(god)
             else:
-                which_one = random.randint(0, 2) % 3
+                if untouchable_c is True:
+                    teamup_members -= (0 if teamup_members <= 1 else 1)  
+                    self.add_encounter_log(teamup_members, 'do⬇️wn', 'Team Members level lowering Down')
                 if which_one == 0:
                     root['attack'] += (god['attack'] * 0.4)
                 elif which_one == 1:
@@ -222,30 +231,41 @@ class TournamentService:
                     root['magic'] += (god['magic'] * 0.4)
                 god['xp'] += rounds_rwd
                 for cry in team:
+                    which_one = random.randint(0, 2) % 3
                     cry['xp'] += rounds_rwd
+                    if which_one == 0:
+                        cry['attack'] += (god['attack'] * 0.4)
+                    elif which_one == 1:
+                        cry['defense'] += (god['defense'] * 0.4)
+                    elif which_one == 2:
+                        cry['magic'] += (god['magic'] * 0.4)                
                 need_update.append(god)
                 need_update.extend(team)
-                if untouchable_c is True:
-                    teamup_members -= (0 if teamup_members <= 1 else 1)  
-                    self.add_encounter_log(teamup_members, 'TM', 'Team Members Lowering Down')
-            cryptids.extend([c for c in team if c['hp'] > 0 ])
+            cryptids.extend([c for c in team if c['hp'] > 0 ]) ## bringing back survivors
         self.add_encounter_log(teams_fighted, '+total+', f'Teams fought Root w Gods')
-        if len(gods) <= 0: # Winners the Cryptids then 1:1 with root
+        if len(gods) > 0:
+            need_update.append(root)
+            need_update.extend(gods)
+        else:  # Winners the Cryptids then 1:1 with root
             self.add_encounter_log(self.GOLDEN_RATIO, '1:1', f"{len(cryptids)} Cryptids vs Root|{root['hp']}🫀")
             looser = None
             while len(cryptids) > 0 and root['hp'] >= 0:
                 cryp = cryptids.pop(0)
                 winner, looser = self.fight(root, cryp)
-            if looser is not None:
-                need_update.append(looser)
-        else:
-            winner = root
-        winner['xp'] += total_reward
-        self.add_encounter_log(total_reward, 'winner', f"final pot got by {winner['name'].upper()}|{winner['hp']}🫀 ")
+            need_update.append(winner)
+            need_update.append(looser)
+            self.add_encounter_log(root['hp'], 'HP', f"Root 🫀")
+            self.add_encounter_log(len(cryptids), 'SIZE', f"Cryptid Survivors")
+            self.add_encounter_log(winner['hp'], '🫀', f"Winner {winner['name'].upper()}")
+            self.add_encounter_log(looser['hp'], '🫀', f"Looser {looser['name'].upper()}")
         for dude in need_update:
-            dude['xp'] += (total_reward / len(need_update))
+            piece_of_pie = (total_reward / len(need_update))
+            dude['xp'] += piece_of_pie
+            dude['sanity'] += ( self.GOLDEN_RATIO * dude['sanity'] )
+            self.add_encounter_log(piece_of_pie, 'winner', f"{dude['name'].upper()}|{dude['hp']}🫀 ")
+
         self.redis_service.set_without_expiry(self.redis_service.get_cache_key('num83r5','teamup_members'),teamup_members)
-        return [winner] + need_update
+        return need_update
 
 
     def check_for_duplicates(self, characters):

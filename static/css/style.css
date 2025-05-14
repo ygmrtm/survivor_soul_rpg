@@ -93,6 +93,27 @@ header {
     color: #7f8c8d; 
 }
 
+.red-pill {
+    color: #C4554D; 
+    background-color: #FAECEC;
+}
+
+.green-pill {
+    color: #548164; 
+    background-color: #EEF3ED;
+}
+
+.yellow-pill {
+    color: #C29343; 
+    background-color: #FAF3DD;
+}
+
+.blue-pill {
+    color: #487CA5; 
+    background-color: #E9F3F7;
+}
+
+
 /* Footer Styling */
 footer {
     text-align: center;
@@ -183,3 +204,22 @@ margin-top: 5px;
     right: 20px;
 }
 
+.activity-log-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding: 20px;
+}
+
+#activity-log {
+    width: 70%;
+    height: 150px;
+    background-color: #1b1b1b; /* Dark background */
+    color: #e6e6e6; /* Light text color */
+    border: 1px solid #4a4a4a; /* Border color */
+    border-radius: 5px;
+    padding: 10px;
+    font-family: 'Courier New', Courier, monospace; /* Monospace font for terminal look */
+    resize: none; /* Disable resizing */
+    overflow-y: auto; /* Enable vertical scrolling */
+}
