@@ -194,6 +194,14 @@ document.addEventListener("DOMContentLoaded", function () {
             console.log('underworld for current week:', data);
             still_dead = data.still_dead 
             reborn = data.reborn
+            created = data.created_count
+            executed = data.executed_count
+            awaked = data.awaked_count
+            punishments = data.punishments_count
+            logActivity(`Underworlds 💀 created: ${created}`);
+            logActivity(`Underworlds 💀 executed: ${executed}`);
+            logActivity(`Underworlds 💀 awaked: ${awaked}`);
+            logActivity(`Underworlds 💩 punishments: ${punishments}`);
         })
         .catch(error => {
             console.error('Error in underworld:', error);

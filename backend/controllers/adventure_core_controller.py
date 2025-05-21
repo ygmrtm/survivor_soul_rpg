@@ -44,10 +44,10 @@ def execute_underworld():
     adventures_punishment = adventure_service.apply_punishment()
     return jsonify({ "reborn" : len(adventures_executed)
                     , "still_dead" : dead_people_count - len(adventures_executed) 
-                    , "created" : adventures_created
-                    , "executed" : adventures_executed
-                    , "awaked" : characters_awaked
-                    , "punishments" : adventures_punishment})
+                    , "created" : adventures_created, "created_count" : len(adventures_created)
+                    , "executed" : adventures_executed, "executed_count" : len(adventures_executed)
+                    , "awaked" : characters_awaked, "awaked_count" : len(characters_awaked)
+                    , "punishments" : adventures_punishment, "punishments_count" : len(adventures_punishment)})
 
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/create', methods=['POST'])
 def create_challenges(week_number, year_number):

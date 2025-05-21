@@ -16,7 +16,7 @@ class NotionService:
     max_sanity = 60    
     max_prop_limit = 20
     lines_per_paragraph = 90
-    expiry_hours = 0.8
+    expiry_hours = 1.5
     expiry_minutes = 5 / 60
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
@@ -268,7 +268,7 @@ class NotionService:
                     # Check if there are more pages
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")  
-                    print(f"Fetched {len(data.get('results', []))} characters, total so far: {len(characters)}")
+                    print(f"Fetched {len(data.get('results', []))} {deep_level} characters, total so far: {len(characters)}")
                 # Cache the characters if needed
                 self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level', f"{deep_level}{npc}npc")
                                                 , data_filter, self.expiry_hours)
@@ -303,7 +303,7 @@ class NotionService:
                         character = character if not self.redis_service.exists(cache_key) else self.redis_service.get(cache_key)
                         results = self.apply_all_pills_by_character(character, pill_color)
                         response_json[pill_color] = results
-                        response_json['message'] += f' | SUCCESS: {pill_color} 💊 have been applied : ' + character['name']
+                        response_json['message'] += f' | SUCCESS: {pill_color} have been applied : ' + character['name']
                         self.redis_service.set_with_expiry(cache_key, character, self.expiry_minutes)
                         self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:headcount' 
                                                                                 , f"{deep_level}")
