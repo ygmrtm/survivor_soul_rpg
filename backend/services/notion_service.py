@@ -343,6 +343,9 @@ class NotionService:
             character['hp'] = character['max_hp']
             character['status'] = 'alive'
             character['respawn'] += 1
+        elif pill_color == "orange":
+            #TODO: implement orange pill
+            print("🔔 Still under implementation", pill_color)
         for item in character['inventory']:
             if item['name'] == pill_color + '.pill':
                 character['inventory'].remove(item)
@@ -586,7 +589,6 @@ class NotionService:
                     "title": [
                         {"text": {
                             "content": ("DE" if xp_reward <=0 else "") + ("ADVENTURE | " + str(random.randint(1, 666)))
-                            # TODO: generate with groq
                         }}
                     ]
                 },

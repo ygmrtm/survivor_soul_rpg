@@ -826,14 +826,17 @@ class AdventureService:
         filtered_characters = [c for c in l3_characters if c['status'] == 'rest' or c['status'] == 'dying']
         gods = self.notion_service.get_characters_by_deep_level('l2', is_npc=True)
         add_characters = [ char for char in gods if (len(char['alter_subego']) > 0 and char['status'] == 'dead')] 
+        #for char in gods:
+        #    print(char['name'],char['alter_subego'],char['status'])
+        #print(f' awakening god {len(add_characters)} out of {len(gods)}')
         return_array = []
-        for character in filtered_characters + add_characters:
+        for character in (filtered_characters + add_characters):
             pct_before = character['hp'] / character['max_hp']
             pct_after = (character['hp'] + character['hours_recovered']) / character['max_hp']
-            if pct_after > 0.3:
-                character['hp'] += character['hours_recovered']
-                character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp'] 
+            if character['deep_level'] == 'l2' or pct_after > 0.3:
                 character['status'] = 'high' if character['deep_level'] == 'l2' else 'alive'
+                character['hp'] = abs(character['hp']) + abs(character['hours_recovered']) if character['deep_level'] == 'l2' else character['hp'] + character['hours_recovered']
+                character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp'] 
                 datau = {"properties": { "hp": {"number": character['hp']},"status": {"select": {"name":character['status']} } }}
                 upd_character = self.notion_service.update_character(character, datau)
                 return_array.append({ "character_id": character['id'], "character_name": character['name'], "character_hp": character['hp']})
