@@ -1,3 +1,4 @@
+from turtle import fillcolor
 from flask import Blueprint, jsonify
 from datetime import datetime, timedelta
 from backend.services.notion_service import NotionService
@@ -17,13 +18,47 @@ def countdeadpeople():
     count_dead_people = notion_service.count_dead_people('l3')
     return jsonify({"count": count_dead_people}), 200
 
+@notion_bp.route('/countpeoplepills', methods=['GET'])
+def countpeoplepills():
+    count_people_pills = notion_service.count_people_pills('l3')
+    return jsonify({"count": count_people_pills}), 200
+
 @notion_bp.route('/flushredis', methods=['POST'])
 def flush_redis_cache():
     characters_del = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('characters','*'))
     indicators_del = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('loaded_characters_*','*'))
     return jsonify({"message": "Redis cache flushed successfully"
                     ,"characters:*": characters_del
-                    ,"loaded_characters_*:*": indicators_del}), 200
+                    ,"loaded_characters_*:*": indicators_del
+                    ,"characters_del": characters_del
+                    ,"indicators_del": indicators_del}
+                    ), 200
+
+@notion_bp.route('/characters/applypills/deep_level/<deep_level>', methods=['POST'])
+def apply_character_pills(deep_level):
+    # validate deep_level is valid "l"+int
+    if not deep_level.startswith('l'):
+        return jsonify({"error": "Invalid deep_level"}), 400
+    
+    jsonback = {}
+    
+    for pill_color in ['yellow', 'blue', 'green', 'red', 'orange']:
+        result = apply_all_pills(deep_level=deep_level, pill_color=pill_color)
+        jsonback[pill_color] = result
+    return jsonify(jsonback)
+
+@notion_bp.route('/characters/applypills/<deep_level>/color/<pill_color>', methods=['POST'])
+def apply_all_pills(deep_level, pill_color ):
+    print(f'💊 {pill_color}')
+    # validate deep_level is valid "l"+int
+    if not deep_level.startswith('l'):
+        return jsonify({"error": "Invalid deep_level"}), 400
+
+    if not fillcolor not in ('yellow', 'blue', 'green', 'red', 'orange'):
+        return jsonify({"error": "Invalid pill color"}), 400
+    
+    result = notion_service.apply_all_pills(deep_level=deep_level, pill_color=pill_color, )
+    return result
 
 @notion_bp.route('/dlychcklst/week/<int:week_number>/<int:year_number>', methods=['GET'])
 def get_daily_checklist(week_number, year_number):
