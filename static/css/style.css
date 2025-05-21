@@ -113,6 +113,12 @@ header {
     background-color: #E9F3F7;
 }
 
+.orange-pill {
+    color: #CC782F; 
+    background-color: #F8ECDF;
+}
+
+
 
 /* Footer Styling */
 footer {

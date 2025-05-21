@@ -28,8 +28,11 @@
         </div>    
         <!-- Button for heal -->
         <div class="challenge-button-container">
-            <button id="heal-button" class="flat-button" disabled><img src="{{ url_for('static', filename='img/heal-logo.png') }}" alt="apply healing">&nbsp;<b><span id="apply-healing"></span></b></button>
-        </div>    
+            <button id="heal-button" class="flat-button" disabled>
+                <img id="heal-image" src="{{ url_for('static', filename='img/heal-logo.png') }}" alt="apply healing">
+                &nbsp;<b><span id="apply-healing"></span></b>
+            </button>
+        </div>   
         <!-- Button for flush -->
         <div class="challenge-button-container">
             <button id="flush-button" class="flat-button" ><img src="{{ url_for('static', filename='img/flush-logo.png') }}" alt="flush cache">&nbsp;<b><span id="flush-cache"></span></b></button>
