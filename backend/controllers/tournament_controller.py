@@ -20,6 +20,6 @@ def evaluate_all_tournaments():
     return jsonify(result)
 
 @tournament_bp.route('/create', methods=['POST'])
-def evaluate_challenges():
+def create_challenges():
     result = tournament_service.create_tournament('Tournament by Ephemerides','Día del Gato 🐱')
     return jsonify(result)

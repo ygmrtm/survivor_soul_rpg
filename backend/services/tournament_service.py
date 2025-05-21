@@ -72,6 +72,7 @@ class TournamentService:
     def evaluate_all_tournaments(self, full_hp=True):
         try:
             tournaments = self.get_all_open_tournaments()
+            actually_executed = 0
             for tournament in tournaments:
                 l3_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)        
                 l3_characters += self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False)        
@@ -115,8 +116,10 @@ class TournamentService:
                                                                             ,tournament, expiry_hours=hours)
                 else:
                     print("No winner")
+                actually_executed += 1
             remainOpen = len(self.get_all_open_tournaments())
-            return {"tournaments":tournaments, "still_not_executed":remainOpen }
+            return {"tournaments":tournaments, "still_not_executed":remainOpen, "actually_executed":actually_executed}
+
         except Exception as e:
             print(f"Failed to fetch evaluate_all_tournaments ::: {e}")
             raise     

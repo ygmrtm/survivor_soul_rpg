@@ -52,7 +52,7 @@ def execute_underworld():
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/create', methods=['POST'])
 def create_challenges(week_number, year_number):
     result = adventure_service.create_challenges(week_number, year_number)
-    return jsonify(result)
+    return jsonify({"challenges_created":result, "count_challenges":len(result)})
 
 @adventure_bp.route('/challenges/expired/<int:week_number>/<int:year_number>', methods=['POST'])
 def evaluate_expired_challenges(week_number, year_number):
@@ -95,16 +95,17 @@ def evaluate_challenges(week_number, year_number):
     challenges_stencil = stencil_service.evaluate_challenges(week_number, year_number)
     challenges_epics = epics_service.evaluate_challenges(week_number, year_number)
     challenges_due_soon = adventure_service.evaluate_challenges_due_soon(lookforward=21)
-    return jsonify({"consecutivedays": challenges_cons
-                    , "habits": challenges_habits
-                    , "habit_longest_streak_created":habit_longest_streak
-                    , "habit_longest_streak_executed":habit_longest_streak_executed
-                    , "expired": challenges_expired
-                    , "coding": challenges_coding
-                    , "biking": challenges_biking
-                    , "stencil": challenges_stencil
-                    , "epics": challenges_epics
-                    , "due_soon": challenges_due_soon})
+    return jsonify({"consecutivedays": challenges_cons, "consecutivedays_count" : len(challenges_cons)
+                    , "habits": challenges_habits, "challenges_habit_count" : len(challenges_habits)
+                    , "habit_longest_streak_created":habit_longest_streak, "habit_longest_streak_created_count": len(habit_longest_streak)
+                    , "habit_longest_streak_executed":habit_longest_streak_executed, "habit_longest_streak_executed_count": len(habit_longest_streak_executed)
+                    , "expired": challenges_expired, "expired_count": len(challenges_expired)
+                    , "coding": challenges_coding, "coding_count": len(challenges_coding)
+                    , "biking": challenges_biking, "biking_count": len(challenges_biking)
+                    , "stencil": challenges_stencil, "stencil_count": len(challenges_stencil)
+                    , "epics": challenges_epics, "epics_count": len(challenges_epics)
+                    , "due_soon": challenges_due_soon, "due_soon_count": len(challenges_due_soon)
+                    })
 
 @adventure_bp.route('/version', methods=['GET'])
 def get_version():

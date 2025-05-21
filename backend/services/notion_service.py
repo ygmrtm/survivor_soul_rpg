@@ -1,3 +1,4 @@
+from operator import is_not
 import requests
 import random 
 from flask import jsonify
@@ -16,6 +17,7 @@ class NotionService:
     max_prop_limit = 20
     lines_per_paragraph = 90
     expiry_hours = 0.8
+    expiry_minutes = 5 / 60
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
@@ -187,11 +189,11 @@ class NotionService:
                     if not self.redis_service.exists(cache_key):
                         self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
             self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray',f"{deep_level}")
-                                            , characters, self.expiry_hours)
+                                            , characters, self.expiry_minutes)
             headcount = len(characters)
             print(f"💊 counted {headcount} from source")
             self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:headcount',deep_level)
-                                        , headcount, self.expiry_hours)
+                                        , headcount, self.expiry_minutes)
         except Exception as e:
             print(f"Failed to count pill people: {e}")
             response.raise_for_status()  # Raise an error for bad responses
@@ -218,7 +220,6 @@ class NotionService:
         return character
     
     def get_characters_by_property(self, property, value):
-        url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
         try:
             return self.redis_service.query_characters(property, value)                
         except Exception as e:
@@ -281,6 +282,86 @@ class NotionService:
             print(f"Failed to fetch characters by deep level {deep_level}: {e}")
             response.raise_for_status()  # Raise an error for bad responses
         return characters if is_npc else random.sample(characters, min(4, len(characters)))
+
+    def apply_all_pills(self, deep_level, pill_color):
+        by_pill_color = []
+        response_json = {'message': ''}
+        try:
+            cached_chars_count = self.redis_service.exists(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:headcount' 
+                                                                                , f"{deep_level}"))
+            if cached_chars_count > 0:
+                characters = self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray',f"{deep_level}"))                
+                for c in characters:
+                    inventory = c['inventory']
+                    for i in inventory:
+                        if f'{pill_color}.pill' == i['name']:
+                            by_pill_color.append(c)
+                if len(by_pill_color) > 0:
+                    print(f"Using complete cached array for deep level {deep_level} | {len(by_pill_color)} characters")
+                    for character in by_pill_color:
+                        cache_key = self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:characterpillprocessed', character['id'])
+                        character = character if not self.redis_service.exists(cache_key) else self.redis_service.get(cache_key)
+                        results = self.apply_all_pills_by_character(character, pill_color)
+                        response_json[pill_color] = results
+                        response_json['message'] += f' | SUCCESS: {pill_color} 💊 have been applied : ' + character['name']
+                        self.redis_service.set_with_expiry(cache_key, character, self.expiry_minutes)
+                        self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:headcount' 
+                                                                                , f"{deep_level}")
+                                                                                , cached_chars_count-1
+                                                                                , self.expiry_minutes)
+
+
+                else:
+                    response_json['message'] = f'ERROR: No Characters (with {pill_color}💊s) has been found'
+            else:
+                response_json['message'] = 'ERROR: No full array cached | Characters (with 💊s) array mssing'
+        except Exception as e:
+            print(f"Failed to fetch characters by deep level {deep_level} and pill collor {pill_color}: {e}")
+            response_json['message'] = f"Failed to fetch characters by deep level {deep_level} and pill collor {pill_color}: {e}"
+        return response_json 
+
+    def apply_all_pills_by_character(self, character, pill_color):
+        print(pill_color, character['name'])
+        if pill_color == "yellow":
+            character['sanity'] = character['max_sanity']
+        elif pill_color == "blue":
+            max_prop_limit = self.max_prop_limit
+            character_level = character['level']
+            for i in range(character_level):
+                max_prop_limit *= self.GOLDEN_RATIO            
+            print(f'Max property Limit {max_prop_limit} for Level {character_level}')
+            character['defense'] = max_prop_limit
+            character['attack'] = max_prop_limit
+            character['magic'] = max_prop_limit
+        elif pill_color == "green" or pill_color == "red":
+            character['hp'] = character['max_hp']
+            character['status'] = 'alive'
+            character['respawn'] += 1
+            if pill_color == "green":
+                character['level'] += 1
+        elif pill_color == "red":
+            character['hp'] = character['max_hp']
+            character['status'] = 'alive'
+            character['respawn'] += 1
+        for item in character['inventory']:
+            if item['name'] == pill_color + '.pill':
+                character['inventory'].remove(item)
+                break
+        datau = {"properties": { "level": {"number": character['level']}, 
+                                "hp": {"number": round(character['hp'])}, 
+                                "xp": {"number": round(character['xp'])}, 
+                                "respawn": {"number": character['respawn']}, 
+                                "sanity": {"number": round(character['sanity'])}, 
+                                "force": {"number": round(character['attack'])}, 
+                                "defense": {"number": round(character['defense'])}, 
+                                "coins": {"number": round(character['coins'])}, 
+                                "magic": {"number": round(character['magic'])} ,
+                                "status": {"select": {"name":character['status']} },
+                                "inventory": { "multi_select": character['inventory']}
+                                }}
+        #print(datau)
+        upd_character = self.update_character(character, datau)
+        return {'notion_character' : upd_character, "rpg_character": character}
 
     def translate_characters(self, characters=[]):
         try:
@@ -396,13 +477,20 @@ class NotionService:
                 character['status'] = 'high'
             else:
                 character['status'] = 'alive'
-            character['xp'] += 20 if character['hp'] <= 0 else 0
+            character['xp'] += 500 if character['hp'] <= 0 else 0
             max_prop_limit = self.max_prop_limit
             for i in range(character['level']):
                 max_prop_limit *= self.GOLDEN_RATIO
             character['defense'] = character['defense'] if character['defense'] <= max_prop_limit else round(max_prop_limit)
             character['attack'] = character['attack'] if character['attack'] <= max_prop_limit else round(max_prop_limit)
             character['magic'] = character['magic'] if character['magic'] <= max_prop_limit else round(max_prop_limit)
+            if random.randint(0, 9) == 0: 
+                pill_name = ['yellow','blue','green','red','orange']#,'purple','gray','brown']
+                i = random.randint(0, len(pill_name) - 1)
+                pill_dict = { 'name': pill_name[i] + '.pill', "color": pill_name[i] }
+                print("++💊 ",character['name'],pill_dict)
+                character['inventory'].append(pill_dict)
+
             datau = {"properties": { "level": {"number": character['level']}, 
                                     "hp": {"number": round(character['hp'])}, 
                                     "xp": {"number": round(character['xp'])}, 
@@ -412,7 +500,9 @@ class NotionService:
                                     "defense": {"number": round(character['defense'])}, 
                                     "coins": {"number": round(character['coins'])}, 
                                     "magic": {"number": round(character['magic'])} ,
-                                    "status": {"select": {"name":character['status']} }}}
+                                    "status": {"select": {"name":character['status']} },
+                                    "inventory": { "multi_select": character['inventory']}
+                                }}
             upd_character = self.update_character(character, datau)
             #print(datau)
         return upd_adventure, upd_character
@@ -515,7 +605,7 @@ class NotionService:
             }
         }
         if random.randint(0, 4) == 0: # 20%chance
-            data['properties']['path']['multi_select'].append({"name":"discovery"})
+            data['properties']['path']['multi_select'].append({"name":"discovery"}) 
         url = f"{self.base_url}/pages"
         response = requests.post(url, headers=self.headers, json=data)  # Use json instead of data
         if response.status_code == 200:  # Check if the request was successful
