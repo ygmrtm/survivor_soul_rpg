@@ -7,7 +7,7 @@ from backend.services.redis_service import RedisService
 
 class TournamentService:
     GOLDEN_RATIO = 1.618033988749895
-    dice_size = 180
+    dice_size = 360
     notion_service = NotionService()
     redis_service = RedisService()
     encounter_log = []

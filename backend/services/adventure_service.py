@@ -22,7 +22,7 @@ class AdventureService:
     percentage_habits = 0.6 # for challenges how many habits to pick
     percentage_execute_dead = 0.90
     encounter_log = []
-    dice_size = 16
+    dice_size = 360
     expiry_hours = 0.4    
     redis_service = RedisService()
     todoist_service = TodoistService()
@@ -637,6 +637,7 @@ class AdventureService:
                 whopts = who['attack'] + god['attack'] + random.randint(1, self.dice_size)
                 enemypts = enemy['defense'] + random.randint(1, self.dice_size)
             damage = whopts - enemypts
+            print(whopts, enemypts, damage, enemy['defense'], enemy['magic'])
             if random.randint(0, 2) % 3 != 0: #aimed attack
                 enemy['hp'] += self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | You aimed your attack.'.format(rounds))
             else:
@@ -704,7 +705,7 @@ class AdventureService:
         return points
 
     def steal_property(self, loser, winner):
-        percentage = random.randint(1, 100) / 100
+        percentage = random.randint(1, 20) / 100
         property_value = random.choice(['coins', 'defense', 'attack', 'magic'])
         transfer = round(percentage * loser[property_value])
         winner[property_value] += transfer

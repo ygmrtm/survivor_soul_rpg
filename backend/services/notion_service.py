@@ -16,7 +16,7 @@ class NotionService:
     max_sanity = 60    
     max_prop_limit = 20
     lines_per_paragraph = 90
-    expiry_hours = 1.5
+    expiry_hours = 6
     expiry_minutes = 5 / 60
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
@@ -166,7 +166,9 @@ class NotionService:
                                 {"property": "inventory", "multi_select": {"contains": "red.pill"}},
                                 {"property": "inventory", "multi_select": {"contains": "yellow.pill"}},
                                 {"property": "inventory", "multi_select": {"contains": "green.pill"}},
-                            ]},
+                                {"property": "inventory", "multi_select": {"contains": "orange.pill"}},
+                                {"property": "inventory", "multi_select": {"contains": "purple.pill"}},
+                                ]},
                         ]
                     }
                 }
