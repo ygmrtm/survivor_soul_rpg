@@ -637,7 +637,7 @@ class AdventureService:
                 whopts = who['attack'] + god['attack'] + random.randint(1, self.dice_size)
                 enemypts = enemy['defense'] + random.randint(1, self.dice_size)
             damage = whopts - enemypts
-            print(whopts, enemypts, damage, enemy['defense'], enemy['magic'])
+            #print(whopts, enemypts, damage, enemy['defense'], enemy['magic'])
             if random.randint(0, 2) % 3 != 0: #aimed attack
                 enemy['hp'] += self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | You aimed your attack.'.format(rounds))
             else:

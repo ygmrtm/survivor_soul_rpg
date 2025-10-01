@@ -246,8 +246,8 @@ class NotionService:
                     for character in characters_by_level:
                         if character['npc'] == is_npc:
                             characters.append(character)
-                else:
-                    print(f"Using complete cached array for deep level {deep_level}")
+                #else:
+                #    print(f"Using complete cached array for deep level {deep_level}")
             else:    
                 data_filter = {
                     "filter": {
@@ -299,7 +299,7 @@ class NotionService:
                         if f'{pill_color}.pill' == i['name']:
                             by_pill_color.append(c)
                 if len(by_pill_color) > 0:
-                    print(f"Using complete cached array for deep level {deep_level} | {len(by_pill_color)} characters")
+                    #print(f"Using complete cached array for deep level {deep_level} | {len(by_pill_color)} characters")
                     for character in by_pill_color:
                         cache_key = self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:characterpillprocessed', character['id'])
                         character = character if not self.redis_service.exists(cache_key) else self.redis_service.get(cache_key)
@@ -490,10 +490,10 @@ class NotionService:
             character['attack'] = character['attack'] if character['attack'] <= max_prop_limit else round(max_prop_limit)
             character['magic'] = character['magic'] if character['magic'] <= max_prop_limit else round(max_prop_limit)
             if random.randint(0, 9) == 0: 
-                pill_name = ['yellow','blue','green','red','orange']#,'purple','gray','brown']
+                pill_name = ['yellow','blue','green','red','orange','purple','gray','brown']
                 i = random.randint(0, len(pill_name) - 1)
                 pill_dict = { 'name': pill_name[i] + '.pill', "color": pill_name[i] }
-                print("++💊 ",character['name'],pill_dict)
+                #print("++💊 ",character['name'],pill_dict)
                 character['inventory'].append(pill_dict)
 
             datau = {"properties": { "level": {"number": character['level']}, 
