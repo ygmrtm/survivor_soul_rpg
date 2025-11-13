@@ -1,4 +1,3 @@
-from turtle import fillcolor
 from flask import Blueprint, jsonify
 from datetime import datetime, timedelta
 from backend.services.notion_service import NotionService
@@ -42,7 +41,7 @@ def apply_character_pills(deep_level):
     
     jsonback = {}
     
-    for pill_color in ['yellow', 'blue', 'green', 'red', 'orange']:
+    for pill_color in ['yellow', 'blue', 'green', 'red', 'orange', 'purple', 'gray', 'brown']:
         result = apply_all_pills(deep_level=deep_level, pill_color=pill_color)
         jsonback[pill_color] = result
     return jsonify(jsonback)
@@ -54,7 +53,7 @@ def apply_all_pills(deep_level, pill_color ):
     if not deep_level.startswith('l'):
         return jsonify({"error": "Invalid deep_level"}), 400
 
-    if not fillcolor not in ('yellow', 'blue', 'green', 'red', 'orange'):
+    if pill_color not in ('yellow', 'blue', 'green', 'red', 'orange', 'purple', 'gray', 'brown'):
         return jsonify({"error": "Invalid pill color"}), 400
     
     result = notion_service.apply_all_pills(deep_level=deep_level, pill_color=pill_color, )

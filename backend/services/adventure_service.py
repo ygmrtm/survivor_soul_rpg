@@ -22,7 +22,7 @@ class AdventureService:
     percentage_habits = 0.6 # for challenges how many habits to pick
     percentage_execute_dead = 0.90
     encounter_log = []
-    dice_size = 360
+    dice_size = 720
     expiry_hours = 0.4    
     redis_service = RedisService()
     todoist_service = TodoistService()
@@ -620,8 +620,9 @@ class AdventureService:
             who['magic'] = enemy['magic'] = new_magic
             return False     
         else:
-            who['xp'] += self.add_encounter_log(random.randint(1,5), "xp", "You successfully negotiated with the enemy.")
-            enemy['xp'] += random.randint(1,5)
+            who['xp'] += self.add_encounter_log(random.randint(1, self.dice_size), "xp", "You successfully negotiated with the enemy.")
+            enemy['xp'] += random.randint(1, self.dice_size)
+            enemy['hp'] = 0
             return True
 
 
@@ -712,7 +713,7 @@ class AdventureService:
         loser[property_value] -= transfer
 
         self.add_encounter_log(transfer, property_value, '{} stole {} from {}.'.format(winner['name'], transfer, loser['name']))
-        experience_won = self.add_encounter_log(random.randint(1, 10), 'xp', 'UP!')
+        experience_won = self.add_encounter_log(random.randint(1, self.dice_size), 'xp', 'UP!')
         return experience_won
 
     def distribute_tribute(self, who_id, coins ):

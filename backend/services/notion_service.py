@@ -14,10 +14,10 @@ class NotionService:
     max_xp = 500
     max_hp = 100
     max_sanity = 60    
-    max_prop_limit = 20
+    max_prop_limit = 15
     lines_per_paragraph = 90
     expiry_hours = 6
-    expiry_minutes = 5 / 60
+    expiry_minutes = 15 / 60
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
@@ -168,6 +168,8 @@ class NotionService:
                                 {"property": "inventory", "multi_select": {"contains": "green.pill"}},
                                 {"property": "inventory", "multi_select": {"contains": "orange.pill"}},
                                 {"property": "inventory", "multi_select": {"contains": "purple.pill"}},
+                                {"property": "inventory", "multi_select": {"contains": "gray.pill"}},
+                                {"property": "inventory", "multi_select": {"contains": "brown.pill"}},
                                 ]},
                         ]
                     }
@@ -347,6 +349,15 @@ class NotionService:
             character['respawn'] += 1
         elif pill_color == "orange":
             #TODO: implement orange pill
+            print("🔔 Still under implementation", pill_color)
+        elif pill_color == "purple":
+            #TODO: implement purple pill
+            print("🔔 Still under implementation", pill_color)
+        elif pill_color == "gray":
+            #TODO: implement gray pill
+            print("🔔 Still under implementation", pill_color)
+        elif pill_color == "brown":
+            #TODO: implement brown pill
             print("🔔 Still under implementation", pill_color)
         for item in character['inventory']:
             if item['name'] == pill_color + '.pill':

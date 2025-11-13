@@ -118,6 +118,21 @@ header {
     background-color: #F8ECDF;
 }
 
+.purple-pill {
+    color: #8B5A9F; 
+    background-color: #F3E8F5;
+}
+
+.brown-pill {
+    color: #8B6F47; 
+    background-color: #F5F0E8;
+}
+
+.gray-pill {
+    color: #6B6B6B; 
+    background-color: #F0F0F0;
+}
+
 
 
 /* Footer Styling */
