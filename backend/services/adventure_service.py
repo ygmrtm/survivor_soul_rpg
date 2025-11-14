@@ -477,11 +477,12 @@ class AdventureService:
                 next_suggested_streak = 1 if next_suggested_streak <= 0 else next_suggested_streak
                 if not self.redis_service.exists(cached_key):
                     max_days = output[key]['max_consecutive']
+                    current = output[key]['consecutive']
                     days_since_last_date = (datetime.today() - datetime.strptime(output[key]['last_date'], '%Y-%m-%d')).days
                     output[key]['days_since_last_date'] = days_since_last_date
                     output[key]['next_suggested_streak'] = next_suggested_streak
                     content = f"__{key.upper()}__| longest:_{max_days} days_| nextSuggested:_{next_suggested_streak} days_"
-                    description =  f"daysSince:_{days_since_last_date} days_ | last time checked on __{today_str}__"
+                    description =  f"current: {current} | daysSince:_{days_since_last_date} days_ | last time checked on __{today_str}__"
                     task = self.todoist_service.add_task(TODOIST_PID_INB, { "content": content
                                                                             , "due_date":  output[key]['last_date']
                                                                             , "priority": 1
