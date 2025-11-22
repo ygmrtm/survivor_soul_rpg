@@ -331,3 +331,24 @@ feature: capsule pill health color (full button)
 feature: pills | initial flow counting 'em
 ---
 
+## [1.2.3] - 2025-11-22
+Merge 7b0b8f85e7d50a8e8bec063b2abaebc4eb92cdcf into 9904f2310b8491bacfa1e6ff35a0ba35dfd61c23
+
+minor change
+
+mayor changes
+
+- [ ]  Add movies to Habits counts and statistics.
+- [ ]  Add the 366, 182, 91 and 31 days for Habits Streaks
+- [ ]  Add the current streak to the current:
+**GYM| longest:*3 days*| nextSuggested:*5 days*
+current: ## |** daysSince:*11 days* | last time checked on **2025-05-12**
+- [ ]  Reactivate Pills button/cache after *Deadventures.*
+
+Adding pills missing
+
+feature: first draft of ticktick integration
+
+no functional yet but it will take a few days
+---
+
