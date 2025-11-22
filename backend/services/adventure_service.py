@@ -22,7 +22,7 @@ class AdventureService:
     percentage_habits = 0.6 # for challenges how many habits to pick
     percentage_execute_dead = 0.90
     encounter_log = []
-    dice_size = 360
+    dice_size = 720
     expiry_hours = 0.4    
     redis_service = RedisService()
     todoist_service = TodoistService()
@@ -475,13 +475,15 @@ class AdventureService:
                 cached_key = self.redis_service.get_cache_key('todoist_notification:' + key_str, key )
                 next_suggested_streak = round(output[key]['max_consecutive'] * self.GOLDEN_RATIO)
                 next_suggested_streak = 1 if next_suggested_streak <= 0 else next_suggested_streak
+                days_since_last_date = 0
                 if not self.redis_service.exists(cached_key):
                     max_days = output[key]['max_consecutive']
+                    current = output[key]['consecutive']
                     days_since_last_date = (datetime.today() - datetime.strptime(output[key]['last_date'], '%Y-%m-%d')).days
                     output[key]['days_since_last_date'] = days_since_last_date
                     output[key]['next_suggested_streak'] = next_suggested_streak
                     content = f"__{key.upper()}__| longest:_{max_days} days_| nextSuggested:_{next_suggested_streak} days_"
-                    description =  f"daysSince:_{days_since_last_date} days_ | last time checked on __{today_str}__"
+                    description =  f"current: {current} | daysSince:_{days_since_last_date} days_ | last time checked on __{today_str}__"
                     task = self.todoist_service.add_task(TODOIST_PID_INB, { "content": content
                                                                             , "due_date":  output[key]['last_date']
                                                                             , "priority": 1
@@ -502,6 +504,7 @@ class AdventureService:
                 if create_challenge is True and not self.redis_service.exists(cached_key):
                     self.notion_service.get_all_habits() #force to load all habits
                     habit = self.notion_service.get_habits_by_property('name', key)[0]
+                    # print("HABIT:", habit)
                     habit_level = habit['level']
                     max_xprwd = self.max_xprwd
                     max_coinrwd = self.max_coinrwd
@@ -620,8 +623,9 @@ class AdventureService:
             who['magic'] = enemy['magic'] = new_magic
             return False     
         else:
-            who['xp'] += self.add_encounter_log(random.randint(1,5), "xp", "You successfully negotiated with the enemy.")
-            enemy['xp'] += random.randint(1,5)
+            who['xp'] += self.add_encounter_log(random.randint(1, self.dice_size), "xp", "You successfully negotiated with the enemy.")
+            enemy['xp'] += random.randint(1, self.dice_size)
+            enemy['hp'] = 0
             return True
 
 
@@ -712,7 +716,7 @@ class AdventureService:
         loser[property_value] -= transfer
 
         self.add_encounter_log(transfer, property_value, '{} stole {} from {}.'.format(winner['name'], transfer, loser['name']))
-        experience_won = self.add_encounter_log(random.randint(1, 10), 'xp', 'UP!')
+        experience_won = self.add_encounter_log(random.randint(1, self.dice_size), 'xp', 'UP!')
         return experience_won
 
     def distribute_tribute(self, who_id, coins ):

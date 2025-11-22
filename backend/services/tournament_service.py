@@ -112,8 +112,8 @@ class TournamentService:
                     hours = abs(datetime.datetime.now() - datetime.datetime.fromisoformat(tournament['due'])).total_seconds() / 3600
                     #print(self.encounter_log)
                     self.notion_service.persist_adventure(adventure=tournament, characters=whos)
-                    self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id'])
-                                                                            ,tournament, expiry_hours=hours)
+                    #self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id'])
+                    #                                                        ,tournament, expiry_hours=hours)
                 else:
                     print("No winner")
                 actually_executed += 1

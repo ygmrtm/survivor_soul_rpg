@@ -214,6 +214,28 @@ document.addEventListener("DOMContentLoaded", function () {
                 document.getElementById('dead-people').innerText = still_dead_str;
                 button.disabled = false;
             }
+            fetch('/api/notion/countpeoplepills')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if(data.count > 0){
+                        logActivity(`People with pills 💊 ${data.count}`);
+                        document.getElementById('heal-button').disabled = false;
+                        setTimeout(() => {
+                            logActivity(`People with pills 💊 timeout.`);
+                            document.getElementById('heal-button').disabled = true;
+                        }, 60000 * 5); // Disable the heal button after 60 seconds
+        
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching counts:', error);
+                    logActivity(`❌❌ Error : ${error.message}`);
+                });            
         });
     });
 

@@ -14,10 +14,10 @@ class NotionService:
     max_xp = 500
     max_hp = 100
     max_sanity = 60    
-    max_prop_limit = 20
+    max_prop_limit = 15
     lines_per_paragraph = 90
     expiry_hours = 6
-    expiry_minutes = 5 / 60
+    expiry_minutes = 15 / 60
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
@@ -168,6 +168,8 @@ class NotionService:
                                 {"property": "inventory", "multi_select": {"contains": "green.pill"}},
                                 {"property": "inventory", "multi_select": {"contains": "orange.pill"}},
                                 {"property": "inventory", "multi_select": {"contains": "purple.pill"}},
+                                {"property": "inventory", "multi_select": {"contains": "gray.pill"}},
+                                {"property": "inventory", "multi_select": {"contains": "brown.pill"}},
                                 ]},
                         ]
                     }
@@ -347,6 +349,15 @@ class NotionService:
             character['respawn'] += 1
         elif pill_color == "orange":
             #TODO: implement orange pill
+            print("🔔 Still under implementation", pill_color)
+        elif pill_color == "purple":
+            #TODO: implement purple pill
+            print("🔔 Still under implementation", pill_color)
+        elif pill_color == "gray":
+            #TODO: implement gray pill
+            print("🔔 Still under implementation", pill_color)
+        elif pill_color == "brown":
+            #TODO: implement brown pill
             print("🔔 Still under implementation", pill_color)
         for item in character['inventory']:
             if item['name'] == pill_color + '.pill':
@@ -843,11 +854,12 @@ class NotionService:
                     achieved.append("social" if habit_daily_card['properties']['🛗']['checkbox'] is True else None)
                     achieved.append("cook" if habit_daily_card['properties']['🍚']['checkbox'] is True else None)
                     achieved.append("bed" if habit_daily_card['properties']['🛏️']['checkbox'] is True else None)
-                    achieved.append("meals" if habit_daily_card['properties']['🥣']['number'] == 3 else None)
+                    achieved.append("meals" if habit_daily_card['properties']['🥣']['number'] >= 2 else None)
                     achieved.append("bike" if habit_daily_card['properties']['🚲']['checkbox'] is True else None)
                     achieved.append("teeth" if habit_daily_card['properties']['🦷']['checkbox'] is True else None)
                     achieved.append("outdoors" if habit_daily_card['properties']['🏜️']['checkbox'] is True else None)
                     achieved.append("gym" if habit_daily_card['properties']['💪🏼']['checkbox'] is True else None)
+                    achieved.append("movies" if habit_daily_card['properties']['🍿']['checkbox'] is True else None)
                     achieved = [item for item in achieved if item is not None]
                     habits_cards_trn.append({
                         "id": habit_daily_card['id']
@@ -863,9 +875,10 @@ class NotionService:
                         ,"cook" : habit_daily_card['properties']['🍚']['checkbox']
                         ,"bed" : habit_daily_card['properties']['🛏️']['checkbox']
                         ,"meals" : habit_daily_card['properties']['🥣']['number']
-                        ,"mealsb" : habit_daily_card['properties']['🥣']['number'] == 3
+                        ,"mealsb" : habit_daily_card['properties']['🥣']['number'] >= 2
                         ,"bike" : habit_daily_card['properties']['🚲']['checkbox']
                         ,"teeth" : habit_daily_card['properties']['🦷']['checkbox']
+                        ,"movies" : habit_daily_card['properties']['🍿']['checkbox']
                         ,"outdoors" : habit_daily_card['properties']['🏜️']['checkbox']
                         ,"gym" : habit_daily_card['properties']['💪🏼']['checkbox']
                         ,"achieved": achieved
@@ -885,10 +898,10 @@ class NotionService:
         '[c]od[e]' : ['tech']
         ,'[i]llustratio[n]' : ['prsnl']
         ,'[p]ersonal growt[h]' : ['gym','outdoors','teeth','bike','meals','bed','cook','social','shower','deew','beer','prsnl']
-        ,'[r]eading & comic[s]' : ['read']
+        ,'[r]eading & comic[s]' : ['read','movies']
         ,'[s]treet ar[t]' : ['outdoors','prsnl']
         ,'[t]rading crypt[o]' : ['trade']
-        ,'[w]rittin[g]' : ['read']
+        ,'[w]rittin[g]' : ['read','prsnl']
     }
 
     def translate_adventure(self, adventures):
