@@ -71,23 +71,38 @@ def evaluate_not_planned_yet():
 
 @adventure_bp.route('/challenges/habit_longest_streak/<int:days_back>', methods=['POST'])
 def create_habit_longest_streak(days_back):
-    created = adventure_service.create_habit_longest_streak(last_days=days_back, create_challenge=True)
-    print("sleeping...")
-    time.sleep(random.randint(30, 60))
-    executed = adventure_service.evaluate_habit_expired_longest_streak(datetime.today().strftime('%Y-%m-%d'))
-    return jsonify({"created":created, "evaluated":executed})
+    if days_back is None or days_back <= 0:
+        periods_back_racha = redis_service.get(redis_service.get_cache_key('num83r5','periods_back_racha'))
+        if periods_back_racha is None:
+            periods_back_racha = [366, 182, 91, 31]
+            redis_service.set_with_expiry(redis_service.get_cache_key('num83r5','periods_back_racha'), periods_back_racha, 24 * 366)        
+    else:
+        periods_back_racha = [days_back]
+    for period in periods_back_racha:
+        created = adventure_service.create_habit_longest_streak(last_days=period, create_challenge=False)
+    #print("sleeping...")
+    #time.sleep(random.randint(30, 60))
+    #executed = adventure_service.evaluate_habit_expired_longest_streak(datetime.today().strftime('%Y-%m-%d'))
+    #return jsonify({"created":created, "evaluated":executed})
+    return jsonify({"created":created})
 
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/evaluate', methods=['POST'])
 def evaluate_challenges(week_number, year_number):
     # Call the service to create challenges for the specified week
     days_back_racha = redis_service.get(redis_service.get_cache_key('num83r5','days_back_racha'))
+    periods_back_racha = redis_service.get(redis_service.get_cache_key('num83r5','periods_back_racha'))
     if days_back_racha is None:
-        days_back_racha = 30
-        redis_service.set(redis_service.get_cache_key('num83r5','days_back_racha'), days_back_racha)
+        days_back_racha = 366
+        redis_service.set_with_expiry(redis_service.get_cache_key('num83r5','days_back_racha'), days_back_racha, 24 * days_back_racha)
+    if periods_back_racha is None:
+        periods_back_racha = [days_back_racha, 182, 91, 31]
+        redis_service.set_with_expiry(redis_service.get_cache_key('num83r5','periods_back_racha'), periods_back_racha, 24 * days_back_racha)
+
     challenges_cons = adventure_service.evaluate_consecutivedays_challenges(week_number, year_number)
     challenges_habits = adventure_service.evaluate_weekhabits_challenges(week_number, year_number)
     challenges_expired = adventure_service.evaluate_expired_challenges(week_number, year_number)
-    habit_longest_streak = adventure_service.create_habit_longest_streak(last_days=days_back_racha, create_challenge=True)
+    for period in periods_back_racha:
+        habit_longest_streak = adventure_service.create_habit_longest_streak(last_days=period, create_challenge=True)
     habit_longest_streak_executed = adventure_service.evaluate_habit_expired_longest_streak(datetime.today().strftime('%Y-%m-%d'))
     # Call Specify Ability Challenges
     challenges_coding = coding_service.evaluate_challenges(week_number, year_number)

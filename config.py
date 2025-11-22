@@ -32,6 +32,10 @@ TODOIST_PID_INB = os.getenv('TODOIST_PID_INB')
 TODOIST_PID_CAL = os.getenv('TODOIST_PID_CAL')
 
 
+# TickTick API credentials
+TICKTICK_ACCESS_TOKEN = os.getenv('TICKTICK_ACCESS_TOKEN')
+
+
 # Flask app settings
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')
 DEBUG = FLASK_ENV == 'development'

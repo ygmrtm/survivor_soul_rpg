@@ -19,6 +19,7 @@ python-dotenv==1.0.1
 redis==5.2.1
 requests==2.32.3
 todoist_api_python==2.1.7
+ticktick==0.1.4
 tomli==2.1.0
 urllib3==1.26.5
 Werkzeug==3.1.3
