@@ -475,6 +475,7 @@ class AdventureService:
                 cached_key = self.redis_service.get_cache_key('todoist_notification:' + key_str, key )
                 next_suggested_streak = round(output[key]['max_consecutive'] * self.GOLDEN_RATIO)
                 next_suggested_streak = 1 if next_suggested_streak <= 0 else next_suggested_streak
+                days_since_last_date = 0
                 if not self.redis_service.exists(cached_key):
                     max_days = output[key]['max_consecutive']
                     current = output[key]['consecutive']
@@ -503,6 +504,7 @@ class AdventureService:
                 if create_challenge is True and not self.redis_service.exists(cached_key):
                     self.notion_service.get_all_habits() #force to load all habits
                     habit = self.notion_service.get_habits_by_property('name', key)[0]
+                    # print("HABIT:", habit)
                     habit_level = habit['level']
                     max_xprwd = self.max_xprwd
                     max_coinrwd = self.max_coinrwd
