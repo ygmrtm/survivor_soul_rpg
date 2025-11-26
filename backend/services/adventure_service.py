@@ -240,38 +240,38 @@ class AdventureService:
                                 , 'status':challenge['status'] 
                                 , 'status_old':prev_status })
         
-        for challenge in won_challenges:
-            print(challenge['name'], challenge['status'], challenge['xpRwd'], challenge['coinRwd'])
-            days_alive = abs((datetime.strptime(challenge['alive_range']['end'], '%Y-%m-%d') 
-                    - datetime.strptime(challenge['alive_range']['start'], '%Y-%m-%d')).days)
+        for challengew in won_challenges:
+            print(challengew['name'], challengew['status'], challengew['xpRwd'], challengew['coinRwd'])
+            days_alive = abs((datetime.strptime(challengew['alive_range']['end'], '%Y-%m-%d') 
+                    - datetime.strptime(challengew['alive_range']['start'], '%Y-%m-%d')).days)
             self.encounter_log = []
             who = None
             pool_whos = []
-            for habit in challenge['habits']:
+            for habit in challengew['habits']:
                 habit_obj = self.notion_service.get_habit_by_id(habit['id'])
-                habit_obj['xp'] += self.add_encounter_log(challenge['xpRwd'],"xp"
+                habit_obj['xp'] += self.add_encounter_log(challengew['xpRwd'],"xp"
                                                         ,"Won challenge for {}".format(habit_obj['name'] ))
                 habit_obj['xp'] += self.add_encounter_log(days_alive,"xp"
                                                         ,"Won challenge for {} w {} days alive".format(habit_obj['name'], days_alive ))
                 self.notion_service.persist_habit(habit_obj)
                 who = self.notion_service.get_character_by_id(habit_obj['who'])
-                who['xp'] += self.add_encounter_log(challenge['xpRwd'],"xp"
+                who['xp'] += self.add_encounter_log(challengew['xpRwd'],"xp"
                                                     ,"got victory for {}".format(who['name'] ))
                 who['xp'] += self.add_encounter_log(days_alive,"xp"
                                                     ,"got victory for {} w {} alive".format(who['name'], days_alive ))
-                who['sanity'] += self.add_encounter_log(challenge['xpRwd'],"sanity"
+                who['sanity'] += self.add_encounter_log(challengew['xpRwd'],"sanity"
                                                     ,"got victory for {}".format(who['name'] ))
             if who['id'] not in [character['id'] for character in pool_whos]:
                 pool_whos.append(who)
-            prev_status = challenge['status']
+            prev_status = challengew['status']
             self.add_encounter_log(0, "status", 'old status [{}]'.format(prev_status))
-            challenge['status'] = 'Archived'
-            challenge['encounter_log'] = self.encounter_log
-            upd_adventure, upd_character = self.notion_service.persist_adventure(adventure=challenge, characters=pool_whos)
+            challengew['status'] = 'Archived'
+            challengew['encounter_log'] = self.encounter_log
+            upd_adventure, upd_character = self.notion_service.persist_adventure(adventure=challengew, characters=pool_whos)
             upd_challenges.append({ 'adventure_id':upd_adventure['id']
                                 , 'who_id':upd_character['id']
-                                , 'challenge_name':challenge['name']
-                                , 'status':challenge['status'] 
+                                , 'challenge_name':challengew['name']
+                                , 'status':challengew['status'] 
                                 , 'status_old':prev_status })
         return upd_challenges
     
@@ -829,23 +829,36 @@ class AdventureService:
             l3_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False) 
             l3_characters += self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
         filtered_characters = [c for c in l3_characters if c['status'] == 'rest' or c['status'] == 'dying']
-        gods = self.notion_service.get_characters_by_deep_level('l2', is_npc=True)
-        add_characters = [ char for char in gods if (len(char['alter_subego']) > 0 and char['status'] == 'dead')] 
+        gods = self.notion_service.get_characters_by_deep_level('l2', is_npc=True) 
+        gods += self.notion_service.get_characters_by_deep_level('l1', is_npc=True)
+        gods += self.notion_service.get_characters_by_deep_level('l0', is_npc=True)
+        add_characters =gods#[ char for char in gods if (len(char['alter_subego']) > 0 and char['status'] == 'dead')] 
         #for char in gods:
-        #    print(char['name'],char['alter_subego'],char['status'])
+        #    print('🌳 awakening ',char['name'],char['status'],char['hp'],'/',char['max_hp'],char['alter_subego'])
         #print(f' awakening god {len(add_characters)} out of {len(gods)}')
         return_array = []
         for character in (filtered_characters + add_characters):
+            go = False
             pct_before = character['hp'] / character['max_hp']
             pct_after = (character['hp'] + character['hours_recovered']) / character['max_hp']
-            if character['deep_level'] == 'l2' or pct_after > 0.3:
-                character['status'] = 'high' if character['deep_level'] == 'l2' else 'alive'
+            if character['deep_level'] == 'l3' and pct_after > 0.3:
+                character['status'] = 'alive'
                 character['hp'] = abs(character['hp']) + abs(character['hours_recovered']) if character['deep_level'] == 'l2' else character['hp'] + character['hours_recovered']
                 character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp'] 
+                go = True
+            if character['deep_level'] != 'l3' and len(character['alter_subego']) > 0 and character['status'] != 'high':
+                character['status'] = 'high'
+                character['hp'] = character['max_hp']
+                go = True
+            if character['deep_level'] != 'l3' and len(character['alter_subego']) == 0 and character['status'] != 'dead':
+                character['status'] = 'dead'
+                character['hp'] = abs(character['max_hp']) * -1
+                go = True
+            if go:
                 datau = {"properties": { "hp": {"number": character['hp']},"status": {"select": {"name":character['status']} } }}
                 upd_character = self.notion_service.update_character(character, datau)
                 return_array.append({ "character_id": character['id'], "character_name": character['name'], "character_hp": character['hp']})
-                print(character['hours_recovered'],character['name'],'{}->{} awakening'.format(pct_before,pct_after))
+                print(character['hours_recovered'],character['name'],'{}->{} awakening as {}'.format(pct_before,pct_after,character['status']))
         return return_array
     
     def apply_punishment(self):

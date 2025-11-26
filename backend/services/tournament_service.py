@@ -252,7 +252,8 @@ class TournamentService:
             need_update.extend(gods)
         else:  # Winners the Cryptids then 1:1 with root
             self.add_encounter_log(self.GOLDEN_RATIO, '1:1', f"{len(cryptids)} Cryptids vs Root|{root['hp']}🫀")
-            looser = None
+            looser = root
+            winner = cryptids[0] if len(cryptids) > 0 else root
             while len(cryptids) > 0 and root['hp'] >= 0:
                 cryp = cryptids.pop(0)
                 winner, looser = self.fight(root, cryp)

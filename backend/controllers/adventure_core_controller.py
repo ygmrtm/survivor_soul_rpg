@@ -49,6 +49,14 @@ def execute_underworld():
                     , "awaked" : characters_awaked, "awaked_count" : len(characters_awaked)
                     , "punishments" : adventures_punishment, "punishments_count" : len(adventures_punishment)})
 
+@adventure_bp.route('/underworld/awake', methods=['POST'])
+def execute_awake_characters():
+    # Call the service to execute the adventure
+    adventure_service = AdventureService()
+    characters_awaked = []
+    characters_awaked = adventure_service.awake_characters()
+    return jsonify({ "awaked" : characters_awaked, "awaked_count" : len(characters_awaked)} )
+
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/create', methods=['POST'])
 def create_challenges(week_number, year_number):
     result = adventure_service.create_challenges(week_number, year_number)
