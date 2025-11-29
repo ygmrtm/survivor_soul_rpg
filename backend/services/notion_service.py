@@ -113,11 +113,12 @@ class NotionService:
         url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
         headcount = 0
         try:
-            headcount = self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',deep_level))
-            if headcount is None:
-                dead_people = self.redis_service.query_characters('status', 'dead')
-                by_level_dp = [c for c in dead_people if c['deep_level'] == deep_level]
-                headcount = len(by_level_dp)
+            self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level',f'{deep_level}nonpc'))
+            characters = self.get_characters_by_deep_level(deep_level, is_npc=False)
+            characters = self.get_characters_by_deep_level(deep_level, is_npc=True)
+            dead_people = self.redis_service.query_characters('status', 'dead')
+            by_level_dp = [c for c in dead_people if c['deep_level'] == deep_level]
+            headcount = len(by_level_dp)
             if headcount <= 0:
                 data_filter = {
                     "filter": {
@@ -195,7 +196,7 @@ class NotionService:
             self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray',f"{deep_level}")
                                             , characters, self.expiry_minutes)
             headcount = len(characters)
-            print(f"💊 counted {headcount} from source")
+            print(f"💊 counted {headcount}")
             self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:headcount',deep_level)
                                         , headcount, self.expiry_minutes)
         except Exception as e:
