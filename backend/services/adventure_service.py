@@ -19,11 +19,11 @@ class AdventureService:
     max_chapters = 7
     max_xprwd = 4
     max_coinrwd = 10    
-    percentage_habits = 0.6 # for challenges how many habits to pick
-    percentage_execute_dead = 0.90
+    percentage_habits = 0.7 # for challenges how many habits to pick
+    percentage_execute_dead = 0.60
     encounter_log = []
-    dice_size = 720
-    expiry_hours = 0.4    
+    dice_size = 2025
+    expiry_hours = 0.5
     redis_service = RedisService()
     todoist_service = TodoistService()
     notion_service = NotionService()
@@ -354,6 +354,8 @@ class AdventureService:
         todoist_service = TodoistService()
         tasks = []
         for challenge in reorder_challenge:
+            #get the first 10 characters for due
+            challenge['due'] = challenge['due'][0:10]
             seven_days = datetime.today() + timedelta(days=7)
             priority = 1
             heading = '__PROXIMAMENTE |__ '
@@ -816,7 +818,7 @@ class AdventureService:
                 self.add_encounter_log(who['hp'], "hp", 'You have been defeated in 100 encounters.')
                 deaadventure['encounter_log'] = self.encounter_log
             self.notion_service.persist_adventure(adventure=deaadventure, characters=[who,enemy])
-            time.sleep(random.randint(1, 5))
+            #time.sleep(random.randint(1, 5))
             return_array.append({"adventure_id": deaadventure['id'], "character_id": who['id'], "character_name": who['name'], "deadgod_name": enemy['name'],"adventure_status": deaadventure['status']})
             done += 1
         return return_array
