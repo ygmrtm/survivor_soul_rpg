@@ -845,7 +845,7 @@ class AdventureService:
             pct_after = (character['hp'] + character['hours_recovered']) / character['max_hp']
             if character['deep_level'] == 'l3' and pct_after > 0.3:
                 character['status'] = 'alive'
-                character['hp'] = abs(character['hp']) + abs(character['hours_recovered']) if character['deep_level'] == 'l2' else character['hp'] + character['hours_recovered']
+                character['hp'] = character['hp'] + character['hours_recovered']
                 character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp'] 
                 go = True
             if character['deep_level'] != 'l3' and len(character['alter_subego']) > 0 and character['status'] != 'high':

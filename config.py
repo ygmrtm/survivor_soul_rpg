@@ -16,6 +16,7 @@ NOTION_DBID_EPICS = os.getenv('NOTION_DBID_EPICS')
 NOTION_DBID_BIKES = os.getenv('NOTION_DBID_BIKES')
 NOTION_DBID_STENC = os.getenv('NOTION_DBID_STENC')
 NOTION_DBID_CODIN = os.getenv('NOTION_DBID_CODIN')
+NOTION_DBID_WATCH = os.getenv('NOTION_DBID_WATCH')
 # Redis Cloud Configuration
 REDIS_URL = os.getenv('REDIS_URL', 'redis://default:password@host.cloud.redislabs.com:port')
 # Parse Redis URL

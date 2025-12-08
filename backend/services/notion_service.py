@@ -5,7 +5,7 @@ from flask import jsonify
 from backend.services.redis_service import RedisService
 from datetime import datetime, timedelta
 from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN,NOTION_DBID_DLYLG, CREATED_LOG, CLOSED_LOG, WON_LOG, LOST_LOG, MISSED_LOG
-from config import NOTION_DBID_HABIT, NOTION_DBID_ABILI
+from config import NOTION_DBID_HABIT, NOTION_DBID_ABILI, NOTION_DBID_WATCH
 
 
 class NotionService:
@@ -16,7 +16,7 @@ class NotionService:
     max_sanity = 60    
     max_prop_limit = 15
     lines_per_paragraph = 90
-    expiry_hours = 6
+    expiry_hours = 8
     expiry_minutes = 15 / 60
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
@@ -1245,3 +1245,77 @@ class NotionService:
             print("❌❌","create_tournament",response.status_code, response.text) 
             response.raise_for_status() 
             return None 
+
+    def get_watchlist(self):
+        # Try to get from cache first
+        cache_key = self.redis_service.get_cache_key('watchlist', 'all')
+        cached_watchlist = self.redis_service.get(cache_key)
+        if cached_watchlist is not None:
+            print("Using ALL cached watchlist:", len(cached_watchlist))
+            return cached_watchlist
+        # If not in cache, fetch from Notion
+        url = f"{self.base_url}/databases/{NOTION_DBID_WATCH}/query"
+        all_watchlist = []
+        has_more = True
+        start_cursor = None
+        while has_more:
+            payload = {}
+            if start_cursor:
+                payload['start_cursor'] = start_cursor
+            response = requests.post(url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+            all_watchlist.extend(data.get("results", []))
+            has_more = data.get("has_more", False)
+            start_cursor = data.get("next_cursor")
+        # Cache the results
+        translated_list = self.translate_watchlist(all_watchlist)
+        self.redis_service.set_with_expiry(cache_key, translated_list, expiry_hours=self.expiry_hours * 3 * 30)
+        print("Fetched and cached ALL watchlist:", len(translated_list))
+        return translated_list
+
+    def get_watchlist_by_year(self, year_from, year_to):
+        watchlist = self.get_watchlist()
+        return_watchlist = []
+        for movie in watchlist:
+            if movie['año'] >= year_from and movie['año'] <= year_to:
+                return_watchlist.append(movie)
+        return return_watchlist
+
+    def get_watchlist_by_estado(self, estado):
+        watchlist = self.get_watchlist()
+        return_watchlist = []
+        for movie in watchlist:
+            if movie['estado'] == estado:
+                return_watchlist.append(movie)
+        return return_watchlist
+
+
+    def translate_watchlist(self, watchlist=[]):
+        try:
+            return_watchlist = []
+            for movie in watchlist:
+                titulo = movie['properties']['Original Title']['title'][-1]['plain_text']
+                titulo += "("+movie['properties']['Title']['rich_text'][-1]['plain_text']+")" if movie['properties']['Title']['rich_text'][-1]['plain_text'] != movie['properties']['Original Title']['title'][-1]['plain_text'] else ""
+                return_watchlist.append({ 
+                "notion_id": movie['id'].replace('-','')
+                ,"imdb_id": movie['properties']['Const']['rich_text'][-1]['plain_text'] if movie['properties']['Const']['rich_text'] else None
+                ,"titulo": titulo
+                ,"tipo": movie['properties']['Title Type']['select']['name']
+                ,"calificacion": movie['properties']['IMDb Rating']['number']
+                ,"generos": movie['properties']['Genres']['rich_text'][-1]['plain_text'] if movie['properties']['Genres']['rich_text'] else None
+                ,"url": movie['properties']['URL']['url']
+                ,"estreno": movie['properties']['Release Date']['date']['start'].split('T')[0] if movie['properties']['Release Date']['date']['start'] else None
+                ,"estado": movie['properties']['Status']['status']['name']
+                ,"streaming": movie['properties']['Available in Streaming?']['checkbox']
+                ,"vista": movie['properties']['Watched']['checkbox']
+                ,"año": movie['properties']['Year']['number']
+                ,"directores": movie['properties']['Directors']['rich_text'][-1]['plain_text'] if movie['properties']['Directors']['rich_text'] else None
+                ,"minutos": movie['properties']['Runtime (mins)']['number']
+                ,"semana_sugerida": movie['properties']['Your Rating']['rich_text'][-1]['plain_text'] if movie['properties']['Your Rating']['rich_text'] else None
+                })
+            return return_watchlist
+        except Exception as e:
+            print("😓 Damn it i can't translate watchlist:", e)
+            raise
+            
