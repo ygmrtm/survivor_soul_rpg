@@ -101,20 +101,3 @@ def get_habits_and_abilities(habits_yn, abilities_yn):
         if len(habits) > 0:
             return_dict['habit_cache'] = notion_service.get_habit_by_id(habits[0]['id'])
     return jsonify(return_dict)
-
-@notion_bp.route('/movies/watchlist', methods=['GET'])
-def get_watchlist():
-    result = notion_service.get_watchlist()
-    return jsonify(result)
-
-@notion_bp.route('/movies/watchlist/<year_from>/<year_to>', methods=['GET'])
-def get_watchlist_by_year(year_from, year_to):
-    # validate year_from and year_to are valid integers
-    if not year_from.isdigit() or not year_to.isdigit():
-        return jsonify({"error": "Invalid year"}), 400
-    year_from = int(year_from)
-    year_to = int(year_to)
-    if year_from > year_to:
-        return jsonify({"error": "Year from must be less than year to"}), 400
-    result = notion_service.get_watchlist_by_year(year_from, year_to)
-    return jsonify(result)    
