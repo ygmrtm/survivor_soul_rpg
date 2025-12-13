@@ -98,6 +98,7 @@ class WatchlistService:
         # Cache the results
         translated_list = self.translate_watchlist(all_watchlist)
         self.redis_service.set_with_expiry(cache_key, translated_list, expiry_hours=self.expiry_hours * 3 )
+        self.redis_service.set_with_expiry(self.redis_service.get_cache_key('watchlist', 'all_raw'), all_watchlist, expiry_hours=self.expiry_hours * 3 )
         print("Fetched and cached ALL watchlist:", len(translated_list))
         return translated_list
 
@@ -174,15 +175,16 @@ class WatchlistService:
         return return_watchlist[:tamano]
 
     def persist_suggested_watchlist(self, watchlist, week):
-        print(f'got {len(watchlist)} for week {week}')
+        #print(f'got {len(watchlist)} for week {week}')
         for movie in watchlist:
-            movie['semana_sugerida'] = (movie['semana_sugerida'] if movie['semana_sugerida'] else '') + ' | w' + str(week) 
-            #persist in Notion
-            datau = {"properties": { "Your Rating": { "rich_text": [{"text": {"content": movie['semana_sugerida']}}] },}}
-            self.update_movie(movie['notion_id'], datau)
-            #persist in Redis
             cache_key = self.redis_service.get_cache_key('watchlist:suggested', movie['imdb_id'])
-            self.redis_service.set_with_expiry(cache_key, movie, expiry_hours=self.expiry_hours * 3 * 7)
+            if not(self.redis_service.exists(cache_key)):
+                movie['semana_sugerida'] = (movie['semana_sugerida'] if movie['semana_sugerida'] else '') + ' | w' + str(week) 
+                #persist in Notion
+                datau = {"properties": { "Your Rating": { "rich_text": [{"text": {"content": movie['semana_sugerida']}}] },}}
+                self.update_movie(movie['notion_id'], datau)
+                #persist in Redis
+                self.redis_service.set_with_expiry(cache_key, movie, expiry_hours=self.expiry_hours * 3 * 7)
         cache_key = self.redis_service.get_cache_key('watchlist', f'suggested{len(watchlist)}')
         self.redis_service.set_with_expiry(cache_key, watchlist, expiry_hours=self.expiry_hours * 3 * 7)
         return watchlist

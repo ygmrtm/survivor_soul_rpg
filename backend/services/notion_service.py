@@ -637,6 +637,7 @@ class NotionService:
         url = f"{self.base_url}/pages/{adventure_id}"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
+        #print(response.json())
         return self.translate_adventure([response.json()] if response.json() else [])[0]
     
     def start_end_dates(self, week_number, year_number=None):
