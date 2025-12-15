@@ -20,7 +20,7 @@ class AdventureService:
     max_xprwd = 4
     max_coinrwd = 10    
     percentage_habits = 0.7 # for challenges how many habits to pick
-    percentage_execute_dead = 0.60
+    percentage_execute_dead = 0.25
     encounter_log = []
     dice_size = 2025
     expiry_hours = 0.5

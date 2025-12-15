@@ -181,7 +181,8 @@ class WatchlistService:
             if not(self.redis_service.exists(cache_key)):
                 movie['semana_sugerida'] = (movie['semana_sugerida'] if movie['semana_sugerida'] else '') + ' | w' + str(week) 
                 #persist in Notion
-                datau = {"properties": { "Your Rating": { "rich_text": [{"text": {"content": movie['semana_sugerida']}}] },}}
+                datau = { "icon" : { "emoji" : "🎞️" },
+                    "properties": { "Your Rating": { "rich_text": [{"text": {"content": movie['semana_sugerida']}}] },}}
                 self.update_movie(movie['notion_id'], datau)
                 #persist in Redis
                 self.redis_service.set_with_expiry(cache_key, movie, expiry_hours=self.expiry_hours * 3 * 7)
