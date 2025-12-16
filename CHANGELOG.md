@@ -366,3 +366,18 @@ Watchlist version. missing scheduled invocations
 handling watchlist in cache
 ---
 
+## [1.4.1] - 2025-12-16
+Merge 826a5b9a4bb963c3e109ea1c1e8a8fb0cf984624 into 3cfad1fd4b94e61c853aa7be84f384622538bbeb
+
+done witout ticktick and storing in redis
+
+this version is implemented...
+
+with ticktick-pl but it still sucks, cause loging was not possible.
+
+Merge pull request #57 from ygmrtm/main
+
+upodate ticktick branch
+Update CHANGELOG for version 1.3.1
+---
+
