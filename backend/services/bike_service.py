@@ -55,9 +55,9 @@ class BikingService:
                 ,"xpRwd": task['properties']['xpRwd']['number']
                 ,"kms": task['properties']['kms']['number']
                 ,"abilities": abilities
-                ,"due": task['properties']['due']['date']['start'] if task['properties']['due']['date'] else None
+                ,"due": task['properties']['due']['date']['start'] if task['properties']['due']['date'] else datetime.now().strftime('%Y-%m-%d')
                 ,"assigned": task['properties']['asignee']['people'][0]['id']
-                ,"last_edited_time": str(task['last_edited_time']).split('T')[0] if task['last_edited_time'] else None
+                ,"last_edited_time": str(task['last_edited_time']).split('T')[0] if task['last_edited_time'] else datetime.now().strftime('%Y-%m-%d')
                 ,"week_range":{ "start": self.start_date_str, "end": self.end_date_str }
                 ,"alive_range":{ "start": task['properties']['dateRangeAlive']['formula']['date']['start'].split('T')[0]
                                 , "end": task['properties']['dateRangeAlive']['formula']['date']['end'].split('T')[0]}

@@ -16,7 +16,7 @@ class NotionService:
     max_sanity = 60    
     max_prop_limit = 15
     lines_per_paragraph = 90
-    expiry_hours = 6
+    expiry_hours = 8
     expiry_minutes = 15 / 60
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
@@ -113,11 +113,12 @@ class NotionService:
         url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
         headcount = 0
         try:
-            headcount = self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',deep_level))
-            if headcount is None:
-                dead_people = self.redis_service.query_characters('status', 'dead')
-                by_level_dp = [c for c in dead_people if c['deep_level'] == deep_level]
-                headcount = len(by_level_dp)
+            self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level',f'{deep_level}nonpc'))
+            characters = self.get_characters_by_deep_level(deep_level, is_npc=False)
+            characters = self.get_characters_by_deep_level(deep_level, is_npc=True)
+            dead_people = self.redis_service.query_characters('status', 'dead')
+            by_level_dp = [c for c in dead_people if c['deep_level'] == deep_level]
+            headcount = len(by_level_dp)
             if headcount <= 0:
                 data_filter = {
                     "filter": {
@@ -195,7 +196,7 @@ class NotionService:
             self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray',f"{deep_level}")
                                             , characters, self.expiry_minutes)
             headcount = len(characters)
-            print(f"💊 counted {headcount} from source")
+            print(f"💊 counted {headcount}")
             self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:headcount',deep_level)
                                         , headcount, self.expiry_minutes)
         except Exception as e:
@@ -325,7 +326,7 @@ class NotionService:
         return response_json 
 
     def apply_all_pills_by_character(self, character, pill_color):
-        print(pill_color, character['name'])
+        #print(pill_color, character['name'])
         if pill_color == "yellow":
             character['sanity'] = character['max_sanity']
         elif pill_color == "blue":
@@ -636,6 +637,7 @@ class NotionService:
         url = f"{self.base_url}/pages/{adventure_id}"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
+        #print(response.json())
         return self.translate_adventure([response.json()] if response.json() else [])[0]
     
     def start_end_dates(self, week_number, year_number=None):
@@ -1244,3 +1246,9 @@ class NotionService:
             print("❌❌","create_tournament",response.status_code, response.text) 
             response.raise_for_status() 
             return None 
+
+
+
+
+
+            

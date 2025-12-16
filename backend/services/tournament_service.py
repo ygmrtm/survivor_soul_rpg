@@ -117,7 +117,7 @@ class TournamentService:
                 else:
                     print("No winner")
                 actually_executed += 1
-                print(f"🏟️{actually_executed}🏟️  | {tournament['path']} | {tournament['name']} | {tournament['desc']} | {tournament['xpRwd']} reward")
+                print(f"🏟️ {actually_executed} 🏟️  | {tournament['path']} | {tournament['name']} | {tournament['desc']} | {tournament['xpRwd']} reward")
             remainOpen = len(self.get_all_open_tournaments())
             return {"tournaments":tournaments, "still_not_executed":remainOpen, "actually_executed":actually_executed}
 
@@ -252,12 +252,23 @@ class TournamentService:
             need_update.extend(gods)
         else:  # Winners the Cryptids then 1:1 with root
             self.add_encounter_log(self.GOLDEN_RATIO, '1:1', f"{len(cryptids)} Cryptids vs Root|{root['hp']}🫀")
-            looser = None
+            looser = root
+            winner = cryptids[0] if len(cryptids) > 0 else root
             while len(cryptids) > 0 and root['hp'] >= 0:
                 cryp = cryptids.pop(0)
                 winner, looser = self.fight(root, cryp)
+            # Handle edge case where loop doesn't execute
+            if winner is None or looser is None:
+                if len(cryptids) == 0:
+                    winner = root
+                    looser = root
+                elif root['hp'] < 0:
+                    winner = cryptids[0] if len(cryptids) > 0 else root
+                    looser = root
             need_update.append(winner)
-            need_update.append(looser)
+            # Only append looser if it's different from winner to avoid duplicates
+            if looser is not winner:
+                need_update.append(looser)
             self.add_encounter_log(root['hp'], 'HP', f"Root 🫀")
             self.add_encounter_log(len(cryptids), 'SIZE', f"Cryptid Survivors")
             self.add_encounter_log(winner['hp'], '🫀', f"Winner {winner['name'].upper()}")
