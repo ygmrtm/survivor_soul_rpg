@@ -16,7 +16,7 @@ class NotionService:
     max_sanity = 60    
     max_prop_limit = 15
     lines_per_paragraph = 90
-    expiry_hours = 6
+    expiry_hours = 8
     expiry_minutes = 15 / 60
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
@@ -326,7 +326,7 @@ class NotionService:
         return response_json 
 
     def apply_all_pills_by_character(self, character, pill_color):
-        print(pill_color, character['name'])
+        #print(pill_color, character['name'])
         if pill_color == "yellow":
             character['sanity'] = character['max_sanity']
         elif pill_color == "blue":
@@ -637,6 +637,7 @@ class NotionService:
         url = f"{self.base_url}/pages/{adventure_id}"
         response = requests.get(url, headers=self.headers)
         response.raise_for_status()
+        #print(response.json())
         return self.translate_adventure([response.json()] if response.json() else [])[0]
     
     def start_end_dates(self, week_number, year_number=None):
@@ -1245,3 +1246,9 @@ class NotionService:
             print("❌❌","create_tournament",response.status_code, response.text) 
             response.raise_for_status() 
             return None 
+
+
+
+
+
+            

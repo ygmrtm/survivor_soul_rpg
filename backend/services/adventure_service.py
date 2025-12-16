@@ -19,11 +19,12 @@ class AdventureService:
     max_chapters = 7
     max_xprwd = 4
     max_coinrwd = 10    
-    percentage_habits = 0.6 # for challenges how many habits to pick
-    percentage_execute_dead = 0.90
+    percentage_habits = 0.7 # for challenges how many habits to pick
+    percentage_execute_dead = 0.25
     encounter_log = []
-    dice_size = 720
-    expiry_hours = 0.4    
+    dice_size = 2025
+    expiry_hours = 0.5
+    was_too_much_limit = 20
     redis_service = RedisService()
     todoist_service = TodoistService()
     notion_service = NotionService()
@@ -354,6 +355,8 @@ class AdventureService:
         todoist_service = TodoistService()
         tasks = []
         for challenge in reorder_challenge:
+            #get the first 10 characters for due
+            challenge['due'] = challenge['due'][0:10]
             seven_days = datetime.today() + timedelta(days=7)
             priority = 1
             heading = '__PROXIMAMENTE |__ '
@@ -526,6 +529,7 @@ class AdventureService:
 
     def execute_adventure(self, adventure_id):
         """Run the logic for executing an adventure."""
+        #print("executing - - - - "+adventure_id)
         self.encounter_log = []
         adventure = self.notion_service.get_adventure_by_id(adventure_id)
         status = adventure['status']
@@ -546,6 +550,7 @@ class AdventureService:
                 self.add_encounter_log(god_support['level'], "level",'powered⚡️by⚡️{}'.format(god_support['name']))
                 for vs in adventure['vs']:
                     enemies.append(self.notion_service.get_character_by_id(vs['id']))
+                #print(f'Ready for encounter {len(enemies)} enemies')
                 if self.execute_encounter(who, enemies, god_support) is True:
                     who['xp'] += self.add_encounter_log(adventure['xpRwd'],"xp","Adventure XP earned")
                     god_support['xp'] += adventure['xpRwd']
@@ -631,7 +636,8 @@ class AdventureService:
 
     def fight(self, who, enemy, god) -> bool:
         rounds = 0
-        while who['hp'] > 0 and enemy['hp'] > 0:
+        was_too_much = False
+        while who['hp'] > 0 and enemy['hp'] > 0 and not was_too_much:
             rounds += 1
             damage = 0
             if random.randint(0, 1) % 2 == 0: #Magic Attack
@@ -658,12 +664,18 @@ class AdventureService:
                 who['hp'] += self.add_encounter_log(damage*-1 if damage > 0 else 0, "hp", 'R{} | Enemy aimed the attack.'.format(rounds))
             else:
                 self.add_encounter_log(damage*-1 , "hp", 'R{} | Enemy missed the attack.'.format(rounds))
+            was_too_much = rounds >= self.was_too_much_limit
         if who['hp'] <= 0:
                 self.add_encounter_log(who['hp'], "hp", 'You have been defeated by the enemy.')
                 enemy['xp'] += self.steal_property(loser=who, winner=enemy)
                 return False
         if enemy['hp'] <= 0:
                 self.add_encounter_log(who['hp'], "hp", 'You have defeated the enemy. ({}HP)'.format(enemy['hp']))
+                who['xp'] += self.steal_property(loser=enemy, winner=who)
+                return True
+        if was_too_much:
+                self.add_encounter_log(who['hp'], "hp", f'Tie after {rounds} rounds, your enemy {enemy['hp']} HP left.')
+                enemy['xp'] += self.steal_property(loser=who, winner=enemy)
                 who['xp'] += self.steal_property(loser=enemy, winner=who)
                 return True
         return False
@@ -696,7 +708,7 @@ class AdventureService:
                 elif lucky_exchange == 2:
                     who['defense'] += self.add_encounter_log(enemy['defense'] * 0.33, 'defense', '🍀{}🍀'.format(who['name']))
                     enemy['defense'] += self.add_encounter_log(who['defense'] * 0.33, 'defense', '🍀{}🍀'.format(enemy['name']))
-            was_too_much = rounds >= 100
+            was_too_much = rounds >= self.was_too_much_limit
         return not was_too_much
 
     def add_encounter_log(self, points, type, why):
@@ -816,7 +828,7 @@ class AdventureService:
                 self.add_encounter_log(who['hp'], "hp", 'You have been defeated in 100 encounters.')
                 deaadventure['encounter_log'] = self.encounter_log
             self.notion_service.persist_adventure(adventure=deaadventure, characters=[who,enemy])
-            time.sleep(random.randint(1, 5))
+            #time.sleep(random.randint(1, 5))
             return_array.append({"adventure_id": deaadventure['id'], "character_id": who['id'], "character_name": who['name'], "deadgod_name": enemy['name'],"adventure_status": deaadventure['status']})
             done += 1
         return return_array
@@ -843,7 +855,7 @@ class AdventureService:
             pct_after = (character['hp'] + character['hours_recovered']) / character['max_hp']
             if character['deep_level'] == 'l3' and pct_after > 0.3:
                 character['status'] = 'alive'
-                character['hp'] = abs(character['hp']) + abs(character['hours_recovered']) if character['deep_level'] == 'l2' else character['hp'] + character['hours_recovered']
+                character['hp'] = character['hp'] + character['hours_recovered']
                 character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp'] 
                 go = True
             if character['deep_level'] != 'l3' and len(character['alter_subego']) > 0 and character['status'] != 'high':

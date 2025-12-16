@@ -352,3 +352,17 @@ feature: first draft of ticktick integration
 no functional yet but it will take a few days
 ---
 
+## [1.3.1] - 2025-12-16
+Merge b44e3614bda0f267dbd4ba3ce446fcfbd8bddac4 into eea729096ac9a1fe19da1594c9631eaf5cd9da27
+
+Done version with watchlist included
+
+First version for Individual Challenges invocations
+
+missing testing
+
+Watchlist version. missing scheduled invocations
+
+handling watchlist in cache
+---
+
