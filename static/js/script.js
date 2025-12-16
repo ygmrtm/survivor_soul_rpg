@@ -33,7 +33,6 @@ function logActivity(message) {
     log.scrollTop = log.scrollHeight; // Scroll to the bottom
 }
 
-
 document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('week-number').innerText = weekNumber;
     document.getElementById('current-year').innerText = new Date().getFullYear();
@@ -41,14 +40,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const healImage = document.getElementById('heal-image');
 
     characterCards.forEach(card => {
-        const characterId = card.dataset.characterId; 
-        const characterHp = parseInt(card.dataset.characterHp); 
+        const characterId = card.dataset.characterId;
+        const characterHp = parseInt(card.dataset.characterHp);
         const characterStatus = card.dataset.characterStatus;
         // Disable card if character HP is less than zero
         if (characterHp < 0 || characterStatus != 'alive') {
             console.log('Character HP is less than zero. Cannot execute adventure.');
-            card.classList.add('disabled'); 
-            card.style.pointerEvents = 'none'; 
+            card.classList.add('disabled');
+            card.style.pointerEvents = 'none';
         }
 
         card.addEventListener("mouseover", () => {
@@ -78,15 +77,15 @@ document.addEventListener("DOMContentLoaded", function () {
             })
             .then(data => {
                 console.log('Adventure created:', data);
-                
+
                 // Check if we received a valid adventure_id
                 if (!data.adventure_id) {
                     throw new Error('Invalid adventure data: Missing adventure_id');
                 }
-                
+
                 const adventureId = data.adventure_id;
                 logActivity(`Executing adventure for ${card.dataset.characterName} ID ${adventureId}.`);
-                
+
                 // Only proceed to execute if we have a valid adventure_id
                 return fetch(`/api/adventure/${adventureId}/execute`, {
                     method: 'POST'
@@ -102,13 +101,13 @@ document.addEventListener("DOMContentLoaded", function () {
             .then(data => {
                 let texto = `${data.who_name} has ${data.status} ID: ${data.adventure_id}`;
                 logActivity(texto);
-                document.getElementById('adventure-info').innerText = texto;                
+                document.getElementById('adventure-info').innerText = texto;
             })
             .catch(error => {
                 console.error('Error in adventure flow:', error);
                 logActivity(`❌❌ Error : ${error.message}`);
                 document.getElementById('adventure-info').innerText = `Failed: ${error.message}`;
-                
+
                 // Re-enable the card if there was an error in the create step
                 card.classList.remove('disabled');
                 card.style.pointerEvents = 'auto';
@@ -117,9 +116,8 @@ document.addEventListener("DOMContentLoaded", function () {
         // Close modal logic
         document.querySelector('.close-button').addEventListener('click', () => {
             document.getElementById('adventure-modal').style.display = 'none'; // Hide the modal
-        });        
+        });
     });
-
 
     // Add event listener to the button
     document.getElementById('challenges-button').addEventListener('click', function() {
@@ -128,7 +126,6 @@ document.addEventListener("DOMContentLoaded", function () {
         const weekNumber = parseInt(document.getElementById('week-number').innerText);
         let prevWeekNumber = weekNumber - 1; // Calculate the previous week number
         let yearNumber = new Date().getFullYear(); // Get the current year
-
 
         // Clear the modal content before making requests
         document.getElementById('adventure-info').innerText = 'Loading...'; // Reset modal content
@@ -140,34 +137,22 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(response => response.json())
         .then(data => {
-        // Validate if prevWeekNumber is less than or equal to zero
+            // Validate if prevWeekNumber is less than or equal to zero
             if (prevWeekNumber <= 0) {
                 prevWeekNumber = 52; // Set to the last week of the previous year
                 yearNumber -= 1; // Decrement the year
             }
             console.log('Challenges created/retrieved for current week:', data);
             logActivity(`Challenges | Challenges created/retrieved for current week: ${data.count_challenges}`);
-            // TODO: Implement what to do with the UI with the retrieved challenges if needed (to accept them)
-            
-            // Now execute the second endpoint for the previous week
+
+            // Now execute individual challenge endpoints sequentially
             logActivity(`Challenges | Evaluating challenges for week ${prevWeekNumber} and year ${yearNumber}...`);
-            return fetch(`/api/adventure/challenges/${prevWeekNumber}/${yearNumber}/evaluate`, {
-                method: 'POST'
-            });
+
+            // Execute challenges sequentially
+            return executeChallengeSequentially(prevWeekNumber, yearNumber);
         })
-        .then(response => response.json())
-        .then(data => {
-            console.log('Challenges retrieved for previous week:', data);
-            logActivity(`Challenges | Consecutive days count: ${data.consecutivedays_count}`);
-            logActivity(`Challenges | Habits count: ${data.challenges_habit_count}`);
-            logActivity(`Challenges | Habit Longest Streak created count: ${data.habit_longest_streak_created_count}`);
-            logActivity(`Challenges | Habit Longest Streak executed count: ${data.habit_longest_streak_executed_count}`);
-            logActivity(`Challenges | Coding 💻 count: ${data.coding_count}`);
-            logActivity(`Challenges | Bike 🚲 count: ${data.biking_count}`);
-            logActivity(`Challenges | Stencil 🖼️ count: ${data.stencil_count}`);
-            logActivity(`Challenges | Epics 🏹 count: ${data.epics_count}`);
-            logActivity(`Challenges | Expired count: ${data.expired_count}`);
-            logActivity(`Challenges | Due soon: ${data.due_soon_count}`);
+        .then(() => {
+            logActivity(`Challenges | All challenges evaluated successfully!`);
         })
         .catch(error => {
             console.error('Error creating/retrieving challenges:', error);
@@ -178,6 +163,57 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    // Function to execute challenges sequentially
+    function executeChallengeSequentially(weekNumber, yearNumber) {
+        // Define the sequence of challenges to execute
+        const challenges = [
+            { name: 'Consecutive Days', endpoint: `/api/adventure/challenges/consecutive/${weekNumber}/${yearNumber}`, method: 'POST' },
+            { name: 'Habits Counts', endpoint: `/api/adventure/challenges/habits/${weekNumber}/${yearNumber}`, method: 'POST' },
+            { name: 'Habits Longest Streak (Created)', endpoint: `/api/adventure/challenges/habit_longest_streak_created/${weekNumber}/${yearNumber}`, method: 'POST' },
+            { name: 'Habits Longest Streak (Executed)', endpoint: `/api/adventure/challenges/habit_longest_streak_executed`, method: 'POST' },
+            { name: 'Coding', endpoint: `/api/adventure/challenges/coding/${weekNumber}/${yearNumber}`, method: 'POST' },
+            { name: 'Bike', endpoint: `/api/adventure/challenges/bike/${weekNumber}/${yearNumber}`, method: 'POST' },
+            { name: 'Stencil', endpoint: `/api/adventure/challenges/stencil/${weekNumber}/${yearNumber}`, method: 'POST' },
+            { name: 'Epics', endpoint: `/api/adventure/challenges/epics/${weekNumber}/${yearNumber}`, method: 'POST' },
+            { name: 'Expired', endpoint: `/api/adventure/challenges/expired/${weekNumber}/${yearNumber}`, method: 'POST' },
+            { name: 'Due Soon', endpoint: `/api/adventure/challenges/due_soon/21`, method: 'POST' }
+        ];
+
+        // Execute challenges one by one
+        return challenges.reduce((promiseChain, challenge) => {
+            return promiseChain.then(() => {
+                logActivity(`Challenges | Executing ${challenge.name}...`);
+                return fetch(challenge.endpoint, {
+                    method: challenge.method
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(errData => {
+                            throw new Error(`${challenge.name} failed with status: ${response.status}. ${errData.error || ''}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Extract count from the response
+                    const countKey = Object.keys(data).find(key => key.endsWith('_count'));
+                    const count = countKey ? data[countKey] : 0;
+                    logActivity(`Challenges | ${challenge.name}: ${count}`);
+
+                    // Check for errors in the response
+                    if (data.error) {
+                        logActivity(`❌❌ Error in ${challenge.name}: ${data.error}`);
+                    }
+                })
+                .catch(error => {
+                    logActivity(`❌❌ Error in ${challenge.name}: ${error.message}`);
+                    // Continue with the next challenge even if this one fails
+                    return Promise.resolve();
+                });
+            });
+        }, Promise.resolve());
+    }
+
     document.getElementById('underworld-button').addEventListener('click', function() {
         const button = this;
         button.disabled = true;
@@ -185,14 +221,14 @@ document.addEventListener("DOMContentLoaded", function () {
         reborn = 0
         logActivity(`Executing 💀 underworld(s)...`);
 
-        // First endpoint to 
+        // First endpoint to
         fetch(`/api/adventure/underworld`, {
             method: 'POST'
         })
         .then(response => response.json())
         .then(data => {
             console.log('underworld for current week:', data);
-            still_dead = data.still_dead 
+            still_dead = data.still_dead
             reborn = data.reborn
             created = data.created_count
             executed = data.executed_count
@@ -229,13 +265,13 @@ document.addEventListener("DOMContentLoaded", function () {
                             logActivity(`People with pills 💊 timeout.`);
                             document.getElementById('heal-button').disabled = true;
                         }, 60000 * 5); // Disable the heal button after 60 seconds
-        
+
                     }
                 })
                 .catch(error => {
                     console.error('Error fetching counts:', error);
                     logActivity(`❌❌ Error : ${error.message}`);
-                });            
+                });
         });
     });
 
@@ -247,7 +283,7 @@ document.addEventListener("DOMContentLoaded", function () {
         let actually_executed = 0;
         logActivity(`Executing ${current_to_execute} ⚔️ tournament(s)...`);
 
-        // First endpoint to 
+        // First endpoint to
         fetch(`/api/tournament/evaluate/all`, {
             method: 'GET'
         })
@@ -275,8 +311,8 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('flush-button').addEventListener('click', function() {
         const button = this;
         button.disabled = true;
-        logActivity(`Flushing cache (Redis)...`); 
-        // First endpoint to 
+        logActivity(`Flushing cache (Redis)...`);
+        // First endpoint to
         fetch(`/api/notion/flushredis`, {
             method: 'POST'
         })
@@ -299,9 +335,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const button = this;
         button.disabled = true;
         logActivity(`Healing with 💊 ...`);
-        healImage.src = "/static/img/smoking-logo.png"; 
+        healImage.src = "/static/img/smoking-logo.png";
 
-        // First endpoint to 
+        // First endpoint to
         fetch(`/api/notion/characters/applypills/deep_level/l3`, {
             method: 'POST'
         })
@@ -310,7 +346,7 @@ document.addEventListener("DOMContentLoaded", function () {
             for (let color in data){
                 logActivity(`${color} 💊 ${data[color]['message']}`);
             }
-            healImage.src = "/static/img/redeye-logo.png"; 
+            healImage.src = "/static/img/redeye-logo.png";
         })
         .catch(error => {
             console.error('Error healing:', error);
@@ -320,7 +356,6 @@ document.addEventListener("DOMContentLoaded", function () {
             button.disabled = true;
         });
     });
-
 
     // Fetch the version number from the new endpoint
     fetch('/api/adventure/version')
@@ -402,5 +437,5 @@ document.addEventListener("DOMContentLoaded", function () {
             console.error('Error fetching counts:', error);
             logActivity(`❌❌ Error : ${error.message}`);
             document.getElementById('pending-tournaments').innerText = '0'; // Fallback version
-        })        
+        });
 });

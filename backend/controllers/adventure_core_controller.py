@@ -130,6 +130,100 @@ def evaluate_challenges(week_number, year_number):
                     , "due_soon": challenges_due_soon, "due_soon_count": len(challenges_due_soon)
                     })
 
+# Individual challenge endpoints
+@adventure_bp.route('/challenges/consecutive/<int:week_number>/<int:year_number>', methods=['POST'])
+def evaluate_consecutive_challenges(week_number, year_number):
+    try:
+        challenges_cons = adventure_service.evaluate_consecutivedays_challenges(week_number, year_number)
+        return jsonify({"consecutivedays": challenges_cons, "consecutivedays_count": len(challenges_cons)})
+    except Exception as e:
+        return jsonify({"error": str(e), "consecutivedays": [], "consecutivedays_count": 0}), 500
+
+@adventure_bp.route('/challenges/habits/<int:week_number>/<int:year_number>', methods=['POST'])
+def evaluate_habits_challenges(week_number, year_number):
+    try:
+        challenges_habits = adventure_service.evaluate_weekhabits_challenges(week_number, year_number)
+        return jsonify({"habits": challenges_habits, "challenges_habit_count": len(challenges_habits)})
+    except Exception as e:
+        return jsonify({"error": str(e), "habits": [], "challenges_habit_count": 0}), 500
+
+@adventure_bp.route('/challenges/habit_longest_streak_created/<int:week_number>/<int:year_number>', methods=['POST'])
+def evaluate_habit_longest_streak_created(week_number, year_number):
+    try:
+        days_back_racha = redis_service.get(redis_service.get_cache_key('num83r5','days_back_racha'))
+        periods_back_racha = redis_service.get(redis_service.get_cache_key('num83r5','periods_back_racha'))
+        if days_back_racha is None:
+            days_back_racha = 366
+            redis_service.set_with_expiry(redis_service.get_cache_key('num83r5','days_back_racha'), days_back_racha, 24 * days_back_racha)
+        if periods_back_racha is None:
+            periods_back_racha = [days_back_racha, 182, 91, 31]
+            redis_service.set_with_expiry(redis_service.get_cache_key('num83r5','periods_back_racha'), periods_back_racha, 24 * days_back_racha)
+
+        habit_longest_streak = []
+        for period in periods_back_racha:
+            created = adventure_service.create_habit_longest_streak(last_days=period, create_challenge=True)
+            habit_longest_streak.extend(created.get('output', {}).values() if isinstance(created.get('output'), dict) else [])
+
+        return jsonify({"habit_longest_streak_created": habit_longest_streak, "habit_longest_streak_created_count": len(habit_longest_streak)})
+    except Exception as e:
+        return jsonify({"error": str(e), "habit_longest_streak_created": [], "habit_longest_streak_created_count": 0}), 500
+
+@adventure_bp.route('/challenges/habit_longest_streak_executed', methods=['POST'])
+def evaluate_habit_longest_streak_executed():
+    try:
+        habit_longest_streak_executed = adventure_service.evaluate_habit_expired_longest_streak(datetime.today().strftime('%Y-%m-%d'))
+        return jsonify({"habit_longest_streak_executed": habit_longest_streak_executed, "habit_longest_streak_executed_count": len(habit_longest_streak_executed)})
+    except Exception as e:
+        return jsonify({"error": str(e), "habit_longest_streak_executed": [], "habit_longest_streak_executed_count": 0}), 500
+
+@adventure_bp.route('/challenges/coding/<int:week_number>/<int:year_number>', methods=['POST'])
+def evaluate_coding_challenges(week_number, year_number):
+    try:
+        challenges_coding = coding_service.evaluate_challenges(week_number, year_number)
+        return jsonify({"coding": challenges_coding, "coding_count": len(challenges_coding)})
+    except Exception as e:
+        return jsonify({"error": str(e), "coding": [], "coding_count": 0}), 500
+
+@adventure_bp.route('/challenges/bike/<int:week_number>/<int:year_number>', methods=['POST'])
+def evaluate_bike_challenges(week_number, year_number):
+    try:
+        challenges_biking = bike_service.evaluate_challenges(week_number, year_number)
+        return jsonify({"biking": challenges_biking, "biking_count": len(challenges_biking)})
+    except Exception as e:
+        return jsonify({"error": str(e), "biking": [], "biking_count": 0}), 500
+
+@adventure_bp.route('/challenges/stencil/<int:week_number>/<int:year_number>', methods=['POST'])
+def evaluate_stencil_challenges(week_number, year_number):
+    try:
+        challenges_stencil = stencil_service.evaluate_challenges(week_number, year_number)
+        return jsonify({"stencil": challenges_stencil, "stencil_count": len(challenges_stencil)})
+    except Exception as e:
+        return jsonify({"error": str(e), "stencil": [], "stencil_count": 0}), 500
+
+@adventure_bp.route('/challenges/epics/<int:week_number>/<int:year_number>', methods=['POST'])
+def evaluate_epics_challenges(week_number, year_number):
+    try:
+        challenges_epics = epics_service.evaluate_challenges(week_number, year_number)
+        return jsonify({"epics": challenges_epics, "epics_count": len(challenges_epics)})
+    except Exception as e:
+        return jsonify({"error": str(e), "epics": [], "epics_count": 0}), 500
+
+@adventure_bp.route('/challenges/expired/<int:week_number>/<int:year_number>', methods=['POST'])
+def evaluate_expired_challenges_endpoint(week_number, year_number):
+    try:
+        challenges_expired = adventure_service.evaluate_expired_challenges(week_number, year_number)
+        return jsonify({"expired": challenges_expired, "expired_count": len(challenges_expired)})
+    except Exception as e:
+        return jsonify({"error": str(e), "expired": [], "expired_count": 0}), 500
+
+@adventure_bp.route('/challenges/due_soon/<int:lookforward>', methods=['POST'])
+def evaluate_due_soon_challenges_endpoint(lookforward):
+    try:
+        challenges_due_soon = adventure_service.evaluate_challenges_due_soon(lookforward=lookforward)
+        return jsonify({"due_soon": challenges_due_soon, "due_soon_count": len(challenges_due_soon)})
+    except Exception as e:
+        return jsonify({"error": str(e), "due_soon": [], "due_soon_count": 0}), 500
+
 @adventure_bp.route('/version', methods=['GET'])
 def get_version():
     """Fetch the version number from VERSION.txt."""
