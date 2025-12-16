@@ -28,13 +28,20 @@ REDIS_DB = 0  # Usually 0 for Redis Cloud
 REDIS_SSL = True  # Enable SSL/TLS for Redis Cloud
 
 # Todoist API credentials
-TODOIST_API_KEY = os.getenv('TODOIST_API_KEY')
-TODOIST_PID_INB = os.getenv('TODOIST_PID_INB')
-TODOIST_PID_CAL = os.getenv('TODOIST_PID_CAL')
+# TODOIST_API_KEY = os.getenv('TODOIST_API_KEY')
+# TODOIST_PID_INB = os.getenv('TODOIST_PID_INB')
+# TODOIST_PID_CAL = os.getenv('TODOIST_PID_CAL')
 
 
 # TickTick API credentials
 TICKTICK_ACCESS_TOKEN = os.getenv('TICKTICK_ACCESS_TOKEN')
+TICKTICK_PASS = os.getenv('TICKTICK_PASS')
+TICKTICK_USER = os.getenv('TICKTICK_USER')
+TICKTICK_URI = os.getenv('TICKTICK_URI')
+TICKTICK_CLIENT_ID = os.getenv('TICKTICK_CLIENT_ID')
+TICKTICK_CLIENT_SECRET = os.getenv('TICKTICK_CLIENT_SECRET')
+TICKTICK_PID_INB = os.getenv('TICKTICK_PID_INB')
+TICKTICK_PID_CAL = os.getenv('TICKTICK_PID_CAL')
 
 
 # Flask app settings

@@ -2,7 +2,6 @@ import os
 from flask import Flask, render_template, jsonify
 from backend.controllers.notion_controller import notion_bp
 from backend.controllers.adventure_core_controller import adventure_bp
-from backend.controllers.todoist_controller import todoist_bp
 from backend.controllers.ticktick_controller import ticktick_bp
 from backend.controllers.coding_core_controller import coding_bp
 from backend.controllers.stencil_core_controller import stencil_bp
@@ -28,7 +27,6 @@ def create_app():
     # Register Blueprints for API endpoints
     app.register_blueprint(notion_bp, url_prefix="/api/notion")
     app.register_blueprint(adventure_bp, url_prefix="/api/adventure")
-    app.register_blueprint(todoist_bp, url_prefix="/api/todoist")
     app.register_blueprint(ticktick_bp, url_prefix="/api/ticktick")
     app.register_blueprint(coding_bp, url_prefix="/api/coding")
     app.register_blueprint(stencil_bp, url_prefix="/api/stencil")
