@@ -155,6 +155,7 @@ class WatchlistService:
         loaded_watchlist = self.get_watchlist_by_estado('loaded')
         cache_key = self.redis_service.get_cache_key('watchlist', f'suggested{tamano}')
         return_watchlist = self.redis_service.get(cache_key) if self.redis_service.get(cache_key) else [] 
+        #print("Got", len(return_watchlist), "movies from cache" )
         priority = 0
         while len(return_watchlist) < tamano:
             for year in range(self.year_start, datetime.now().year, 20):

@@ -176,7 +176,8 @@ document.addEventListener("DOMContentLoaded", function () {
             { name: 'Stencil', endpoint: `/api/adventure/challenges/stencil/${weekNumber}/${yearNumber}`, method: 'POST' },
             { name: 'Epics', endpoint: `/api/adventure/challenges/epics/${weekNumber}/${yearNumber}`, method: 'POST' },
             { name: 'Expired', endpoint: `/api/adventure/challenges/expired/${weekNumber}/${yearNumber}`, method: 'POST' },
-            { name: 'Due Soon', endpoint: `/api/adventure/challenges/due_soon/21`, method: 'POST' }
+            { name: 'Due Soon', endpoint: `/api/adventure/challenges/due_soon/21`, method: 'POST' },
+            { name: 'Watchlist', endpoint: `/api/adventure/challenges/watchlist`, method: 'POST' }
         ];
 
         // Execute challenges one by one

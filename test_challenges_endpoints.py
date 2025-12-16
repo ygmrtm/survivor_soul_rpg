@@ -60,7 +60,8 @@ def main():
         f"/challenges/stencil/{week_number}/{year_number}",
         f"/challenges/epics/{week_number}/{year_number}",
         f"/challenges/expired/{week_number}/{year_number}",
-        "/challenges/due_soon/21"
+        "/challenges/due_soon/21",
+        "/challenges/watchlist"
     ]
 
     passed_tests = 0

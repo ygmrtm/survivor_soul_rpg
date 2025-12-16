@@ -4,6 +4,7 @@ from backend.services.coding_service import CodingService
 from backend.services.bike_service import BikingService
 from backend.services.stencil_service import StencilService
 from backend.services.epics_service import EpicsService
+from backend.services.watchlist_service import WatchlistService
 from backend.services.redis_service import RedisService
 from datetime import datetime
 import time
@@ -14,6 +15,7 @@ coding_service = CodingService()
 bike_service = BikingService()
 stencil_service = StencilService()
 epics_service = EpicsService()
+watchlist_service = WatchlistService()
 redis_service = RedisService()
 
 @adventure_bp.route('/<id>/create', methods=['POST'])
@@ -223,6 +225,25 @@ def evaluate_due_soon_challenges_endpoint(lookforward):
         return jsonify({"due_soon": challenges_due_soon, "due_soon_count": len(challenges_due_soon)})
     except Exception as e:
         return jsonify({"error": str(e), "due_soon": [], "due_soon_count": 0}), 500
+
+@adventure_bp.route('/challenges/watchlist', methods=['POST'])
+def evaluate_watchlist_challenge():
+    try:
+        # Get tamano/size parameter from Redis Cache
+        tamano = redis_service.get(redis_service.get_cache_key('num83r5', 'watchlist_size'))
+        if tamano is None:
+            tamano = 7
+            redis_service.set_without_expiry(redis_service.get_cache_key('num83r5','watchlist_size'), tamano)
+        else:
+            tamano = int(tamano)
+        current_week = datetime.now().isocalendar()[1]
+        # Call the watchlist service to get random watchlist
+        watchlist_result = watchlist_service.persist_suggested_watchlist(watchlist_service.get_random_watchlist(tamano), current_week)
+        watchlist_count = len(watchlist_result)
+
+        return jsonify({"watchlist": watchlist_result, "watchlist_count": watchlist_count})
+    except Exception as e:
+        return jsonify({"error": str(e), "watchlist": [], "watchlist_count": 0}), 500
 
 @adventure_bp.route('/version', methods=['GET'])
 def get_version():
