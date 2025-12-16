@@ -1,15 +1,14 @@
 from datetime import  datetime, timedelta
 import json
+from math import exp
 from backend.services.redis_service import RedisService
 from backend.services.notion_service import NotionService
 from backend.services.coding_service import CodingService
 from backend.services.bike_service import BikingService
 from backend.services.stencil_service import StencilService
 from backend.services.epics_service import EpicsService
-from backend.services.ticktick_service import TickTickService
 
 from config import NOTION_DBID_CODIN, NOTION_DBID_BIKES, NOTION_DBID_STENC, NOTION_DBID_EPICS
-from config import TICKTICK_PID_INB, TICKTICK_PID_CAL
 
 import random 
 import time
@@ -26,7 +25,6 @@ class AdventureService:
     expiry_hours = 0.5
     was_too_much_limit = 20
     redis_service = RedisService()
-    ticktick_service = TickTickService()
     notion_service = NotionService()
 
     def create_adventure(self, character_id, underworld=False):
@@ -352,8 +350,6 @@ class AdventureService:
                 print(f"❌❌|WTF? {dbid['notion_char']}? as notion_char wrong parameter")
         #reorder based on due property
         reorder_challenge = sorted(challenges_array, key=lambda x: x['due'])
-        ticktick_service = TickTickService()
-        tasks = []
         for challenge in reorder_challenge:
             #get the first 10 characters for due
             challenge['due'] = challenge['due'][0:10]
@@ -373,40 +369,26 @@ class AdventureService:
                 priority = 2
                 description = f'__{daysoff} Days!__ is close, try to start'
             print(priority, challenge['name'], challenge['due'])
-            cached_key = self.redis_service.get_cache_key('TICKTICK_notification', challenge['id'])
+            cached_key = self.redis_service.get_cache_key('notification:duesoon', challenge['id'])
             cached_notification = self.redis_service.get(cached_key)
             if not cached_notification:
                 due_date = challenge['due'] if challenge['due'] < today_str else today_str
-                task = ticktick_service.add_task(TICKTICK_PID_INB, { "content": heading + challenge['name']
+                expirity_hours = 24 * (daysoff if challenge['due'] > today_str else 7 )
+                self.redis_service.set_with_expiry(cached_key, { "content": heading + challenge['name']
                                                                         , "due_date": due_date
                                                                         , "priority": priority
-                                                                        , "description": description
-                                                                        , "section_id": None, "labels": None})
-                tasks.append(task)
-                expirity_hours = 24 * (daysoff if challenge['due'] > today_str else 7 )
-                #print("TASK:",task)
-                # Serialize the Task object to a JSON string
-                task_dict_raw = task.__dict__
-                task_dict = {
-                    "is_completed": task_dict_raw['is_completed']
-                    ,"content": task_dict_raw['content']
-                    ,"description": task_dict_raw['description']
-                    ,"id": task_dict_raw['id']
-                    ,"project_id": task_dict_raw['project_id']
-                    ,"url": task_dict_raw['url']
-                }
-                self.redis_service.set_with_expiry(cached_key, {"challenge": challenge, "TICKTICK_task":task_dict}, expirity_hours)
+                                                                        , "description": description }, expirity_hours)
                 if challenge['due'] >= today_str:
                     heading = '__deadline ⌛️__ '
-                    tasks.append(ticktick_service.add_task(TICKTICK_PID_CAL, { "content": heading + challenge['name']
+                    self.redis_service.set_with_expiry(self.redis_service.get_cache_key('notification:deadline', challenge['id'])
+                                                                            , { "content": heading + challenge['name']
                                                                             , "due_date": challenge['due']
                                                                             , "priority": 1
                                                                             , "description": f'last time checked on __{today_str}__'
-                                                                            , "section_id": None, "labels": None}))
-        return {'challenges': reorder_challenge, 'tasks_created': tasks}
+                                                                            , "section_id": None, "labels": None}, expirity_hours)
+        return {'challenges': reorder_challenge}
 
     def evaluate_not_planned_yet(self):
-        tasks = []
         today_str = datetime.today().strftime('%Y-%m-%d')
         for dbid in [{"id":NOTION_DBID_CODIN,"notion_char":"c","desc":"notion:coding"}
                     , {"id":NOTION_DBID_BIKES,"notion_char":"b","desc":"notion:biking"}
@@ -430,30 +412,19 @@ class AdventureService:
             else:
                 print(f"❌❌|WTF? {dbid['notion_char']}? as notion_char wrong parameter")
             for challenge in challenges_array:
-                cached_key = self.redis_service.get_cache_key('ticktick_notification', challenge['id'])
+                cached_key = self.redis_service.get_cache_key('notification:notplanned', challenge['id'])
                 cached_notification = self.redis_service.get(cached_key)
                 heading = '__Not Planned Yet |__ '
                 if not cached_notification:
-                    task = self.ticktick_service.add_task(TICKTICK_PID_INB, { "content": heading + challenge['name']
+                    self.redis_service.set_with_expiry(cached_key, { "content": heading + challenge['name']
                                                                             , "due_date": today_str
                                                                             , "priority": 1
                                                                             , "description": f'last time checked on __{today_str}__'
-                                                                            , "section_id": None, "labels": [dbid['desc']]})
-                    tasks.append(task)
-                    task_dict_raw = task.__dict__
-                    task_dict = {
-                        "is_completed": task_dict_raw['is_completed']
-                        ,"content": task_dict_raw['content']
-                        ,"description": task_dict_raw['description']
-                        ,"id": task_dict_raw['id']
-                        ,"project_id": task_dict_raw['project_id']
-                        ,"url": task_dict_raw['url']
-                    }
-                    self.redis_service.set_with_expiry(cached_key, {"challenge": challenge, "ticktick_task":task_dict}, 24 * 6)
-        return {'total_tasks': len(tasks), 'tasks_created': tasks}
+                                                                            , "section_id": None, "labels": [dbid['desc']]}, self.expiry_hours)
+
+        return challenges_array
 
     def create_habit_longest_streak(self, last_days = 6, create_challenge = False):
-        tasks = []
         output = {}
         today_str = datetime.today().strftime('%Y-%m-%d')
         key_str = f"longeststreak:{last_days}days:habits"
@@ -475,7 +446,7 @@ class AdventureService:
                                     ,'max_consecutive':max(output[habit]['max_consecutive'], consecutive_ )
                                     ,'last_date' : cuando_ }
             for key in keys:                
-                cached_key = self.redis_service.get_cache_key('ticktick_notification:' + key_str, key )
+                cached_key = self.redis_service.get_cache_key('notification:' + key_str, key )
                 next_suggested_streak = round(output[key]['max_consecutive'] * self.GOLDEN_RATIO)
                 next_suggested_streak = 1 if next_suggested_streak <= 0 else next_suggested_streak
                 days_since_last_date = 0
@@ -487,23 +458,12 @@ class AdventureService:
                     output[key]['next_suggested_streak'] = next_suggested_streak
                     content = f"__{key.upper()}__| longest:_{max_days} days_| nextSuggested:_{next_suggested_streak} days_"
                     description =  f"current: {current} | daysSince:_{days_since_last_date} days_ | last time checked on __{today_str}__"
-                    task = self.ticktick_service.add_task(TICKTICK_PID_INB, { "content": content
+                    self.redis_service.set_with_expiry(cached_key, { "content": content
                                                                             , "due_date":  output[key]['last_date']
                                                                             , "priority": 1
                                                                             , "description": description
-                                                                            , "section_id": None, "labels": [f"notion:{key}"]})
-                    tasks.append(task)
-                    task_dict_raw = task.__dict__
-                    task_dict = {
-                        "is_completed": task_dict_raw['is_completed']
-                        ,"content": task_dict_raw['content']
-                        ,"description": task_dict_raw['description']
-                        ,"id": task_dict_raw['id']
-                        ,"project_id": task_dict_raw['project_id']
-                        ,"url": task_dict_raw['url']
-                    }
-                    self.redis_service.set_with_expiry(cached_key, {"counts": output[key], "ticktick_task":task_dict}, 24 * 6)
-                cached_key = self.redis_service.get_cache_key('ticktick_notification:' + key_str, key + 'challenge' )    
+                                                                            , "section_id": None, "labels": [f"notion:{key}"]}, self.expiry_hours)
+                cached_key = self.redis_service.get_cache_key('notification:' + key_str, key + 'challenge' )    
                 if create_challenge is True and not self.redis_service.exists(cached_key):
                     self.notion_service.get_all_habits() #force to load all habits
                     habit = self.notion_service.get_habits_by_property('name', key)[0]
@@ -524,7 +484,7 @@ class AdventureService:
                     self.redis_service.set_with_expiry(cached_key, {"counts": output[key]
                                                                     ,"new_challenge": new_challenge}, 24 * (next_suggested_streak + 1))
                 self.redis_service.set_with_expiry(self.redis_service.get_cache_key(key_str,key), {"counts": output[key]}, self.expiry_hours)
-        return {'total_tasks': len(tasks), 'tasks_created': tasks, 'output': output}
+        return {'output': output}
 
 
     def execute_adventure(self, adventure_id):
