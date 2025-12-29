@@ -36,7 +36,10 @@ def execute_adventure(id):
 def update_adventure(id):
     # Call the service to update the adventure
     payload = {"archived": True, 
-            "properties": { "status": {"status": {"name":"Done"}}}
+            "properties": { "status": {"status": {"name":"Done"}}
+                , "desc": { "rich_text": [{"text": {"content": "trash"}}] }
+                , "name": { "title": [{"text": { "content": "hsart" }}]}
+            }
         } 
     try:
         result = notion_service.update_adventure(id, payload)

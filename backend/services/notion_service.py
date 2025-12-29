@@ -440,8 +440,59 @@ class NotionService:
             print("❌❌","update_character",response.status_code, response.text) 
             response.raise_for_status()  # Raise an error for bad responses
 
+    def sanitize_text(self, text):
+        """Sanitize plain text string by removing disallowed characters.
+        
+        Notion API doesn't allow certain control characters like null bytes and 
+        some Unicode control characters in TextItem content.
+        """
+        if not isinstance(text, str):
+            text = str(text)
+        # Remove null bytes and other problematic control characters
+        # Keep newlines (\n), tabs (\t), and carriage returns (\r)
+        return ''.join(
+            char for char in text 
+            if ord(char) >= 32 or char in '\n\t\r'
+        )
+    
+    def sanitize_rich_text(self, rich_text_array):
+        """Sanitize rich_text array by removing disallowed characters from text content.
+        
+        Notion API doesn't allow certain control characters like null bytes and 
+        some Unicode control characters in TextItem content.
+        """
+        if not isinstance(rich_text_array, list):
+            return rich_text_array
+        
+        sanitized = []
+        for item in rich_text_array:
+            if isinstance(item, dict) and item.get('type') == 'text':
+                # Remove disallowed characters: null bytes, control characters (except newlines/tabs)
+                text_content = item.get('text', {}).get('content', '')
+                if text_content:
+                    sanitized_text = self.sanitize_text(text_content)
+                    # Create a copy of the item with sanitized text
+                    sanitized_item = item.copy()
+                    sanitized_item['text'] = item['text'].copy()
+                    sanitized_item['text']['content'] = sanitized_text
+                    sanitized_item['plain_text'] = sanitized_text
+                    sanitized.append(sanitized_item)
+                else:
+                    sanitized.append(item)
+            else:
+                # For non-text items (like mentions), keep as-is
+                sanitized.append(item)
+        return sanitized
+
     def update_adventure(self, adventure_id, updates):
         """Update character attributes."""
+        # Sanitize rich_text fields before sending to Notion
+        if 'properties' in updates:
+            for prop_name, prop_value in updates['properties'].items():
+                if isinstance(prop_value, dict) and 'rich_text' in prop_value:
+                    prop_value['rich_text'] = self.sanitize_rich_text(prop_value['rich_text'])
+        
+        print(adventure_id, updates)
         url = f"{self.base_url}/pages/{adventure_id}"
         response = requests.patch(url, headers=self.headers, json=updates)
         if response.status_code == 200:  # Check if the request was successful
@@ -541,10 +592,12 @@ class NotionService:
             count_child += 1
             childrens_to_send.append(children)
             if len(childrens_to_send) == self.lines_per_paragraph or len(childrens) == count_child:
+                # Sanitize rich_text before sending to Notion
+                sanitized_rich_text = self.sanitize_rich_text(childrens_to_send)
                 block_data = {
                     "object": "block",
                     "type": block_type,
-                    block_type: {"rich_text": childrens_to_send}
+                    block_type: {"rich_text": sanitized_rich_text}
                 }
                 if block_type == 'callout':
                     block_data['callout']['icon'] = { 'emoji': '🎖️'}
@@ -560,21 +613,24 @@ class NotionService:
     def translate_encounter_log(self, encounter_log):
         translated_encounter = []
         for encounter in encounter_log:
-            translated_encounter.append({'type': 'text','text': {'content': '\n' + str(encounter['time']),'link': None}
+            time_text = self.sanitize_text('\n' + str(encounter['time']))
+            translated_encounter.append({'type': 'text','text': {'content': time_text,'link': None}
                                         ,'annotations': {'bold': False,'italic': True,'strikethrough': False
                                         ,'underline': False, 'code': False, 'color': 'gray_background'}
-                                        , 'plain_text': '\n' + str(encounter['time']), 'href': None })
-            translated_encounter.append({'type': 'text','text': {'content': ' '+encounter['why']+' ','link': None}
+                                        , 'plain_text': time_text, 'href': None })
+            why_text = self.sanitize_text(' ' + str(encounter['why']) + ' ')
+            translated_encounter.append({'type': 'text','text': {'content': why_text,'link': None}
                                         ,'annotations': {'bold': False,'italic': False,'strikethrough': False
                                         ,'underline': False, 'code': False, 'color': 'gray'}
-                                        , 'plain_text': ' '+encounter['why']+' ', 'href': None })
+                                        , 'plain_text': why_text, 'href': None })
             if encounter['type'] != '':
                 color = 'green' if encounter['points'] >= 0 else 'red'
                 mas_menos = ('+' if encounter['points'] >= 0 else '-') + str(abs(encounter['points'])) + ' ' 
-                translated_encounter.append({'type': 'text','text': {'content': mas_menos + encounter['type'],'link': None}
+                type_text = self.sanitize_text(mas_menos + str(encounter['type']))
+                translated_encounter.append({'type': 'text','text': {'content': type_text,'link': None}
                                             ,'annotations': {'bold': True,'italic': True,'strikethrough': False
                                             ,'underline': False, 'code': False, 'color': color}
-                                            , 'plain_text': mas_menos + encounter['type'], 'href': None })
+                                            , 'plain_text': type_text, 'href': None })
         return translated_encounter
 
     def translate_execution_log(self, execution_log):
@@ -582,11 +638,12 @@ class NotionService:
         colors = ['green','blue','red','orange','purple','yellow','gray','brown']
         onetime = True
         for execution in execution_log:
-            execution_log_translated.append({'type': 'text','text': {'content': '\n' + str(execution),'link': None}
+            execution_text = self.sanitize_text('\n' + str(execution))
+            execution_log_translated.append({'type': 'text','text': {'content': execution_text,'link': None}
                                         , 'annotations': {'bold': onetime,'italic': False,'strikethrough': False
                                         , 'underline': onetime, 'code': False
                                         , 'color': random.choice(colors) + ('' if onetime else '_background') }
-                                        , 'plain_text': '\n' + str(execution), 'href': None })
+                                        , 'plain_text': execution_text, 'href': None })
             onetime = False
         return execution_log_translated
 
@@ -602,7 +659,7 @@ class NotionService:
                 "name": {
                     "title": [
                         {"text": {
-                            "content": ("DE" if xp_reward <=0 else "") + ("ADVENTURE | " + str(random.randint(1, 666)))
+                            "content": self.sanitize_text(("DE" if xp_reward <=0 else "") + ("ADVENTURE | " + str(random.randint(1, 666))))
                         }}
                     ]
                 },
@@ -613,7 +670,7 @@ class NotionService:
                 },
                 "xpRwd": { "number": xp_reward },
                 "coinRwd": { "number": coin_reward },
-                "desc": { "rich_text": [{"text": {"content": description}}] }, 
+                "desc": { "rich_text": [{"text": {"content": self.sanitize_text(description)}}] }, 
                 "who": { "relation": [{"id": character_id}] },
                 "vs": {"relation": final_enemies},
                 "resultlog": { "rich_text": CREATED_LOG  },
@@ -949,7 +1006,7 @@ class NotionService:
                 "name": {
                     "title": [
                         {"text": {
-                            "content": "CHALLENGE | " + f"w{week_number:02}"
+                            "content": self.sanitize_text("CHALLENGE | " + f"w{week_number:02}")
                         }}
                     ]
                 },
@@ -960,7 +1017,7 @@ class NotionService:
                 },
                 "xpRwd": { "number": xp_reward },
                 "coinRwd": { "number": coin_reward },
-                "desc": { "rich_text": [{"text": {"content": 'Do it for {} consecutive days'.format(how_many_times)}}] }, 
+                "desc": { "rich_text": [{"text": {"content": self.sanitize_text('Do it for {} consecutive days'.format(how_many_times))}}] }, 
                 "who": { "relation": [{"id": character_id}] },
                 "vs": { "relation": [{"id": character_id}] },
                 "path": {"multi_select": [ {"name": '{}timesXw'.format(how_many_times)}]},
@@ -990,11 +1047,11 @@ class NotionService:
                 "emoji": props['emoji']
             },
             "properties": {
-                "name": { "title": [ {"text": { "content": f"Break ⛓️‍💥 Streak | {props['name']}"  }} ] },
+                "name": { "title": [ {"text": { "content": self.sanitize_text(f"Break ⛓️‍💥 Streak | {props['name']}")  }} ] },
                 "due": {  "date": { 'start': end_date.strftime('%Y-%m-%d') } },
                 "xpRwd": { "number": props['xp_reward'] },
                 "coinRwd": { "number": props['coin_reward'] },
-                "desc": { "rich_text": [{"text": {"content": f"Do it for {props['how_many_times']} consecutive days to break current {props['current']} days"}}] }, 
+                "desc": { "rich_text": [{"text": {"content": self.sanitize_text(f"Do it for {props['how_many_times']} consecutive days to break current {props['current']} days")}}] }, 
                 "who": { "relation": [{"id": props['character_id']}] },
                 "vs": { "relation": [{"id": props['character_id']}] },
                 "path": {"multi_select": [ {"name":"breakstreak"},{"name": '{}timesXw'.format(props['how_many_times'])}]},
@@ -1223,7 +1280,7 @@ class NotionService:
             "properties": {
                 "name": {
                     "title": [
-                        {"text": { "content": title }}
+                        {"text": { "content": self.sanitize_text(title) }}
                     ]
                 },
                 "due": { 
@@ -1231,7 +1288,7 @@ class NotionService:
                 },
                 "xpRwd": { "number": xp_reward },
                 "coinRwd": { "number": coin_reward },
-                "desc": { "rich_text": [{"text": {"content": description}}] }, 
+                "desc": { "rich_text": [{"text": {"content": self.sanitize_text(description)}}] }, 
                 "who": { "relation": [{"id": character_id}] },
                 "vs": {"relation": [{"id": character_id}]},
                 "resultlog": { "rich_text": CREATED_LOG  },
