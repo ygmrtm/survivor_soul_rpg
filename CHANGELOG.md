@@ -381,3 +381,15 @@ upodate ticktick branch
 Update CHANGELOG for version 1.3.1
 ---
 
+## [1.4.2] - 2026-01-12
+Merge 313a075e90ef2170b0d2a7715595dae25d1ef921 into 85d8cd324c1b1b6bfd502e5be9f214826c70767a
+
+Fix for watchlist
+
+Sanitize Rich Text
+
+requirements
+
+Update Adventure
+---
+
