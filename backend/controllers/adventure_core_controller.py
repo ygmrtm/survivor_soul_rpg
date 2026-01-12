@@ -32,15 +32,10 @@ def execute_adventure(id):
     result = adventure_service.execute_adventure(id)
     return jsonify(result)
 
-@adventure_bp.route('/<id>/update', methods=['POST'])
+@adventure_bp.route('/<id>/trash', methods=['POST'])
 def update_adventure(id):
     # Call the service to update the adventure
-    payload = {"archived": True, 
-            "properties": { "status": {"status": {"name":"Done"}}
-                , "desc": { "rich_text": [{"text": {"content": "trash"}}] }
-                , "name": { "title": [{"text": { "content": "hsart" }}]}
-            }
-        } 
+    payload = {"archived": True } 
     try:
         result = notion_service.update_adventure(id, payload)
     except Exception as e:

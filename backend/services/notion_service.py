@@ -424,6 +424,7 @@ class NotionService:
             return return_characters
         except Exception as e:
             print("😓 Damn it i can't translate characters:", e)
+            print(character)
             raise
     
     def update_character(self, character, updates):
@@ -492,7 +493,7 @@ class NotionService:
                 if isinstance(prop_value, dict) and 'rich_text' in prop_value:
                     prop_value['rich_text'] = self.sanitize_rich_text(prop_value['rich_text'])
         
-        print(adventure_id, updates)
+        #print(adventure_id, updates)
         url = f"{self.base_url}/pages/{adventure_id}"
         response = requests.patch(url, headers=self.headers, json=updates)
         if response.status_code == 200:  # Check if the request was successful
