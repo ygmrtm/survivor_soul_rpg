@@ -6,6 +6,7 @@ from backend.services.stencil_service import StencilService
 from backend.services.epics_service import EpicsService
 from backend.services.watchlist_service import WatchlistService
 from backend.services.redis_service import RedisService
+from backend.services.notion_service import NotionService
 from datetime import datetime
 import time
 import random
@@ -17,6 +18,7 @@ stencil_service = StencilService()
 epics_service = EpicsService()
 watchlist_service = WatchlistService()
 redis_service = RedisService()
+notion_service = NotionService()
 
 @adventure_bp.route('/<id>/create', methods=['POST'])
 def create_adventure(id):
@@ -29,6 +31,17 @@ def execute_adventure(id):
     # Call the service to execute the adventure
     result = adventure_service.execute_adventure(id)
     return jsonify(result)
+
+@adventure_bp.route('/<id>/trash', methods=['POST'])
+def update_adventure(id):
+    # Call the service to update the adventure
+    payload = {"archived": True } 
+    try:
+        result = notion_service.update_adventure(id, payload)
+    except Exception as e:
+        return jsonify({"error": str(e), "result": None}), 500
+    return jsonify(result)
+
 
 @adventure_bp.route('/underworld', methods=['POST'])
 def execute_underworld():
