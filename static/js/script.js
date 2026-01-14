@@ -218,35 +218,76 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById('underworld-button').addEventListener('click', function() {
         const button = this;
         button.disabled = true;
-        still_dead = 0
-        reborn = 0
+        let still_dead = 0;
+        let reborn = 0;
+        let totalDead = 0;
         logActivity(`Executing 💀 underworld(s)...`);
 
-        // First endpoint to
-        fetch(`/api/adventure/underworld`, {
-            method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log('underworld for current week:', data);
-            still_dead = data.still_dead
-            reborn = data.reborn
-            created = data.created_count
-            executed = data.executed_count
-            awaked = data.awaked_count
-            punishments = data.punishments_count
-            logActivity(`Underworlds 💀 created: ${created}`);
-            logActivity(`Underworlds 💀 executed: ${executed}`);
-            logActivity(`Underworlds 💀 awaked: ${awaked}`);
-            logActivity(`Underworlds 💩 punishments: ${punishments}`);
-        })
-        .catch(error => {
-            console.error('Error in underworld:', error);
-            logActivity(`❌❌ Error in underworld: ${error.message}`);
-        })
+        // Define sequential underworld steps
+        const steps = [
+            {
+                name: 'Underworlds Created',
+                endpoint: '/api/adventure/underworld/create',
+                process: (data) => {
+                    const created = data.created_count || 0;
+                    totalDead = data.dead_people_count || 0;
+                    logActivity(`Underworlds 💀 created: ${created}`);
+                }
+            },
+            {
+                name: 'Underworlds Executed',
+                endpoint: '/api/adventure/underworld/execute',
+                process: (data) => {
+                    const executed = data.executed_count || 0;
+                    reborn = executed;
+                    still_dead = Math.max(0, totalDead - executed);
+                    logActivity(`Underworlds 💀 executed: ${executed}`);
+                }
+            },
+            {
+                name: 'Underworlds Awaked',
+                endpoint: '/api/adventure/underworld/awake',
+                process: (data) => {
+                    const awaked = data.awaked_count || 0;
+                    logActivity(`Underworlds 💀 awaked: ${awaked}`);
+                }
+            },
+            {
+                name: 'Adventures Punishment Execution',
+                endpoint: '/api/adventure/underworld/punish',
+                process: (data) => {
+                    const punishments = data.punishments_count || 0;
+                    logActivity(`Underworlds 💩 punishments: ${punishments}`);
+                }
+            }
+        ];
+
+        // Execute steps sequentially
+        steps.reduce((p, step) => {
+            return p.then(() => {
+                logActivity(`${step.name}...`);
+                return fetch(step.endpoint, { method: 'POST' })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().then(err => {
+                                throw new Error(`${step.name} failed with status: ${response.status}. ${err.error || ''}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        step.process(data);
+                    })
+                    .catch(error => {
+                        logActivity(`❌❌ Error in ${step.name}: ${error.message}`);
+                        // Continue with next steps even if one fails
+                        return Promise.resolve();
+                    });
+            });
+        }, Promise.resolve())
         .finally(() => {
-            still_dead_str = "(" + reborn  + " but "+ still_dead +" still ☠️)"
-            logActivity(still_dead_str)
+            const still_dead_str = "(" + reborn + " but " + still_dead + " still ☠️)";
+            logActivity(still_dead_str);
             if (still_dead > 0){
                 document.getElementById('dead-people').innerText = still_dead_str;
                 button.disabled = false;
@@ -265,8 +306,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         setTimeout(() => {
                             logActivity(`People with pills 💊 timeout.`);
                             document.getElementById('heal-button').disabled = true;
-                        }, 60000 * 5); // Disable the heal button after 60 seconds
-
+                        }, 60000 * 10);
                     }
                 })
                 .catch(error => {
@@ -377,7 +417,7 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
     // Fetch the dead people number from the new endpoint
-    fetch('/api/notion/countdeadpeople')
+    fetch('/api/notion/countdeadpeople/l3')
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok');
@@ -397,7 +437,7 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById('dead-people').innerText = '0'; // Fallback version
         });
 
-    fetch('/api/notion/countpeoplepills')
+    fetch('/api/notion/countpeoplepills/l3')
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok');
@@ -411,7 +451,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 setTimeout(() => {
                     logActivity(`People with pills 💊 timeout.`);
                     document.getElementById('heal-button').disabled = true;
-                }, 60000 * 5); // Disable the heal button after 60 seconds
+                }, 60000 * 10); // Disable the heal button after 60 seconds
 
             }
         })
