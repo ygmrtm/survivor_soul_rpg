@@ -393,3 +393,22 @@ requirements
 Update Adventure
 ---
 
+## [1.4.3] - 2026-01-18
+Merge 0028315b00a787e8a30a9cc5bf4c394b8c9be043 into c4f7dedf0e1b08446e4fcabed8f30b865f737afc
+
+Split the underworld executions
+
+## mvp05
+- [x]  Split the underworld executions and coordinate between front/back end invocations for:
+    - Underworld adventures Created
+    - Underworld adventures Executed
+    - Underworld awaking characters
+    - Adventures Punishment Execution
+
+Update CHANGELOG for version 1.4.2
+
+Merge 313a075e90ef2170b0d2a7715595dae25d1ef921 into 85d8cd324c1b1b6bfd502e5be9f214826c70767a
+
+Fix for watchlist
+---
+
