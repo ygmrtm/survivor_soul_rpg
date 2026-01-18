@@ -12,14 +12,18 @@ def get_character_by_id(id):
     result = notion_service.get_character_by_id(id)
     return jsonify(result)
 
-@notion_bp.route('/countdeadpeople', methods=['GET'])
-def countdeadpeople():
-    count_dead_people = notion_service.count_dead_people('l3')
+@notion_bp.route('/countdeadpeople/<deep_level>', methods=['GET'])
+def countdeadpeople(deep_level):
+    if not deep_level.startswith('l'):
+        return jsonify({"error": "Invalid deep_level"}), 400
+    count_dead_people = notion_service.count_dead_people(deep_level)
     return jsonify({"count": count_dead_people}), 200
 
-@notion_bp.route('/countpeoplepills', methods=['GET'])
-def countpeoplepills():
-    count_people_pills = notion_service.count_people_pills('l3')
+@notion_bp.route('/countpeoplepills/<deep_level>', methods=['GET'])
+def countpeoplepills(deep_level):
+    if not deep_level.startswith('l'):
+        return jsonify({"error": "Invalid deep_level"}), 400
+    count_people_pills = notion_service.count_people_pills(deep_level)
     return jsonify({"count": count_people_pills}), 200
 
 @notion_bp.route('/flushredis', methods=['POST'])

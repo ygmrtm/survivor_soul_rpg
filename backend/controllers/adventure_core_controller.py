@@ -72,6 +72,37 @@ def execute_awake_characters():
     characters_awaked = adventure_service.awake_characters()
     return jsonify({ "awaked" : characters_awaked, "awaked_count" : len(characters_awaked)} )
 
+@adventure_bp.route('/underworld/create', methods=['POST'])
+def execute_underworld_create():
+    # Create underworld adventures for dead people
+    adventure_service = AdventureService()
+    adventures_created, dead_people_count = adventure_service.create_underworld_4_deadpeople()
+    return jsonify({
+        "created": adventures_created,
+        "created_count": len(adventures_created),
+        "dead_people_count": dead_people_count
+    })
+
+@adventure_bp.route('/underworld/execute', methods=['POST'])
+def execute_underworld_execute():
+    # Execute underworld adventures
+    adventure_service = AdventureService()
+    adventures_executed = adventure_service.execute_underworld()
+    return jsonify({
+        "executed": adventures_executed,
+        "executed_count": len(adventures_executed)
+    })
+
+@adventure_bp.route('/underworld/punish', methods=['POST'])
+def execute_underworld_punish():
+    # Apply punishment for adventures
+    adventure_service = AdventureService()
+    adventures_punishment = adventure_service.apply_punishment()
+    return jsonify({
+        "punishments": adventures_punishment,
+        "punishments_count": len(adventures_punishment)
+    })
+
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/create', methods=['POST'])
 def create_challenges(week_number, year_number):
     result = adventure_service.create_challenges(week_number, year_number)
