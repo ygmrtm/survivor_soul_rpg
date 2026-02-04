@@ -16,7 +16,7 @@ class NotionService:
     max_sanity = 60    
     max_prop_limit = 15
     lines_per_paragraph = 90
-    expiry_hours = 8
+    expiry_hours = 48
     expiry_minutes = 15 / 60
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
@@ -1265,6 +1265,7 @@ class NotionService:
         }
         response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
         if response.status_code == 200: 
+            print(len(response.json().get("results", [])), " tournaments")
             return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
         else:
             print("-->",response.status_code, response.text)  # Debugging: Print the response

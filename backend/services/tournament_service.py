@@ -17,6 +17,7 @@ class TournamentService:
     #max_prop_limit = 20
     max_xprwd = 4
     max_coinrwd = 10    
+    total_rounds = 500
 
 
     def create_tournament(self, title, description):
@@ -46,7 +47,7 @@ class TournamentService:
             adventure = self.redis_service.get(self.redis_service.get_cache_key("tournaments", tournament_id))
             if not adventure:
                 adventure = self.notion_service.get_adventure_by_id(tournament_id)
-                hours = abs(datetime.datetime.now() - datetime.datetime.fromisoformat(adventure['due'])).total_seconds() / 3600
+                hours = 2 # abs(datetime.datetime.now() - datetime.datetime.fromisoformat(adventure['due'])).total_seconds() / 3600
                 self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament_id)
                                                     ,adventure, expiry_hours=hours)
             return adventure
@@ -72,6 +73,7 @@ class TournamentService:
     def evaluate_all_tournaments(self, full_hp=True):
         try:
             tournaments = self.get_all_open_tournaments()
+            print(len(tournaments), " tournaments")
             actually_executed = 0
             for tournament in tournaments:
                 l3_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)        
@@ -79,18 +81,18 @@ class TournamentService:
                 self.encounter_log = []
                 whos = []
                 if 'l.c.s.' in tournament['path']:
-                    #print("l.c.s.")
+                    #print("l.c.s.", tournament['id'], tournament['name'])
                     whos = self.last_cryptid_stand(l3_characters=l3_characters, full_hp=full_hp)
                     if whos[0] is None:
                         whos = self.last_cryptid_stand(l3_characters=l3_characters, full_hp = not(full_hp))
                 elif 'g.v.c.' in tournament['path']:
-                    #print("g.v.c.")
+                    #print("g.v.c.", tournament['id'], tournament['name'])
                     l2_gods = self.notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
                     alive_cryptids = self.redis_service.query_characters('status','alive')
                     l3_cryptids = [c for c in alive_cryptids if c['deep_level'] == 'l3' ]
                     whos = self.gods_v_cryptids(gods=l2_gods, cryptids=l3_cryptids, full_hp=full_hp)
                 elif 'r.v.w.' in tournament['path']:
-                    #print("r.v.w.")
+                    #print("r.v.w.", tournament['id'], tournament['name'])
                     root = self.notion_service.get_characters_by_deep_level(deep_level='l0', is_npc=True)[0]
                     l2_gods = self.notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
                     sorted_items = sorted(l2_gods, key=lambda x: (x['level'], x['xp']))
@@ -302,7 +304,8 @@ class TournamentService:
         rounds = 0
         gods_bleed = False
         untouchable_c = True
-        while god['hp'] > 0 and len(team) > 0:
+        was_too_much = False
+        while god['hp'] > 0 and len(team) > 0 and not was_too_much:
             rounds += 1
             damage = 0
             # Cryptid attack
@@ -326,6 +329,7 @@ class TournamentService:
                     cry['hp'] -= (damage / len(team))
                     if cry['hp'] < 0:
                         team.remove(cry)
+            was_too_much = rounds >= self.total_rounds
         rounds_rwd = xp_reward if rounds > xp_reward else rounds
         winner = 'team' if god['hp'] <= 0 else 'root'
         god['hp'] = (god['hp']*-1) if god['hp'] > 0 and god['status'] == 'dead' else god['hp'] # handle death gods
@@ -360,7 +364,7 @@ class TournamentService:
             damage = (m_cryptidpts - m_godpts) + (p_cryptidpts - p_godpts)
             if random.randint(0, 2) % 3 != 0 : #aimed attack
                 god['hp'] -= damage if damage > 0 else 0
-            was_too_much = rounds >= 100
+            was_too_much = rounds >= self.total_rounds
         winner = looser = None
         if was_too_much: 
             winner = god
@@ -407,7 +411,7 @@ class TournamentService:
                 whopts = who['defense'] + random.randint(1, self.dice_size)
             damage = enemypts - whopts
             who['hp'] += (damage*-1) if random.randint(0, 2) % 3 != 0 else 0 #aimed attack
-            was_too_much = rounds >= 100
+            was_too_much = rounds >= self.total_rounds
         winner = looser = None
         if was_too_much: 
             winner = enemy
