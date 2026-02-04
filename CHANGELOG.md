@@ -412,3 +412,24 @@ Merge 313a075e90ef2170b0d2a7715595dae25d1ef921 into 85d8cd324c1b1b6bfd502e5be9f2
 Fix for watchlist
 ---
 
+## [1.4.4] - 2026-02-04
+Merge bce0e16a68c21ead94fd373ab9b23c278321a9fb into 878f4e4d13fdf18399ca8f4d8c9a95a316411327
+
+Fix
+
+Infinite loop, yes , rookie error.
+
+Update CHANGELOG for version 1.4.3
+
+Merge 0028315b00a787e8a30a9cc5bf4c394b8c9be043 into c4f7dedf0e1b08446e4fcabed8f30b865f737afc
+
+Split the underworld executions
+
+## mvp05
+- [x]  Split the underworld executions and coordinate between front/back end invocations for:
+    - Underworld adventures Created
+    - Underworld adventures Executed
+    - Underworld awaking characters
+    - Adventures Punishment Execution
+---
+
