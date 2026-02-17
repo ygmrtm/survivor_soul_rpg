@@ -171,6 +171,7 @@ class NotionService:
                                 {"property": "inventory", "multi_select": {"contains": "purple.pill"}},
                                 {"property": "inventory", "multi_select": {"contains": "gray.pill"}},
                                 {"property": "inventory", "multi_select": {"contains": "brown.pill"}},
+                                {"property": "inventory", "multi_select": {"contains": "pink.pill"}},
                                 ]},
                         ]
                     }
@@ -344,10 +345,6 @@ class NotionService:
             character['respawn'] += 1
             if pill_color == "green":
                 character['level'] += 1
-        elif pill_color == "red":
-            character['hp'] = character['max_hp']
-            character['status'] = 'alive'
-            character['respawn'] += 1
         elif pill_color == "orange":
             #TODO: implement orange pill
             print("🔔 Still under implementation", pill_color)
@@ -359,6 +356,9 @@ class NotionService:
             print("🔔 Still under implementation", pill_color)
         elif pill_color == "brown":
             #TODO: implement brown pill
+            print("🔔 Still under implementation", pill_color)
+        elif pill_color == "pink":
+            #TODO: implement pink pill
             print("🔔 Still under implementation", pill_color)
         for item in character['inventory']:
             if item['name'] == pill_color + '.pill':
@@ -399,7 +399,7 @@ class NotionService:
                 "id": character['id'].replace('-','')
                 ,"name": character['properties']['name']['title'][-1]['plain_text']
                 ,"status": character['properties']['status']['select']['name']
-                ,"picture": random_picture['file']['url']
+                ,"picture": character['properties']['npc']['checkbox'] if character['properties']['npc']['checkbox'] else random_picture['file']['url']
                 ,"level": character['properties']['level']['number']
                 ,"coins": character['properties']['coins']['number']
                 ,"xp": character['properties']['xp']['number']
@@ -553,8 +553,8 @@ class NotionService:
             character['defense'] = character['defense'] if character['defense'] <= max_prop_limit else round(max_prop_limit)
             character['attack'] = character['attack'] if character['attack'] <= max_prop_limit else round(max_prop_limit)
             character['magic'] = character['magic'] if character['magic'] <= max_prop_limit else round(max_prop_limit)
-            if random.randint(0, 9) == 0: 
-                pill_name = ['yellow','blue','green','red','orange','purple','gray','brown']
+            if random.randint(0, 20) == 0: 
+                pill_name = ['yellow','blue','green','red','orange','purple','gray','brown','pink']
                 i = random.randint(0, len(pill_name) - 1)
                 pill_dict = { 'name': pill_name[i] + '.pill', "color": pill_name[i] }
                 #print("++💊 ",character['name'],pill_dict)
