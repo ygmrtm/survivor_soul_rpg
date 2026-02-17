@@ -433,3 +433,19 @@ Split the underworld executions
     - Adventures Punishment Execution
 ---
 
+## [1.4.5] - 2026-02-17
+Merge 15dd14515c0cd8d386b3cb84ad221982b33dfa02 into 641d2a6970300d4c95d38fffaff6e0411c25a95b
+
+feature: not image store in cache for NPC
+
+feature: not image store in cache for NPC
+
+Update CHANGELOG for version 1.4.4
+
+Merge bce0e16a68c21ead94fd373ab9b23c278321a9fb into 878f4e4d13fdf18399ca8f4d8c9a95a316411327
+
+Fix
+
+Infinite loop, yes , rookie error.
+---
+
