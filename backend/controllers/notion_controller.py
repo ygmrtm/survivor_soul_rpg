@@ -61,7 +61,7 @@ def apply_character_pills(deep_level):
     
     jsonback = {}
     
-    for pill_color in ['yellow', 'blue', 'green', 'red', 'orange', 'purple', 'gray', 'brown', 'pink']:
+    for pill_color in ['red','yellow', 'blue', 'green',  'orange', 'purple', 'gray', 'brown', 'pink']:
         result = apply_all_pills(deep_level=deep_level, pill_color=pill_color)
         jsonback[pill_color] = result
     return jsonify(jsonback)

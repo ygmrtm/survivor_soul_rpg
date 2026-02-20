@@ -355,8 +355,6 @@ class NotionService:
                                                                                 , f"{deep_level}")
                                                                                 , cached_chars_count-1
                                                                                 , self.expiry_minutes)
-
-
                 else:
                     response_json['message'] = f'ERROR: No Characters (with {pill_color}💊s) has been found'
             else:
@@ -368,6 +366,7 @@ class NotionService:
 
     def apply_all_pills_by_character(self, character, pill_color):
         #print(pill_color, character['name'])
+        alter = None
         if pill_color == "yellow":
             character['sanity'] = character['max_sanity']
         elif pill_color == "blue":
@@ -385,18 +384,24 @@ class NotionService:
             character['respawn'] += 1
             if pill_color == "green":
                 character['level'] += 1
+            if pill_color == "red":
+                character['inventory'].append({'name':'pink.pill'})
         elif pill_color == "orange":
             #TODO: implement orange pill
             print("🔔 Still under implementation", pill_color)
         elif pill_color == "purple":
-            #TODO: implement purple pill
-            print("🔔 Still under implementation", pill_color)
+            character['inventory'].append({'name':'green.pill'})
         elif pill_color == "gray":
             #TODO: implement gray pill
             print("🔔 Still under implementation", pill_color)
         elif pill_color == "brown":
-            #TODO: implement brown pill
-            print("🔔 Still under implementation", pill_color)
+            alter = self.get_character_by_id(character['alter_ego'])
+            alter['defense'] += character['defense'] 
+            alter['attack'] += character['attack'] 
+            alter['magic'] += character['magic'] 
+            character['defense'] = character['defense'] 
+            character['attack'] = character['attack'] 
+            character['magic'] = character['magic'] 
         elif pill_color == "pink":
             #TODO: implement pink pill
             print("🔔 Still under implementation", pill_color)
@@ -416,8 +421,17 @@ class NotionService:
                                 "status": {"select": {"name":character['status']} },
                                 "inventory": { "multi_select": character['inventory']}
                                 }}
+        dataualter = {"properties": { 
+                                "sanity": {"number": round(character['sanity'])}, 
+                                "force": {"number": round(character['attack'])}, 
+                                "defense": {"number": round(character['defense'])}, 
+                                "coins": {"number": round(character['coins'])}, 
+                                "magic": {"number": round(character['magic'])} ,
+                                }}                                
         #print(datau)
         upd_character = self.update_character(character, datau)
+        if alter:
+            upd_alter = self.update_character(alter, dataualter)
         return {'notion_character' : upd_character, "rpg_character": character}
 
     def translate_characters(self, characters=[]):

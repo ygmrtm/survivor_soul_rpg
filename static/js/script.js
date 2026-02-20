@@ -306,7 +306,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         setTimeout(() => {
                             logActivity(`People with pills 💊 timeout.`);
                             document.getElementById('heal-button').disabled = true;
-                        }, 60000 * 10);
+                        }, 60000 * 60);
                     }
                 })
                 .catch(error => {
@@ -468,7 +468,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 setTimeout(() => {
                     logActivity(`People with pills 💊 timeout.`);
                     document.getElementById('heal-button').disabled = true;
-                }, 60000 * 10); // Disable the heal button after 60 seconds
+                }, 60000 * 60); // Disable the heal button after 60 seconds
 
             }
         })
