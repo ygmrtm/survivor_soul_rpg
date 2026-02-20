@@ -116,7 +116,7 @@ class WatchlistService:
         watchlist = self.get_watchlist()
         return_watchlist = []
         for movie in watchlist:
-            if movie['estado'] == estado and movie['semana_sugerida'] is None:
+            if movie['estado'] == estado and movie['semana_sugerida'] is None and movie['estreno'] <= datetime.now().strftime('%Y-%m-%d'):
                 return_watchlist.append(movie)
         return return_watchlist
 

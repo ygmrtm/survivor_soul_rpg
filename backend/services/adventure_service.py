@@ -50,8 +50,7 @@ class AdventureService:
         description = "dummy desc"
         #print(final_enemies,"\n\n")
         if underworld is False:
-            npc_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
-            filtered_enemies = [c for c in npc_characters if c['status'] == 'alive']
+            filtered_enemies = self.notion_service.get_characters_by_deep_level_and_status(deep_level='l3', is_npc=True, status='alive')
             enemies_to_encounter = random.randint(1, round(max_chapters))
             enemies_to_encounter = 100 if enemies_to_encounter > 100 else enemies_to_encounter
             final_enemies = random.sample(filtered_enemies, min(enemies_to_encounter, len(filtered_enemies)))
@@ -504,8 +503,7 @@ class AdventureService:
                 # Get NPC GODS characters for support and pick only one.
                 high_gods = self.notion_service.get_characters_by_property('status', 'high')
                 if len(high_gods) == 0:
-                    npc_characters = self.notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
-                    high_gods = [c for c in npc_characters if c['status'] == 'high']
+                    high_gods = self.notion_service.get_characters_by_deep_level_and_status(deep_level='l2', is_npc=True, status='high')
                 god_support = random.choice(high_gods) if high_gods else None
                 self.add_encounter_log(god_support['level'], "level",'powered⚡️by⚡️{}'.format(god_support['name']))
                 for vs in adventure['vs']:
@@ -718,11 +716,10 @@ class AdventureService:
         characters_dead = self.notion_service.get_characters_by_property('status', 'dead')
         l3_characters = [c for c in characters_dead if c['deep_level'] == 'l3']  
         if len(l3_characters) <= 0:
-            l3_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False) 
-            l3_characters += self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)
-        filtered_characters = [c for c in l3_characters if c['status'] == 'dead']  
-        dead_people_count = len(filtered_characters)
-        filtered_characters =  [c for c in filtered_characters if c['pending_reborn'] is None]   
+            l3_characters = self.notion_service.get_characters_by_deep_level_and_status(deep_level='l3', is_npc=False, status='dead') 
+            l3_characters += self.notion_service.get_characters_by_deep_level_and_status(deep_level='l3', is_npc=True, status='dead')
+        dead_people_count = len(l3_characters)
+        filtered_characters =  [c for c in l3_characters if c['pending_reborn'] is None]   
         to_execute = 0
         if len(filtered_characters) <= 5:
             to_execute = len(filtered_characters)

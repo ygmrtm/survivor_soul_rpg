@@ -57,15 +57,7 @@ class TournamentService:
 
     def get_all_open_tournaments(self):
         try:
-            tournaments = []
-            tournaments = self.notion_service.get_all_open_tournaments()
-            for tournament in tournaments:
-                tournament_id = tournament['id']
-                if not self.redis_service.get(self.redis_service.get_cache_key("tournaments", tournament_id)):
-                    hours = abs(datetime.datetime.now() - datetime.datetime.fromisoformat(tournament['due'])).total_seconds() / 3600
-                    self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament_id)
-                                                        ,tournament, expiry_hours=hours)
-            return tournaments
+            return self.notion_service.get_all_open_tournaments()
         except Exception as e:
             print(f"Failed to fetch get_all_open_tournaments ::: {e}")
             raise        
@@ -76,8 +68,8 @@ class TournamentService:
             print(len(tournaments), " tournaments")
             actually_executed = 0
             for tournament in tournaments:
-                l3_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)        
-                l3_characters += self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False)        
+                l3_characters = self.notion_service.get_characters_by_deep_level_and_status(deep_level='l3', is_npc=True, status="alive")        
+                l3_characters += self.notion_service.get_characters_by_deep_level_and_status(deep_level='l3', is_npc=False, status="alive")        
                 self.encounter_log = []
                 whos = []
                 if 'l.c.s.' in tournament['path']:

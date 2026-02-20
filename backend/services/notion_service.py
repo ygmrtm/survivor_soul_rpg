@@ -113,9 +113,6 @@ class NotionService:
         url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
         headcount = 0
         try:
-            self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level',f'{deep_level}nonpc'))
-            characters = self.get_characters_by_deep_level(deep_level, is_npc=False)
-            characters = self.get_characters_by_deep_level(deep_level, is_npc=True)
             dead_people = self.redis_service.query_characters('status', 'dead')
             by_level_dp = [c for c in dead_people if c['deep_level'] == deep_level]
             headcount = len(by_level_dp)
@@ -189,7 +186,7 @@ class NotionService:
                     # Check if there are more pages
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")  
-                    print(f"Fetched {len(data.get('results', []))} characters, total so far: {len(characters)}")
+                    print(f"Fetched {len(data.get('results', []))} characters with pill for level {deep_level}, total so far: {len(characters)}")
                 for character in characters:
                     cache_key = self.redis_service.get_cache_key('characters', character['id'])
                     if not self.redis_service.exists(cache_key):
@@ -238,20 +235,15 @@ class NotionService:
         characters = []
         try:
             npc = '' if is_npc is True else 'no'
-            are_cached_chars = self.redis_service.exists(self.redis_service.get_cache_key('loaded_characters_level' 
-                                                                                , f"{deep_level}{npc}npc"))
+            are_cached_chars = self.redis_service.exists(self.redis_service.get_cache_key('loaded_characters_level', f"{deep_level}{npc}npc"))
             if are_cached_chars:
-                characters = self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level:completerray',f"{deep_level}"))
-                if not characters:
-                    characters = []
-                    print(f"Using cached characters for deep level {deep_level}")
-                    characters_by_level = self.redis_service.query_characters('deep_level', deep_level)
-                    # filter characters based on is_npc
-                    for character in characters_by_level:
-                        if character['npc'] == is_npc:
-                            characters.append(character)
-                #else:
-                #    print(f"Using complete cached array for deep level {deep_level}")
+                characters = []
+                print(f"Using cached characters for deep level {deep_level}{npc}npc")
+                characters_by_level = self.redis_service.query_characters('deep_level', deep_level)
+                # filter characters based on is_npc
+                for character in characters_by_level:
+                    if character['npc'] == is_npc:
+                        characters.append(character)
             else:    
                 data_filter = {
                     "filter": {
@@ -274,18 +266,66 @@ class NotionService:
                     # Check if there are more pages
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")  
-                    print(f"Fetched {len(data.get('results', []))} {deep_level} characters, total so far: {len(characters)}")
+                    print(f"Fetched {len(data.get('results', []))} {deep_level}{npc}npc characters, total so far: {len(characters)}")
                 # Cache the characters if needed
-                self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level', f"{deep_level}{npc}npc")
-                                                , data_filter, self.expiry_hours)
+                #self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level', f"{deep_level}{npc}npc")
+                #                                , data_filter, self.expiry_hours)
                 for character in characters:
                     cache_key = self.redis_service.get_cache_key('characters', character['id'])
                     if not self.redis_service.exists(cache_key):
                         self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
-            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:completerray',f"{deep_level}")
-                                            , characters, self.expiry_hours)
+            #self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:completerray',f"{deep_level}{npc}npc")
+            #                                , characters, self.expiry_hours)
         except Exception as e:
             print(f"Failed to fetch characters by deep level {deep_level}: {e}")
+            response.raise_for_status()  # Raise an error for bad responses
+        return characters if is_npc else random.sample(characters, min(4, len(characters)))
+
+    def get_characters_by_deep_level_and_status(self, deep_level, is_npc=False, status="alive"):
+        """Filter characters by deep level and is_npc, returning all matching characters."""
+        url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
+        characters = []
+        try:
+            npc = '' if is_npc is True else 'no'
+            characters = []
+            characters_by_status = self.redis_service.query_characters('status', status)
+            # filter characters based on is_npc
+            for character in characters_by_status:
+                if character['npc'] == is_npc and character['deep_level'] == deep_level:
+                    characters.append(character)
+            if len(characters) <= 0:
+                data_filter = {
+                    "filter": {
+                        "and": [
+                            {"property": "deeplevel", "formula": {"string": {"equals": deep_level}}},
+                            {"property": "npc", "checkbox": {"equals": is_npc}},
+                            {"property": "status", "select": {"equals": status}}
+                        ]
+                    }
+                }
+                has_more = True
+                start_cursor = None
+                while has_more:
+                    if start_cursor:
+                        data_filter['start_cursor'] = start_cursor
+                    response = requests.post(url, headers=self.headers, json=data_filter)
+                    response.raise_for_status()  # Raise an error for bad responses
+                    data = response.json()
+                    # Extend the characters list with the results from this page
+                    characters.extend(self.translate_characters(data.get('results', [])))
+                    # Check if there are more pages
+                    has_more = data.get("has_more", False)
+                    start_cursor = data.get("next_cursor")  
+                    print(f"Fetched {len(data.get('results', []))} {deep_level}{npc}npc{status} characters, total so far: {len(characters)}")
+                # Cache the characters if needed
+                #self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level', f"{deep_level}{npc}npc{status}")
+                #                                , data_filter, self.expiry_hours)
+                for character in characters:
+                    cache_key = self.redis_service.get_cache_key('characters', character['id'])
+                    if not self.redis_service.exists(cache_key):
+                        self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
+        except Exception as e:
+            print(f"Failed to fetch characters by deep level {deep_level} and status {status}: {e}")
             response.raise_for_status()  # Raise an error for bad responses
         return characters if is_npc else random.sample(characters, min(4, len(characters)))
 
@@ -434,8 +474,8 @@ class NotionService:
         response = requests.patch(url, headers=self.headers, json=updates)
         if response.status_code == 200:  # Check if the request was successful
             self.redis_service.set_with_expiry(self.redis_service.get_cache_key('characters',character_id), character, self.expiry_hours)
-            self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:completerray',character['deep_level']))
-            self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',character['deep_level']))
+            self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:completerray',character['deep_level']+'*'))
+            self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',character['deep_level']+'*'))
             return response.json()
         else:
             print("❌❌","update_character",response.status_code, response.text) 
