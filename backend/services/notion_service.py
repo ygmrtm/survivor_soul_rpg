@@ -16,8 +16,8 @@ class NotionService:
     max_sanity = 60    
     max_prop_limit = 15
     lines_per_paragraph = 90
-    expiry_hours = 48
-    expiry_minutes = 15 / 60
+    expiry_hours = 32
+    expiry_minutes = 60
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
@@ -204,7 +204,7 @@ class NotionService:
     
     def get_character_by_id(self, character_id):
         """Retrieve a character by its ID from the cached characters."""
-        # print("👁️‍🗨️ ",character_id)
+        #print("👁️‍🗨️ ",character_id)
         character_id_replaced = character_id.replace('-','')
         character = None
         try:
@@ -229,22 +229,66 @@ class NotionService:
             print(f"Failed to fetch characters by properties {property} = {value}: {e}")
             raise
 
-    def get_characters_by_deep_level(self, deep_level, is_npc=False):
+    def get_characters_by_deep_level_status(self, deep_level, status="alive"):
         """Filter characters by deep level and is_npc, returning all matching characters."""
         url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
-        characters = []
+        try:
+            characters = []
+            characters_by_status = self.redis_service.query_characters('status', status)
+            for character in characters_by_status:
+                if character['deep_level'] == deep_level:
+                    characters.append(character)
+            if len(characters) <= 0:
+                print("going to the source: "+deep_level+" "+status)
+                data_filter = {
+                    "filter": {
+                        "and": [
+                            {"property": "deeplevel", "formula": {"string": {"equals": deep_level}}},
+                            {"property": "status", "select": {"equals": status}}
+                        ]
+                    }
+                }
+                has_more = True
+                start_cursor = None
+                while has_more:
+                    if start_cursor:
+                        data_filter['start_cursor'] = start_cursor
+                    response = requests.post(url, headers=self.headers, json=data_filter)
+                    response.raise_for_status()  # Raise an error for bad responses
+                    data = response.json()
+                    # Extend the characters list with the results from this page
+                    characters.extend(self.translate_characters(data.get('results', [])))
+                    # Check if there are more pages
+                    has_more = data.get("has_more", False)
+                    start_cursor = data.get("next_cursor")  
+                    print(f"Fetched {len(data.get('results', []))} {deep_level} characters, total so far: {len(characters)}")
+                # Cache the characters if needed
+                #self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level', f"{deep_level}{npc}npc")
+                #                                , data_filter, self.expiry_hours)
+                for character in characters:
+                    cache_key = self.redis_service.get_cache_key('characters', character['id'])
+                    if not self.redis_service.exists(cache_key):
+                        self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
+            #self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:completerray',f"{deep_level}{npc}npc")
+            #                                , characters, self.expiry_hours)
+        except Exception as e:
+            print(f"Failed to fetch characters by deep level {deep_level}: {e}")
+            response.raise_for_status()  # Raise an error for bad responses
+        return characters 
+
+    def get_characters_by_deep_level_npc(self, deep_level, is_npc=False):
+        """Filter characters by deep level and is_npc, returning all matching characters."""
+        url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
         try:
             npc = '' if is_npc is True else 'no'
-            are_cached_chars = self.redis_service.exists(self.redis_service.get_cache_key('loaded_characters_level', f"{deep_level}{npc}npc"))
-            if are_cached_chars:
-                characters = []
-                print(f"Using cached characters for deep level {deep_level}{npc}npc")
-                characters_by_level = self.redis_service.query_characters('deep_level', deep_level)
-                # filter characters based on is_npc
-                for character in characters_by_level:
-                    if character['npc'] == is_npc:
-                        characters.append(character)
-            else:    
+            characters = []
+            characters_by_level = self.redis_service.query_characters('deep_level', deep_level)
+            # filter characters based on is_npc
+            for character in characters_by_level:
+                if character['npc'] == is_npc:
+                    characters.append(character)
+            if len(characters) <= 0:
+                print("going to the source: "+deep_level+" "+npc)
                 data_filter = {
                     "filter": {
                         "and": [
@@ -281,10 +325,9 @@ class NotionService:
             response.raise_for_status()  # Raise an error for bad responses
         return characters if is_npc else random.sample(characters, min(4, len(characters)))
 
-    def get_characters_by_deep_level_and_status(self, deep_level, is_npc=False, status="alive"):
+    def get_characters_by_deep_level_npc_and_status(self, deep_level, is_npc=False, status="alive"):
         """Filter characters by deep level and is_npc, returning all matching characters."""
         url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
-        characters = []
         try:
             npc = '' if is_npc is True else 'no'
             characters = []
@@ -294,6 +337,7 @@ class NotionService:
                 if character['npc'] == is_npc and character['deep_level'] == deep_level:
                     characters.append(character)
             if len(characters) <= 0:
+                print("going to the source: "+deep_level+" "+npc+" "+status)
                 data_filter = {
                     "filter": {
                         "and": [
@@ -366,7 +410,7 @@ class NotionService:
 
     def apply_all_pills_by_character(self, character, pill_color):
         #print(pill_color, character['name'])
-        alter = None
+        alterchar = None
         if pill_color == "yellow":
             character['sanity'] = character['max_sanity']
         elif pill_color == "blue":
@@ -395,13 +439,13 @@ class NotionService:
             #TODO: implement gray pill
             print("🔔 Still under implementation", pill_color)
         elif pill_color == "brown":
-            alter = self.get_character_by_id(character['alter_ego'])
-            alter['defense'] += character['defense'] 
-            alter['attack'] += character['attack'] 
-            alter['magic'] += character['magic'] 
-            character['defense'] = character['defense'] 
-            character['attack'] = character['attack'] 
-            character['magic'] = character['magic'] 
+            alterchar = self.get_character_by_id(character['alter_ego'])
+            alterchar['defense'] += character['defense'] 
+            alterchar['attack'] += character['attack'] 
+            alterchar['magic'] += character['magic'] 
+            character['defense'] = alterchar['defense'] 
+            character['attack'] = alterchar['attack'] 
+            character['magic'] = alterchar['magic'] 
         elif pill_color == "pink":
             #TODO: implement pink pill
             print("🔔 Still under implementation", pill_color)
@@ -422,17 +466,17 @@ class NotionService:
                                 "inventory": { "multi_select": character['inventory']}
                                 }}
         dataualter = {"properties": { 
-                                "sanity": {"number": round(character['sanity'])}, 
-                                "force": {"number": round(character['attack'])}, 
-                                "defense": {"number": round(character['defense'])}, 
-                                "coins": {"number": round(character['coins'])}, 
-                                "magic": {"number": round(character['magic'])} ,
+                                "sanity": {"number": round(alterchar['sanity'])}, 
+                                "force": {"number": round(alterchar['attack'])}, 
+                                "defense": {"number": round(alterchar['defense'])}, 
+                                "coins": {"number": round(alterchar['coins'])}, 
+                                "magic": {"number": round(alterchar['magic'])} ,
                                 }}                                
         #print(datau)
         upd_character = self.update_character(character, datau)
-        if alter:
-            upd_alter = self.update_character(alter, dataualter)
-        return {'notion_character' : upd_character, "rpg_character": character}
+        if alterchar:
+            upd_alter = self.update_character(alterchar, dataualter)
+        return {'updated_character' : upd_character, "rpg_character": character, "updated_alter":upd_alter, "rpg_alter":alterchar}
 
     def translate_characters(self, characters=[]):
         try:
@@ -574,7 +618,7 @@ class NotionService:
                 root = characters[0]
                 rest_of_chars = characters[-(len(characters)-1):] 
             else:
-                roots = self.get_characters_by_deep_level(deep_level='l0', is_npc=True)
+                roots = self.get_characters_by_deep_level_npc(deep_level='l0', is_npc=True)
                 root = roots[0] if len(roots[0]) > 0 else None
                 rest_of_chars = [root]
             datau['properties']['who'] = { "relation": [{"id": root['id']}] }

@@ -16,16 +16,14 @@ def get_character_by_id(id):
 def loaddeadpeople(deep_level):
     if not deep_level.startswith('l'):
         return jsonify({"error": "Invalid deep_level"}), 400
-    dead_people = notion_service.get_characters_by_deep_level_and_status(deep_level, is_npc=False, status="dead")
-    dead_people += notion_service.get_characters_by_deep_level_and_status(deep_level, is_npc=True, status="dead")
+    dead_people = notion_service.get_characters_by_deep_level_status(deep_level, status="dead")
     return jsonify({"count": len(dead_people) , "characters": dead_people}), 200
 
 @notion_bp.route('/loadalivepeople/<deep_level>', methods=['GET'])
 def loadalivepeople(deep_level):
     if not deep_level.startswith('l'):
         return jsonify({"error": "Invalid deep_level"}), 400
-    dead_people = notion_service.get_characters_by_deep_level_and_status(deep_level, is_npc=False, status="alive")
-    dead_people += notion_service.get_characters_by_deep_level_and_status(deep_level, is_npc=True, status="alive")
+    dead_people = notion_service.get_characters_by_deep_level_status(deep_level, status="alive")
     return jsonify({"count": len(dead_people) , "characters": dead_people}), 200
 
 @notion_bp.route('/countdeadpeople/<deep_level>', methods=['GET'])
@@ -93,23 +91,23 @@ def update_character(id):
     return jsonify(success=True)
 
 @notion_bp.route('/characters/deep_level/<deep_level>/<is_npc>', methods=['GET'])
-def get_characters_by_deep_level(deep_level, is_npc ):
+def get_characters_by_deep_level_npc(deep_level, is_npc ):
     # validate deep_level is valid "l"+int
     if not deep_level.startswith('l'):
         return jsonify({"error": "Invalid deep_level"}), 400
     if is_npc != 'yes' and is_npc != 'no':
         return jsonify({"error": "Invalid is_npc"}), 400
-    result = notion_service.get_characters_by_deep_level(deep_level, is_npc == 'yes')
+    result = notion_service.get_characters_by_deep_level_npc(deep_level, is_npc == 'yes')
     return jsonify(result)
 
 @notion_bp.route('/characters/deep_level/<deep_level>/<is_npc>/<status>', methods=['GET'])
-def get_characters_by_deep_level_and_status(deep_level, is_npc, status ):
+def get_characters_by_deep_level_npc_and_status(deep_level, is_npc, status ):
     # validate deep_level is valid "l"+int
     if not deep_level.startswith('l'):
         return jsonify({"error": "Invalid deep_level"}), 400
     if is_npc != 'yes' and is_npc != 'no':
         return jsonify({"error": "Invalid is_npc"}), 400
-    result = notion_service.get_characters_by_deep_level_and_status(deep_level, is_npc == 'yes', status)
+    result = notion_service.get_characters_by_deep_level_npc_and_status(deep_level, is_npc == 'yes', status)
     return jsonify(result)
 
 @notion_bp.route('/characters', methods=['GET'])

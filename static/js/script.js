@@ -226,7 +226,7 @@ document.addEventListener("DOMContentLoaded", function () {
         // Define sequential underworld steps
         const steps = [
             {
-                name: 'Underworlds Created',
+                name: 'Underworlds Creating...',
                 endpoint: '/api/adventure/underworld/create',
                 process: (data) => {
                     const created = data.created_count || 0;
@@ -235,7 +235,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             },
             {
-                name: 'Underworlds Executed',
+                name: 'Underworlds Executing...',
                 endpoint: '/api/adventure/underworld/execute',
                 process: (data) => {
                     const executed = data.executed_count || 0;
@@ -245,7 +245,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             },
             {
-                name: 'Underworlds Awaked',
+                name: 'Underworlds Awaking...',
                 endpoint: '/api/adventure/underworld/awake',
                 process: (data) => {
                     const awaked = data.awaked_count || 0;
@@ -253,7 +253,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
             },
             {
-                name: 'Adventures Punishment Execution',
+                name: 'Adventures Punishment Executing...',
                 endpoint: '/api/adventure/underworld/punish',
                 process: (data) => {
                     const punishments = data.punishments_count || 0;

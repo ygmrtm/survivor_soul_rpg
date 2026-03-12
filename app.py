@@ -44,7 +44,7 @@ def create_app():
         #
         characters = notion_service.get_characters_by_property('npc', value=False)
         if len(characters) <= 0:
-            characters = notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False) 
+            characters = notion_service.get_characters_by_deep_level_npc(deep_level='l3', is_npc=False) 
 
         # Mock character data in case the Notion API is empty or unavailable
         if not characters:
