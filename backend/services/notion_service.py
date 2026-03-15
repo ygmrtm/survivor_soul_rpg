@@ -16,8 +16,8 @@ class NotionService:
     max_sanity = 60    
     max_prop_limit = 15
     lines_per_paragraph = 90
-    expiry_hours = 32
-    expiry_minutes = 60
+    expiry_hours = 48
+    expiry_minutes = 90
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
@@ -211,12 +211,12 @@ class NotionService:
             cache_key = self.redis_service.get_cache_key('characters', character_id_replaced)
             character = self.redis_service.get(cache_key)
             if character is None:
-                print(f"👁️‍🗨️ not in cache [{character_id}], going to the source")
                 url = f"{self.base_url}/pages/{character_id}"
                 response = requests.get(url, headers=self.headers)
-                #print(":::",response.json())
                 character = self.translate_characters([response.json()] if response.json() else [])[0]
                 self.redis_service.set_with_expiry(cache_key, character, expiry_hours=self.expiry_hours)
+                end_date = datetime.now() + timedelta(days=(self.expiry_hours/24)) 
+                print(f"👁️‍🗨️ not in cache [{character_id} | {character['name']}], went to source. expires in {end_date}")
         except Exception as e:
             print("Failed to fetch character:", e)
             response.raise_for_status()  # Raise an error for bad responses
@@ -1185,7 +1185,8 @@ class NotionService:
                         "status": { "equals": "created"}
                     }
                 ]
-            }
+            },
+            "sorts":[{"property": "due", "direction" : "ascending"}]
         }
         has_more = True
         start_cursor = None
@@ -1359,7 +1360,8 @@ class NotionService:
                     ,{ "property": "status", "status": { "equals": "created"} }
                     ,{ "property": "due", "date": { "on_or_before": end_date_str } }                    
                 ]
-            }
+            },
+            "sorts":[{"property": "due", "direction" : "ascending"}]
         }
         response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
         if response.status_code == 200: 
