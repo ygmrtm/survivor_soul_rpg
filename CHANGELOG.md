@@ -449,3 +449,34 @@ Fix
 Infinite loop, yes , rookie error.
 ---
 
+## [1.4.6] - 2026-03-15
+Merge e61b7055258419810261af16426f49924c50ff0a into 85830103ed0f0fac6ed7632e7dea3ecb4e3818a0
+
+adding sorts in queries
+
+Create Adventure and Get Characters
+
+ feature: Remaining Pills: red, brown, purple
+
+- [ ]  feature: Remaining Pills
+
+    ### 💊  💊  💊  💊  💊  💊  💊
+
+    - [x]  Full **Sanity**
+    - [x]  **Alive** with full **HP + pink.pill**
+    - [x]  **Alive** with full **HP** + **Level** **UP**
+    - [x]  Full properties **Defense**|**Attack**|**Magic**
+    - [x]  inherit the properties of the alter-ego **Defense**|**Attack**|**Magic**
+    - [x]  earn a **green.pill**
+    - [ ]  earn a new **tournament** *w/easy-peasy* opponents
+    - [ ]  profit **accumulator**
+    - [ ]  **Alive** as **Main** Character with full **HP** *(timelapse processes)*
+
+feature: storing by status
+
+- [x]  feature: not image store in cache for NPC
+- [x]  feature: just pick the **alive** characters while Tournaments
+- [x]  feature: just movies from today and before.
+- [x]  issue - [](https://www.notion.so/2fea3d23499280fa921bebb9599c15ea?pvs=21)
+---
+
