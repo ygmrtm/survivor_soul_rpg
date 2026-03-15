@@ -21,7 +21,7 @@ class TournamentService:
 
 
     def create_tournament(self, title, description):
-        gods = self.notion_service.get_characters_by_deep_level(deep_level='l0', is_npc=True)
+        gods = self.notion_service.get_characters_by_deep_level_npc(deep_level='l0', is_npc=True)
         character = gods[0] if len(gods[0]) > 0 else None
         tournament = None
         if character is not None:
@@ -57,15 +57,7 @@ class TournamentService:
 
     def get_all_open_tournaments(self):
         try:
-            tournaments = []
-            tournaments = self.notion_service.get_all_open_tournaments()
-            for tournament in tournaments:
-                tournament_id = tournament['id']
-                if not self.redis_service.get(self.redis_service.get_cache_key("tournaments", tournament_id)):
-                    hours = abs(datetime.datetime.now() - datetime.datetime.fromisoformat(tournament['due'])).total_seconds() / 3600
-                    self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament_id)
-                                                        ,tournament, expiry_hours=hours)
-            return tournaments
+            return self.notion_service.get_all_open_tournaments()
         except Exception as e:
             print(f"Failed to fetch get_all_open_tournaments ::: {e}")
             raise        
@@ -73,28 +65,27 @@ class TournamentService:
     def evaluate_all_tournaments(self, full_hp=True):
         try:
             tournaments = self.get_all_open_tournaments()
-            print(len(tournaments), " tournaments")
+            and_break = False
+            #print(len(tournaments), " tournaments")
             actually_executed = 0
+            l2_gods = self.notion_service.get_characters_by_deep_level_npc(deep_level='l2', is_npc=True)
             for tournament in tournaments:
-                l3_characters = self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=True)        
-                l3_characters += self.notion_service.get_characters_by_deep_level(deep_level='l3', is_npc=False)        
                 self.encounter_log = []
                 whos = []
                 if 'l.c.s.' in tournament['path']:
                     #print("l.c.s.", tournament['id'], tournament['name'])
+                    l3_characters = self.notion_service.get_characters_by_deep_level_status(deep_level='l3', status="alive")        
                     whos = self.last_cryptid_stand(l3_characters=l3_characters, full_hp=full_hp)
                     if whos[0] is None:
                         whos = self.last_cryptid_stand(l3_characters=l3_characters, full_hp = not(full_hp))
                 elif 'g.v.c.' in tournament['path']:
                     #print("g.v.c.", tournament['id'], tournament['name'])
-                    l2_gods = self.notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
                     alive_cryptids = self.redis_service.query_characters('status','alive')
                     l3_cryptids = [c for c in alive_cryptids if c['deep_level'] == 'l3' ]
                     whos = self.gods_v_cryptids(gods=l2_gods, cryptids=l3_cryptids, full_hp=full_hp)
                 elif 'r.v.w.' in tournament['path']:
                     #print("r.v.w.", tournament['id'], tournament['name'])
-                    root = self.notion_service.get_characters_by_deep_level(deep_level='l0', is_npc=True)[0]
-                    l2_gods = self.notion_service.get_characters_by_deep_level(deep_level='l2', is_npc=True)
+                    root = self.notion_service.get_characters_by_deep_level_npc(deep_level='l0', is_npc=True)[0]
                     sorted_items = sorted(l2_gods, key=lambda x: (x['level'], x['xp']))
                     the_top_ten = sorted_items[-10:]
                     the_last_six = sorted_items[:6]
@@ -117,9 +108,13 @@ class TournamentService:
                     #self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id'])
                     #                                                        ,tournament, expiry_hours=hours)
                 else:
-                    print("No winner")
+                    print("No winner...")
+                    and_break = True
                 actually_executed += 1
                 print(f"🏟️ {actually_executed} 🏟️  | {tournament['path']} | {tournament['name']} | {tournament['desc']} | {tournament['xpRwd']} reward")
+                if and_break is True:
+                    print("... and break ‼️ ")
+                    break
             remainOpen = len(self.get_all_open_tournaments())
             return {"tournaments":tournaments, "still_not_executed":remainOpen, "actually_executed":actually_executed}
 
@@ -152,7 +147,7 @@ class TournamentService:
         #for cem in cemetery:
         #    print(f"🪦 {cem['name']} hp:{cem['hp']}")
         # get the last 4 elements of cemetery + lead = TOP 5 characters
-        return [charLead] + (cemetery[-4:] if len(cemetery) >= 4 else cemetery)
+        return [charLead] + (cemetery[-10:] if len(cemetery) >= 10 else cemetery)
 
     def gods_v_cryptids(self, gods=[], cryptids=[], full_hp=False):
         cemetery = { 'gods':[], 'cryptids':[]}
@@ -189,8 +184,8 @@ class TournamentService:
         #for cem in cemetery['cryptids']:
         #    print(f"🪦🔔 {cem['name']} hp:{cem['hp']}")
         return [winner] \
-            + (cemetery['cryptids'][-2:] if len(cemetery['cryptids'][-2:]) >= 2 else cemetery['cryptids']) \
-            + (cemetery['gods'][-2:] if len(cemetery['gods'][-2:]) >= 2 else cemetery['gods']) 
+            + (cemetery['cryptids'][-10:] if len(cemetery['cryptids'][-10:]) >= 10 else cemetery['cryptids']) \
+            + (cemetery['gods'][-5:] if len(cemetery['gods'][-5:]) >= 5 else cemetery['gods']) 
     
     def root_gods_v_cryptids(self, root=None, gods=[], cryptids=[]):
         need_update = []
