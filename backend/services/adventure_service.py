@@ -24,9 +24,18 @@ class AdventureService:
     dice_size = 2025
     expiry_hours = 0.5
     was_too_much_limit = 20
-    redis_service = RedisService()
-    notion_service = NotionService()
+    _instance = None
 
+    def __new__(cls):
+        """Override __new__ to implement Singleton pattern."""
+        if cls._instance is None:
+            cls._instance = super(AdventureService, cls).__new__(cls)
+        return cls._instance    
+
+    def __init__(self):
+        self.redis_service = RedisService()
+        self.notion_service = NotionService()
+        
     def create_adventure(self, character_id, underworld=False, npc_gods=None):
         """Create a new adventure based on specified parameters."""
         # Retrieve the character using the character_id
@@ -499,6 +508,11 @@ class AdventureService:
                 delta = datetime.strptime(adventure['due'], "%Y-%m-%d") - datetime.today()
                 self.add_encounter_log(0,"","Missed adventure by {} days".format(delta.days * -1))
                 adventure['status'] = 'missed'
+            elif who['status'] != 'alive':
+                print(f'cannot execute due {who['name']} is not alive')
+                self.add_encounter_log(0,"",f'cannot execute due {who['name']} is not alive')
+                who['status'] = 'alive'
+                who['hp'] *= -1 
             elif "encounter" in adventure['path']:
                 # Get NPC GODS characters for support and pick only one.
                 high_gods = []

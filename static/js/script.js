@@ -322,17 +322,35 @@ document.addEventListener("DOMContentLoaded", function () {
         current_to_execute = document.getElementById('pending-tournaments').innerText;
         let still_not_executed = 0;
         let actually_executed = 0;
+        let adventures_executed = 0;
         logActivity(`Executing ${current_to_execute} ⚔️ tournament(s)...`);
 
         // First endpoint to
-        fetch(`/api/tournament/evaluate/all`, {
-            method: 'GET'
+        fetch('/api/adventure/created',{method: 'POST'})
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok | execute created adventures');
+            }
+            return response.json();
         })
-        .then(response => response.json())
         .then(data => {
-            console.log('tournaments response', data);
-            still_not_executed = data.still_not_executed
-            actually_executed = data.actually_executed
+            adventures_executed = data.count
+                logActivity(`Adventures Executed ${adventures_executed}`);
+        })
+        .then(() => {
+                fetch(`/api/tournament/evaluate/all`, {
+                    method: 'GET'
+                })
+                .then(response => response.json())
+                .then(data => {
+                    console.log('tournaments response', data);
+                    still_not_executed = data.still_not_executed
+                    actually_executed = data.actually_executed
+                })
+                .catch(error => {
+                    console.error('Error fetching Adventures:', error);
+                    logActivity(`❌❌ Error : ${error.message}`);
+                });
         })
         .catch(error => {
             console.error('Error in tournament:', error);
@@ -426,28 +444,9 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(data => {
             if(data.count > 0){
                 logActivity(`Dead people loaded 💀 ${data.count}`);
+                document.getElementById('underworld-button').disabled = false;
                 document.getElementById('dead-people').innerText = "(" + data.count + "☠️)";
             }
-        }).then(() => {
-            fetch('/api/notion/countdeadpeople/l3')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok | countdeadpeople');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if(data.count > 0){
-                        logActivity(`Dead people counted 💀 ${data.count}`);
-                        document.getElementById('underworld-button').disabled = false;
-                        document.getElementById('dead-people').innerText = "(" + data.count + "☠️)";
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching counts:', error);
-                    logActivity(`❌❌ Error : ${error.message}`);
-                    document.getElementById('dead-people').innerText = '0'; // Fallback version
-                });
         }).catch(error => {
             console.error('Error fetching counts:', error);
             logActivity(`❌❌ Error : ${error.message}`);

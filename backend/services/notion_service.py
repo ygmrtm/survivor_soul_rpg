@@ -8,16 +8,20 @@ from config import NOTION_API_KEY, NOTION_DBID_CHARS, NOTION_DBID_ADVEN,NOTION_D
 from config import NOTION_DBID_HABIT, NOTION_DBID_ABILI
 
 
+
 class NotionService:
     base_url = "https://api.notion.com/v1"
     GOLDEN_RATIO = 1.618033988749895
     max_xp = 500
     max_hp = 100
     max_sanity = 60    
+    max_chapters = 7
+    max_xprwd = 4
+    max_coinrwd = 10      
     max_prop_limit = 15
     lines_per_paragraph = 90
     expiry_hours = 48
-    expiry_minutes = 90
+    expiry_minutes = 90 / 60
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
@@ -141,7 +145,7 @@ class NotionService:
                     start_cursor = data.get("next_cursor")  
                 print(f"☠️ counted {headcount} from source")
             self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',deep_level)
-                                        , headcount, self.expiry_hours)
+                                        , headcount, self.expiry_minutes)
         except Exception as e:
             print(f"Failed to count dead people: {e}")
             response.raise_for_status()  # Raise an error for bad responses
@@ -192,11 +196,11 @@ class NotionService:
                     if not self.redis_service.exists(cache_key):
                         self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
             self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray',f"{deep_level}")
-                                            , characters, self.expiry_minutes)
+                                            , characters, self.expiry_minutes )
             headcount = len(characters)
             print(f"💊 counted {headcount}")
             self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:headcount',deep_level)
-                                        , headcount, self.expiry_minutes)
+                                        , headcount, self.expiry_minutes )
         except Exception as e:
             print(f"Failed to count pill people: {e}")
             response.raise_for_status()  # Raise an error for bad responses
@@ -238,7 +242,7 @@ class NotionService:
             for character in characters_by_status:
                 if character['deep_level'] == deep_level:
                     characters.append(character)
-            if len(characters) <= 0:
+            if len(characters) <= 8:
                 print("going to the source: "+deep_level+" "+status)
                 data_filter = {
                     "filter": {
@@ -388,10 +392,11 @@ class NotionService:
                             by_pill_color.append(c)
                 if len(by_pill_color) > 0:
                     #print(f"Using complete cached array for deep level {deep_level} | {len(by_pill_color)} characters")
+                    alive_chars = self.get_characters_by_deep_level_npc_and_status(deep_level='l3', is_npc=True, status='alive')
                     for character in by_pill_color:
                         cache_key = self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:characterpillprocessed', character['id'])
                         character = character if not self.redis_service.exists(cache_key) else self.redis_service.get(cache_key)
-                        results = self.apply_all_pills_by_character(character, pill_color)
+                        results = self.apply_pill_color_to_character(character, pill_color, alive_chars)
                         response_json[pill_color] = results
                         response_json['message'] += f' | SUCCESS: {pill_color} have been applied : ' + character['name']
                         self.redis_service.set_with_expiry(cache_key, character, self.expiry_minutes)
@@ -408,9 +413,13 @@ class NotionService:
             response_json['message'] = f"Failed to fetch characters by deep level {deep_level} and pill collor {pill_color}: {e}"
         return response_json 
 
-    def apply_all_pills_by_character(self, character, pill_color):
+    def apply_pill_color_to_character(self, character, pill_color, alive_chars=[]):
         #print(pill_color, character['name'])
+        if pill_color == 'orange' and len(alive_chars) == 0:
+            return {'message': 'not alive chars'}
         alterchar = None
+        upd_alter = None
+        do_not_remove = False
         if pill_color == "yellow":
             character['sanity'] = character['max_sanity']
         elif pill_color == "blue":
@@ -431,13 +440,32 @@ class NotionService:
             if pill_color == "red":
                 character['inventory'].append({'name':'pink.pill'})
         elif pill_color == "orange":
-            #TODO: implement orange pill
-            print("🔔 Still under implementation", pill_color)
+            character_level = character['level']
+            max_chapters = self.max_chapters
+            max_xprwd = self.max_xprwd
+            max_coinrwd = self.max_coinrwd
+            
+            for i in range(character_level):
+                max_chapters *= self.GOLDEN_RATIO
+                max_xprwd *= self.GOLDEN_RATIO
+                max_coinrwd *= self.GOLDEN_RATIO
+            
+            # Get NPC characters for enemies
+            xp_reward = random.randint(1, round(max_xprwd))
+            coin_reward = random.randint(1, round(max_coinrwd))
+            enemies_to_encounter = random.randint(1, 25)
+            final_enemies = random.sample(alive_chars, min(enemies_to_encounter, len(alive_chars)))
+            final_enemies_ids = [{"id":enemy['id']} for enemy in final_enemies]
+            description = "Adventure to die for... (thanks to orange pill)" 
+            response = self.create_adventure(character['id'], final_enemies_ids, xp_reward, coin_reward, description)
+            print(response)
+            character['inventory'].append({'name':'red.pill'})
         elif pill_color == "purple":
             character['inventory'].append({'name':'green.pill'})
         elif pill_color == "gray":
             #TODO: implement gray pill
             print("🔔 Still under implementation", pill_color)
+            do_not_remove = True
         elif pill_color == "brown":
             alterchar = self.get_character_by_id(character['alter_ego'])
             alterchar['defense'] += character['defense'] 
@@ -449,8 +477,9 @@ class NotionService:
         elif pill_color == "pink":
             #TODO: implement pink pill
             print("🔔 Still under implementation", pill_color)
+            do_not_remove = True
         for item in character['inventory']:
-            if item['name'] == pill_color + '.pill':
+            if item['name'] == pill_color + '.pill' and not(do_not_remove):
                 character['inventory'].remove(item)
                 break
         datau = {"properties": { "level": {"number": character['level']}, 
@@ -465,16 +494,16 @@ class NotionService:
                                 "status": {"select": {"name":character['status']} },
                                 "inventory": { "multi_select": character['inventory']}
                                 }}
-        dataualter = {"properties": { 
-                                "sanity": {"number": round(alterchar['sanity'])}, 
-                                "force": {"number": round(alterchar['attack'])}, 
-                                "defense": {"number": round(alterchar['defense'])}, 
-                                "coins": {"number": round(alterchar['coins'])}, 
-                                "magic": {"number": round(alterchar['magic'])} ,
-                                }}                                
         #print(datau)
         upd_character = self.update_character(character, datau)
         if alterchar:
+            dataualter = {"properties": { 
+                                    "sanity": {"number": round(alterchar['sanity'])}, 
+                                    "force": {"number": round(alterchar['attack'])}, 
+                                    "defense": {"number": round(alterchar['defense'])}, 
+                                    "coins": {"number": round(alterchar['coins'])}, 
+                                    "magic": {"number": round(alterchar['magic'])} ,
+                                    }}       
             upd_alter = self.update_character(alterchar, dataualter)
         return {'updated_character' : upd_character, "rpg_character": character, "updated_alter":upd_alter, "rpg_alter":alterchar}
 
@@ -795,7 +824,40 @@ class NotionService:
         response.raise_for_status()
         #print(response.json())
         return self.translate_adventure([response.json()] if response.json() else [])[0]
-    
+
+    def get_adventure_by_status(self, status="created" ):
+        # Prepare the query for Notion API
+        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
+        data_filter = {
+            "filter": {
+                "and": [
+                    {"property": "name","rich_text": {"contains": "ADVENTURE"}
+                    },
+                    {"property": "name","rich_text": {"does_not_contain": "DEADVENTURE"}
+                    },
+                    {"property": "status","status": { "equals": status.lower()}
+                    }
+                ]
+            },
+            "sorts":[{"property": "due", "direction" : "ascending"}]
+        }
+        has_more = True
+        start_cursor = None
+        adventures = []
+        while has_more:
+            if start_cursor:
+                data_filter['start_cursor'] = start_cursor
+            response = requests.post(url, headers=self.headers, json=data_filter)
+            response.raise_for_status()  # Raise an error for bad responses
+            data = response.json()
+            # Extend the characters list with the results from this page
+            adventures.extend(self.translate_adventure(data.get("results", []) if data.get("results", []) else []))
+            # Check if there are more pages
+            has_more = data.get("has_more", False)
+            start_cursor = data.get("next_cursor")  
+            print(f"Fetched {len(data.get('results', []))} {status} ⚔️ Adventures, total so far: {len(adventures)}")
+        return adventures
+
     def start_end_dates(self, week_number, year_number=None):
         """
         Calculate the start and end dates for a given week number and year.
