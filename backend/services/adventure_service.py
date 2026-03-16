@@ -21,7 +21,7 @@ class AdventureService:
     percentage_habits = 0.7 # for challenges how many habits to pick
     percentage_execute_dead = 0.25
     encounter_log = []
-    dice_size = 2025
+    dice_size = 4025
     expiry_hours = 0.5
     was_too_much_limit = 20
     _instance = None
@@ -35,6 +35,7 @@ class AdventureService:
     def __init__(self):
         self.redis_service = RedisService()
         self.notion_service = NotionService()
+        self.all_gods = self.notion_service.get_current_gods()
         
     def create_adventure(self, character_id, underworld=False, npc_gods=None):
         """Create a new adventure based on specified parameters."""
@@ -517,8 +518,7 @@ class AdventureService:
                 # Get NPC GODS characters for support and pick only one.
                 high_gods = []
                 dead_gods = []
-                all_gods = self.notion_service.get_characters_by_property('deep_level', 'l2')
-                for god in all_gods:
+                for god in self.all_gods:
                     if god['status'] == 'high':
                         high_gods.append(god)
                     if god['status'] == 'dead':

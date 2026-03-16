@@ -226,6 +226,18 @@ class NotionService:
             response.raise_for_status()  # Raise an error for bad responses
         return character
     
+    def get_current_gods(self):
+        try:
+            cache_key = self.redis_service.get_cache_key('loaded_characters_level:completerray', 'l2')
+            current_gods = self.redis_service.get(cache_key)
+            if current_gods is None:
+                current_gods = self.redis_service.query_characters('deep_level', 'l2')
+                self.redis_service.set_with_expiry(cache_key, current_gods, expiry_hours=self.expiry_minutes)
+            return current_gods
+        except Exception as e:
+            print(f"Failed to fetch characters gods: {e}")
+            raise
+
     def get_characters_by_property(self, property, value):
         try:
             return self.redis_service.query_characters(property, value)                

@@ -335,7 +335,7 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(data => {
             adventures_executed = data.count
-                logActivity(`Adventures Executed ${adventures_executed}`);
+            logActivity(`Adventures Executed ${adventures_executed}`);
         })
         .then(() => {
                 fetch(`/api/tournament/evaluate/all`, {

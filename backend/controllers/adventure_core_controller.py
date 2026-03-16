@@ -56,6 +56,7 @@ def execute_adventure_by_status(status):
     adventures = notion_service.get_adventure_by_status(status)
     executed = []
     for adv in adventures:
+        print('⚔️  '+adv['name'])
         executed.append(adventure_service.execute_adventure(adv['id']))
     return jsonify({"count": len(executed) , "adventures": executed}), 200
 
