@@ -28,7 +28,7 @@ def loadalivepeople(deep_level):
     dead_people = notion_service.get_characters_by_deep_level_status(deep_level, status="alive")
     return jsonify({"count": len(dead_people) , "characters": dead_people}), 200
 
-@notion_bp.route('/countdeadpeople/<deep_level>', methods=['GET'])
+@notion_bp.route('/countdeadpeople/<deep_level>', methods=['POST'])
 def countdeadpeople(deep_level):
     if not deep_level.startswith('l'):
         return jsonify({"error": "Invalid deep_level"}), 400

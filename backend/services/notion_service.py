@@ -230,8 +230,11 @@ class NotionService:
         try:
             cache_key = self.redis_service.get_cache_key('loaded_characters_level:completerray', 'l2')
             current_gods = self.redis_service.get(cache_key)
-            if current_gods is None:
+            if current_gods is None or len(current_gods) <= 0:
                 current_gods = self.redis_service.query_characters('deep_level', 'l2')
+                if len(current_gods) <= 0:
+                    current_gods = self.get_characters_by_deep_level_status("l2","high")
+                    current_gods += self.get_characters_by_deep_level_status("l2","dead")
                 self.redis_service.set_with_expiry(cache_key, current_gods, expiry_hours=self.expiry_minutes)
             return current_gods
         except Exception as e:
