@@ -42,6 +42,23 @@ def update_adventure(id):
         return jsonify({"error": str(e), "result": None}), 500
     return jsonify(result)
 
+@adventure_bp.route('/<status>', methods=['GET'])
+def get_adventure_by_status(status):
+    if status not in('created','accepted','skipped','lost','won','Archived'):
+        return jsonify({"error": "Invalid status"}), 400
+    adventures = notion_service.get_adventure_by_status(status)
+    return jsonify(adventures)
+
+@adventure_bp.route('/<status>', methods=['POST'])
+def execute_adventure_by_status(status):
+    if status not in('created','accepted','skipped','lost','won','Archived'):
+        return jsonify({"error": "Invalid status"}), 400
+    adventures = notion_service.get_adventure_by_status(status)
+    executed = []
+    for adv in adventures:
+        print('⚔️  '+adv['name'])
+        executed.append(adventure_service.execute_adventure(adv['id']))
+    return jsonify({"count": len(executed) , "adventures": executed}), 200
 
 @adventure_bp.route('/underworld', methods=['POST'])
 def execute_underworld():

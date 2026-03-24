@@ -2,10 +2,12 @@ from flask import Blueprint, jsonify
 from datetime import datetime, timedelta
 from backend.services.notion_service import NotionService
 from backend.services.redis_service import RedisService
+from backend.services.adventure_service import AdventureService
 
 notion_bp = Blueprint('notion', __name__)
 notion_service = NotionService()
 redis_service = RedisService()
+adventure_service = AdventureService()
 
 @notion_bp.route('/characters/<id>', methods=['GET'])
 def get_character_by_id(id):
@@ -26,7 +28,7 @@ def loadalivepeople(deep_level):
     dead_people = notion_service.get_characters_by_deep_level_status(deep_level, status="alive")
     return jsonify({"count": len(dead_people) , "characters": dead_people}), 200
 
-@notion_bp.route('/countdeadpeople/<deep_level>', methods=['GET'])
+@notion_bp.route('/countdeadpeople/<deep_level>', methods=['POST'])
 def countdeadpeople(deep_level):
     if not deep_level.startswith('l'):
         return jsonify({"error": "Invalid deep_level"}), 400
@@ -62,6 +64,9 @@ def apply_character_pills(deep_level):
     for pill_color in ['red','yellow', 'blue', 'green',  'orange', 'purple', 'gray', 'brown', 'pink']:
         result = apply_all_pills(deep_level=deep_level, pill_color=pill_color)
         jsonback[pill_color] = result
+    characters_awaked = adventure_service.awake_characters()
+    jsonback['awaked'] = characters_awaked
+    jsonback['awaked_count'] = len(characters_awaked)
     return jsonify(jsonback)
 
 @notion_bp.route('/characters/applypills/<deep_level>/color/<pill_color>', methods=['POST'])
@@ -76,6 +81,18 @@ def apply_all_pills(deep_level, pill_color ):
     
     result = notion_service.apply_all_pills(deep_level=deep_level, pill_color=pill_color, )
     return result
+
+@notion_bp.route('/characters/applypill/color/<pill_color>/<character_id>', methods=['POST'])
+def apply_pill( pill_color ,character_id):
+    if pill_color not in ('yellow', 'blue', 'green', 'red', 'orange', 'purple', 'gray', 'brown', 'pink'):
+        return jsonify({"error": "Invalid pill color " + pill_color}), 400
+    character = notion_service.get_character_by_id(character_id)
+    alive_chars = notion_service.get_characters_by_deep_level_npc_and_status('l3', True , 'alive')
+    result = None
+    if character:
+        print(f'💊 {pill_color} for {character['name']}')
+        result = notion_service.apply_pill_color_to_character(character, pill_color, alive_chars)
+    return result 
 
 @notion_bp.route('/dlychcklst/week/<int:week_number>/<int:year_number>', methods=['GET'])
 def get_daily_checklist(week_number, year_number):

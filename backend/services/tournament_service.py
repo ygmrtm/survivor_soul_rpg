@@ -8,8 +8,6 @@ from backend.services.redis_service import RedisService
 class TournamentService:
     GOLDEN_RATIO = 1.618033988749895
     dice_size = 360
-    notion_service = NotionService()
-    redis_service = RedisService()
     encounter_log = []
     #max_xp = 500
     #max_hp = 100
@@ -18,7 +16,19 @@ class TournamentService:
     max_xprwd = 4
     max_coinrwd = 10    
     total_rounds = 500
+    expiry_minutes = 90 / 60
+    _instance = None
 
+    def __new__(cls):
+        """Override __new__ to implement Singleton pattern."""
+        if cls._instance is None:
+            cls._instance = super(TournamentService, cls).__new__(cls)
+        return cls._instance    
+
+    def __init__(self):
+        self.notion_service = NotionService()
+        self.redis_service = RedisService()
+        # print(self.healthcheck())
 
     def create_tournament(self, title, description):
         gods = self.notion_service.get_characters_by_deep_level_npc(deep_level='l0', is_npc=True)
@@ -47,9 +57,8 @@ class TournamentService:
             adventure = self.redis_service.get(self.redis_service.get_cache_key("tournaments", tournament_id))
             if not adventure:
                 adventure = self.notion_service.get_adventure_by_id(tournament_id)
-                hours = 2 # abs(datetime.datetime.now() - datetime.datetime.fromisoformat(adventure['due'])).total_seconds() / 3600
                 self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament_id)
-                                                    ,adventure, expiry_hours=hours)
+                                                    ,adventure, expiry_hours=self.expiry_minutes)
             return adventure
         except Exception as e:
             print(f"Failed to fetch get_by_id {tournament_id} ::: {e}")
@@ -57,7 +66,12 @@ class TournamentService:
 
     def get_all_open_tournaments(self):
         try:
-            return self.notion_service.get_all_open_tournaments()
+            tournaments = self.redis_service.query_tournaments('status','created')
+            if not tournaments:
+                tournaments = self.notion_service.get_all_open_tournaments()
+                for tournament in tournaments:
+                    self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id']),tournament, expiry_hours=self.expiry_minutes)
+            return tournaments
         except Exception as e:
             print(f"Failed to fetch get_all_open_tournaments ::: {e}")
             raise        
@@ -68,7 +82,11 @@ class TournamentService:
             and_break = False
             #print(len(tournaments), " tournaments")
             actually_executed = 0
-            l2_gods = self.notion_service.get_characters_by_deep_level_npc(deep_level='l2', is_npc=True)
+            cache_key = self.redis_service.get_cache_key('loaded_characters_level:completerray', 'l2')
+            l2_gods = self.redis_service.get(cache_key)
+            if l2_gods is None:
+                l2_gods = self.notion_service.get_characters_by_deep_level_npc(deep_level='l2', is_npc=True)
+                self.redis_service.set_with_expiry(cache_key, l2_gods, expiry_hours=self.expiry_minutes)
             for tournament in tournaments:
                 self.encounter_log = []
                 whos = []
@@ -105,6 +123,7 @@ class TournamentService:
                     hours = abs(datetime.datetime.now() - datetime.datetime.fromisoformat(tournament['due'])).total_seconds() / 3600
                     #print(self.encounter_log)
                     self.notion_service.persist_adventure(adventure=tournament, characters=whos)
+                    self.redis_service.delete(self.redis_service.get_cache_key('tournaments',tournament['id']))
                     #self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id'])
                     #                                                        ,tournament, expiry_hours=hours)
                 else:

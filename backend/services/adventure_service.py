@@ -21,12 +21,23 @@ class AdventureService:
     percentage_habits = 0.7 # for challenges how many habits to pick
     percentage_execute_dead = 0.25
     encounter_log = []
-    dice_size = 2025
+    all_gods = []
+    dice_size = 4025
     expiry_hours = 0.5
     was_too_much_limit = 20
-    redis_service = RedisService()
-    notion_service = NotionService()
+    _instance = None
 
+    def __new__(cls):
+        """Override __new__ to implement Singleton pattern."""
+        if cls._instance is None:
+            cls._instance = super(AdventureService, cls).__new__(cls)
+        return cls._instance    
+
+    def __init__(self):
+        self.redis_service = RedisService()
+        self.notion_service = NotionService()
+        self.all_gods = self.notion_service.get_current_gods()
+        
     def create_adventure(self, character_id, underworld=False, npc_gods=None):
         """Create a new adventure based on specified parameters."""
         # Retrieve the character using the character_id
@@ -499,16 +510,21 @@ class AdventureService:
                 delta = datetime.strptime(adventure['due'], "%Y-%m-%d") - datetime.today()
                 self.add_encounter_log(0,"","Missed adventure by {} days".format(delta.days * -1))
                 adventure['status'] = 'missed'
+            elif who['status'] != 'alive':
+                print(f'cannot execute due {who['name']} is not alive')
+                self.add_encounter_log(0,"",f'cannot execute due {who['name']} is not alive')
+                who['status'] = 'alive'
+                who['hp'] *= -1 
             elif "encounter" in adventure['path']:
                 # Get NPC GODS characters for support and pick only one.
                 high_gods = []
                 dead_gods = []
-                all_gods = self.notion_service.get_characters_by_property('deep_level', 'l2')
-                for god in all_gods:
+                for god in self.all_gods:
                     if god['status'] == 'high':
                         high_gods.append(god)
                     if god['status'] == 'dead':
                         dead_gods.append(god)
+                print(f'Gods: {len(self.all_gods)}  | High {len(high_gods)}  | Dead {len(dead_gods)}')
                 god_support = random.choice(high_gods) if high_gods else None
                 self.add_encounter_log(god_support['level'], "level",'powered⚡️by⚡️{}'.format(god_support['name']))
                 for vs in adventure['vs']:
@@ -793,8 +809,9 @@ class AdventureService:
         return return_array
 
     def awake_characters(self):
-        l3_characters = self.notion_service.get_characters_by_property('deep_level', 'l3')
-        filtered_characters = [c for c in l3_characters if c['status'] == 'rest' or c['status'] == 'dying']
+        l3_characters = self.notion_service.get_characters_by_property('status', 'rest')
+        l3_characters += self.notion_service.get_characters_by_property('status', 'dying')
+        filtered_characters = [c for c in l3_characters if c['deep_level'] == 'l3' ]
         gods = self.notion_service.get_characters_by_deep_level_npc('l2', is_npc=True) 
         gods += self.notion_service.get_characters_by_deep_level_npc('l1', is_npc=True)
         gods += self.notion_service.get_characters_by_deep_level_npc('l0', is_npc=True)

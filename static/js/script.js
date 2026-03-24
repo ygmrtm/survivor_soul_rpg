@@ -226,6 +226,22 @@ document.addEventListener("DOMContentLoaded", function () {
         // Define sequential underworld steps
         const steps = [
             {
+                name: 'Adventures Punishment Executing...',
+                endpoint: '/api/adventure/underworld/punish',
+                process: (data) => {
+                    const punishments = data.punishments_count || 0;
+                    logActivity(`Underworlds 💩 punishments: ${punishments}`);
+                }
+            },
+            {
+                name: 'Underworlds Awaking...',
+                endpoint: '/api/adventure/underworld/awake',
+                process: (data) => {
+                    const awaked = data.awaked_count || 0;
+                    logActivity(`Underworlds 💀 awaked: ${awaked}`);
+                }
+            },
+            {
                 name: 'Underworlds Creating...',
                 endpoint: '/api/adventure/underworld/create',
                 process: (data) => {
@@ -240,24 +256,15 @@ document.addEventListener("DOMContentLoaded", function () {
                 process: (data) => {
                     const executed = data.executed_count || 0;
                     reborn = executed;
-                    still_dead = Math.max(0, totalDead - executed);
                     logActivity(`Underworlds 💀 executed: ${executed}`);
                 }
             },
             {
-                name: 'Underworlds Awaking...',
-                endpoint: '/api/adventure/underworld/awake',
+                name: 'Counting 💀 People...',
+                endpoint: '/api/notion/countdeadpeople/l3',
                 process: (data) => {
-                    const awaked = data.awaked_count || 0;
-                    logActivity(`Underworlds 💀 awaked: ${awaked}`);
-                }
-            },
-            {
-                name: 'Adventures Punishment Executing...',
-                endpoint: '/api/adventure/underworld/punish',
-                process: (data) => {
-                    const punishments = data.punishments_count || 0;
-                    logActivity(`Underworlds 💩 punishments: ${punishments}`);
+                    still_dead = data.count || 0;
+                    logActivity(`Remains 💀: ${still_dead}`);
                 }
             }
         ];
@@ -322,31 +329,49 @@ document.addEventListener("DOMContentLoaded", function () {
         current_to_execute = document.getElementById('pending-tournaments').innerText;
         let still_not_executed = 0;
         let actually_executed = 0;
+        let adventures_executed = 0;
         logActivity(`Executing ${current_to_execute} ⚔️ tournament(s)...`);
 
         // First endpoint to
-        fetch(`/api/tournament/evaluate/all`, {
-            method: 'GET'
+        fetch('/api/adventure/created',{method: 'POST'})
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok | execute created adventures');
+            }
+            return response.json();
         })
-        .then(response => response.json())
         .then(data => {
-            console.log('tournaments response', data);
-            still_not_executed = data.still_not_executed
-            actually_executed = data.actually_executed
+            adventures_executed = data.count
+            logActivity(`Adventures Executed ${adventures_executed}`);
+
+            fetch(`/api/tournament/evaluate/all`, {
+                method: 'GET'
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log('tournaments response', data);
+                still_not_executed = data.still_not_executed
+                actually_executed = data.actually_executed
+            })
+            .catch(error => {
+                console.error('Error fetching Adventures:', error);
+                logActivity(`❌❌ Error : ${error.message}`);
+            })
+            .finally(() => {
+                document.getElementById('pending-tournaments').innerText = "(" + still_not_executed + ")";
+                if(still_not_executed > 0){
+                    button.disabled = false;
+                    logActivity(`Still pending ${still_not_executed} tournaments.`);
+                }else{
+                    logActivity(`Tournaments executed 🗡️ ${actually_executed}/${current_to_execute}`)
+                }
+            });            
         })
         .catch(error => {
             console.error('Error in tournament:', error);
             logActivity(`❌❌ Error in tournament:: ${error.message}`);
         })
-        .finally(() => {
-            document.getElementById('pending-tournaments').innerText = "(" + still_not_executed + ")";
-            if(still_not_executed > 0){
-                button.disabled = false;
-                logActivity(`Still pending ${still_not_executed} tournaments.`);
-            }else{
-                logActivity(`Tournaments executed 🗡️ ${actually_executed}/${current_to_execute}`)
-            }
-        });
+
     });
 
     document.getElementById('flush-button').addEventListener('click', function() {
@@ -415,7 +440,6 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById('version-number').innerText = '0.0.0'; // Fallback version
         });
 
-        // Fetch the dead people number from the new endpoint
     fetch('/api/notion/loaddeadpeople/l3')
         .then(response => {
             if (!response.ok) {
@@ -426,28 +450,9 @@ document.addEventListener("DOMContentLoaded", function () {
         .then(data => {
             if(data.count > 0){
                 logActivity(`Dead people loaded 💀 ${data.count}`);
+                document.getElementById('underworld-button').disabled = false;
                 document.getElementById('dead-people').innerText = "(" + data.count + "☠️)";
             }
-        }).then(() => {
-            fetch('/api/notion/countdeadpeople/l3')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok | countdeadpeople');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if(data.count > 0){
-                        logActivity(`Dead people counted 💀 ${data.count}`);
-                        document.getElementById('underworld-button').disabled = false;
-                        document.getElementById('dead-people').innerText = "(" + data.count + "☠️)";
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching counts:', error);
-                    logActivity(`❌❌ Error : ${error.message}`);
-                    document.getElementById('dead-people').innerText = '0'; // Fallback version
-                });
         }).catch(error => {
             console.error('Error fetching counts:', error);
             logActivity(`❌❌ Error : ${error.message}`);
