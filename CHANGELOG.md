@@ -480,3 +480,25 @@ feature: storing by status
 - [x]  issue - [](https://www.notion.so/2fea3d23499280fa921bebb9599c15ea?pvs=21)
 ---
 
+## [1.4.7] - 2026-03-24
+Merge dea11d0998dd7af3479e9c77e158e6acd33aa9f9 into 5046d0c3619dd5bbf3d623bc7a83ba5d14b1196e
+
+tournament, dead changes
+
+tournaments and all gods persist
+
+tournaments query
+tournament singleton
+get current gods
+
+various changes
+
+- execute pending adventures at the same time than tournaments.
+- apply_pill_color_to_character
+- pill color orange
+- awake after apply pills
+- Adventure (get and put) by status
+
+Update CHANGELOG for version 1.4.6
+---
+
