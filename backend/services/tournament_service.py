@@ -9,10 +9,6 @@ class TournamentService:
     GOLDEN_RATIO = 1.618033988749895
     dice_size = 360
     encounter_log = []
-    #max_xp = 500
-    #max_hp = 100
-    #max_sanity = 60    
-    #max_prop_limit = 20
     max_xprwd = 4
     max_coinrwd = 10    
     total_rounds = 500

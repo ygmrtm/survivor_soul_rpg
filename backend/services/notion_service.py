@@ -20,7 +20,7 @@ class NotionService:
     max_coinrwd = 10      
     max_prop_limit = 15
     lines_per_paragraph = 90
-    expiry_hours = 48
+    expiry_hours = 96
     expiry_minutes = 90 / 60
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
@@ -575,7 +575,8 @@ class NotionService:
         url = f"{self.base_url}/pages/{character_id}"
         response = requests.patch(url, headers=self.headers, json=updates)
         if response.status_code == 200:  # Check if the request was successful
-            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('characters',character_id), character, self.expiry_hours)
+            expirity = self.expiry_minutes if character['status'] != 'alive' and character['level'] == 'l3' else self.expiry_hours
+            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('characters',character_id), character, expirity)
             self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:completerray',character['deep_level']+'*'))
             self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',character['deep_level']+'*'))
             return response.json()
