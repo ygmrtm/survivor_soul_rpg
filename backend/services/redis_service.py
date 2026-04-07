@@ -2,10 +2,13 @@ import redis
 import json
 from config import REDIS_URL
 
+
 class RedisService:
     _instance = None
     _pool = None
-
+    expiry_hours = 96
+    expiry_minutes = 60
+    expiry_seconds = expiry_minutes * 60
     def __new__(cls):
         """Implement Singleton pattern to ensure only one instance of RedisService exists."""
         if cls._instance is None:
@@ -95,6 +98,7 @@ class RedisService:
         try:
             serialized_value = json.dumps(value) 
             self.redis_client.sadd(key, serialized_value)
+            respon = self.redis_client.expire(key, self.expiry_hours * 3600)
         except Exception as e:
             print(f"❌ Error setting Redis key {key}: {str(e)}")
         
@@ -116,22 +120,43 @@ class RedisService:
             print(f"Error getting Redis key {key}: {str(e)}")
             return None
 
-    def get_smembers(self, key):
-        """
-        Get value for a key.
-        
-        Args:
-            key (str): Redis key
-        
-        Returns:
-            The deserialized value or None if key doesn't exist
-        """
+    def smembers(self, key):
         try:
             value = self.redis_client.smembers(key)
-            print(f"get_raw({key}) type {type(value)}")
+            print(f"smembers({key}) type {type(value)}")
             return value if value else None
         except Exception as e:
             print(f"Error getting Redis key {key}: {str(e)}")
+            return None
+
+    def hset(self, name, key, value):
+        try:
+            serialized_value = json.dumps(value) 
+            result = self.redis_client.hset(name=name, key=key, value=serialized_value)
+            self.redis_client.expire(name, self.expiry_hours * 3600)
+            if key in ['hours_recovered']:
+                result = self.redis_client.hexpire(name, self.expiry_seconds, key)
+            return result 
+        except Exception as e:
+            print(f"Error setting Redis key {key}: {str(e)}")
+            return None
+
+    def hscan(self, name, match, count=10):
+        try:
+            result = self.redis_client.hscan(name=name, match=match, count=count)
+            print(f"hscan({name}, {match}, {count}) ? { result }")
+            return result
+        except Exception as e:
+            print(f"Error hscan({name}, {match}): {str(e)}")
+            return None
+
+    def sscan(self, name, match, count=10):
+        try:
+            result = self.redis_client.sscan(name=name, match=match, count=count)
+            print(f"sscan({name}, {match}, {count}) ? { result }")
+            return result
+        except Exception as e:
+            print(f"Error sscan({name}, {match}, {count}): {str(e)}")
             return None
 
     def delete(self, key):

@@ -575,7 +575,8 @@ class NotionService:
         url = f"{self.base_url}/pages/{character_id}"
         response = requests.patch(url, headers=self.headers, json=updates)
         if response.status_code == 200:  # Check if the request was successful
-            expirity = self.expiry_minutes if character['status'] != 'alive' and character['level'] == 'l3' else self.expiry_hours
+            #print("🥶🤮",character['status'],character['deep_level'])
+            expirity = self.expiry_minutes if character['status'] != 'alive' and character['deep_level'] == 'l3' else self.expiry_hours
             self.redis_service.set_with_expiry(self.redis_service.get_cache_key('characters',character_id), character, expirity)
             self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:completerray',character['deep_level']+'*'))
             self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',character['deep_level']+'*'))

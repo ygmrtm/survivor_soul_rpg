@@ -1,5 +1,6 @@
+from redis import cache
+from backend.services import redis_service
 from backend.services.redis_service import RedisService
-from dotenv import load_dotenv
 
 def test_redis_connection():
     try:
@@ -25,7 +26,68 @@ def test_redis_connection():
         print(f"Redis Cloud test failed: {str(e)}")
         return False
 
+
+def test_insert_as_set(character_id):
+    try:
+        redis_service = RedisService()
+        cache_key_from = redis_service.get_cache_key('characters', character_id)
+        cache_key_to = redis_service.get_cache_key('cryptids', character_id)
+        character = redis_service.get(cache_key_from)
+        #print(character)
+        if character:
+            redis_service.hset(cache_key_to, 'name' , character['name']  )
+            redis_service.hset(cache_key_to, 'status' , character['status']  )
+            redis_service.hset(cache_key_to, 'picture' , character['picture']  )
+            redis_service.hset(cache_key_to, 'level' , character['level']  )
+            redis_service.hset(cache_key_to, 'coins' , character['coins']  )
+            redis_service.hset(cache_key_to, 'xp' , character['xp']  )
+            redis_service.hset(cache_key_to, 'max_xp' , character['max_xp']  )
+            redis_service.hset(cache_key_to, 'hp' , character['hp']  )
+            redis_service.hset(cache_key_to, 'max_hp' , character['max_hp']  )
+            redis_service.hset(cache_key_to, 'sanity' , character['sanity']  )
+            redis_service.hset(cache_key_to, 'max_sanity' , character['max_sanity']  )
+            redis_service.hset(cache_key_to, 'attack' , character['attack']  )
+            redis_service.hset(cache_key_to, 'defense' , character['defense']  )
+            redis_service.hset(cache_key_to, 'magic' , character['magic']  )
+            redis_service.hset(cache_key_to, 'inventory' , character['inventory']  )
+            redis_service.hset(cache_key_to, 'npc' , character['npc']  )
+            redis_service.hset(cache_key_to, 'deep_level' , character['deep_level']  )
+            redis_service.hset(cache_key_to, 'alter_ego' , character['alter_ego']  )
+            redis_service.hset(cache_key_to, 'alter_subego' , character['alter_subego']  )
+            redis_service.hset(cache_key_to, 'respawn' , character['respawn']  )
+            redis_service.hset(cache_key_to, 'pending_reborn' , character['pending_reborn']  )
+            redis_service.hset(cache_key_to, 'hours_recovered' , character['hours_recovered']  )
+            redis_service.hset(cache_key_to, 'description' , character['description']  )
+            
+            redis_service.ssad(redis_service.get_cache_key('cryptids:sets', 'all') , cache_key_to)
+            redis_service.ssad(redis_service.get_cache_key('cryptids:sets', character['status']) , cache_key_to)
+            redis_service.ssad(redis_service.get_cache_key('cryptids:sets', character['deep_level']) , cache_key_to)
+            redis_service.ssad(redis_service.get_cache_key('cryptids:sets', character['deep_level'] + ':' + character['status']) , cache_key_to)
+    except Exception as e:
+        print(f"Redis Cloud test failed: {str(e)}")
+        return False
+
+def test_hscan(name, pattern):
+    try:
+        redis_service = RedisService()
+        result = redis_service.hscan(name, pattern)
+        print("Test Result:", result)
+    except Exception as e:
+        print(f"Redis Cloud test failed: {str(e)}")
+        return False
+
+def test_sscan(name, pattern):
+    try:
+        redis_service = RedisService()
+        result = redis_service.sscan(name, pattern)
+        print("Test Result:", result)
+    except Exception as e:
+        print(f"Redis Cloud test failed: {str(e)}")
+        return False
+
 # Run test
 if __name__ == "__main__":
-    load_dotenv()
-    test_redis_connection()
+    print("🍎_🍏")
+    #test_redis_connection()
+    test_insert_as_set('150a3d23499280c98bc7c6a602ee96d4')
+    #test_sscan('rpg:cryptids:sets:all','*')
