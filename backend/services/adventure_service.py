@@ -36,7 +36,10 @@ class AdventureService:
     def __init__(self):
         self.redis_service = RedisService()
         self.notion_service = NotionService()
-        self.all_gods = self.notion_service.get_current_gods()
+        self.coding_service = CodingService()
+        self.bike_service = BikingService()
+        self.stencil_service = StencilService()
+        self.epics_service = EpicsService()
         
     def create_adventure(self, character_id, underworld=False, npc_gods=None):
         """Create a new adventure based on specified parameters."""
@@ -511,8 +514,8 @@ class AdventureService:
                 self.add_encounter_log(0,"","Missed adventure by {} days".format(delta.days * -1))
                 adventure['status'] = 'missed'
             elif who['status'] != 'alive':
-                print(f'cannot execute due {who['name']} is not alive')
-                self.add_encounter_log(0,"",f'cannot execute due {who['name']} is not alive')
+                print(f'cannot execute due {who["name"]} is not alive')
+                self.add_encounter_log(0,"",f'cannot execute due {who["name"]} is not alive')
                 who['status'] = 'alive'
                 who['hp'] *= -1 
             elif "encounter" in adventure['path']:
@@ -653,7 +656,7 @@ class AdventureService:
                 who['xp'] += self.steal_property(loser=enemy, winner=who)
                 return True
         if was_too_much:
-                self.add_encounter_log(who['hp'], "hp", f'Tie after {rounds} rounds, your enemy {enemy['hp']} HP left.')
+                self.add_encounter_log(who['hp'], "hp", f'Tie after {rounds} rounds, your enemy {enemy["hp"]} HP left.')
                 enemy['xp'] += self.steal_property(loser=who, winner=enemy)
                 who['xp'] += self.steal_property(loser=enemy, winner=who)
                 return True
@@ -809,18 +812,16 @@ class AdventureService:
         return return_array
 
     def awake_characters(self):
-        l3_characters = self.notion_service.get_characters_by_property('status', 'rest')
-        l3_characters += self.notion_service.get_characters_by_property('status', 'dying')
-        filtered_characters = [c for c in l3_characters if c['deep_level'] == 'l3' ]
-        gods = self.notion_service.get_characters_by_deep_level_npc('l2', is_npc=True) 
-        gods += self.notion_service.get_characters_by_deep_level_npc('l1', is_npc=True)
-        gods += self.notion_service.get_characters_by_deep_level_npc('l0', is_npc=True)
-        add_characters =gods#[ char for char in gods if (len(char['alter_subego']) > 0 and char['status'] == 'dead')] 
-        #for char in gods:
-        #    print('🌳 awakening ',char['name'],char['status'],char['hp'],'/',char['max_hp'],char['alter_subego'])
-        #print(f' awakening god {len(add_characters)} out of {len(gods)}')
+        characters = []
+        # First go to REDIS
+        characters = self.redis_service.query_characters_by_deep_status(
+            prefix=self.redis_service.get_cache_key('cryptids')
+            , status = 'rest' )
+        characters += self.redis_service.query_characters_by_deep_status(
+            prefix=self.redis_service.get_cache_key('cryptids')
+            , status = 'dying' )
         return_array = []
-        for character in (filtered_characters + add_characters):
+        for character in characters:
             go = False
             pct_before = character['hp'] / character['max_hp']
             pct_after = (character['hp'] + character['hours_recovered']) / character['max_hp']

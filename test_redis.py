@@ -2,6 +2,7 @@ from redis import cache
 from backend.services import redis_service
 from backend.services.redis_service import RedisService
 
+
 def test_redis_connection():
     try:
         redis_service = RedisService()
@@ -60,9 +61,11 @@ def test_insert_as_set(character_id):
             redis_service.hset(cache_key_to, 'description' , character['description']  )
             
             redis_service.ssad(redis_service.get_cache_key('cryptids:sets', 'all') , cache_key_to)
-            redis_service.ssad(redis_service.get_cache_key('cryptids:sets', character['status']) , cache_key_to)
-            redis_service.ssad(redis_service.get_cache_key('cryptids:sets', character['deep_level']) , cache_key_to)
+            #redis_service.ssad(redis_service.get_cache_key('cryptids:sets', character['status']) , cache_key_to)
+            #redis_service.ssad(redis_service.get_cache_key('cryptids:sets', character['deep_level']) , cache_key_to)
             redis_service.ssad(redis_service.get_cache_key('cryptids:sets', character['deep_level'] + ':' + character['status']) , cache_key_to)
+
+            redis_service.set_index(redis_service.get_cache_key('cryptids') ) 
     except Exception as e:
         print(f"Redis Cloud test failed: {str(e)}")
         return False
@@ -85,9 +88,32 @@ def test_sscan(name, pattern):
         print(f"Redis Cloud test failed: {str(e)}")
         return False
 
+def query_characters_by_deep_status( prefix, deep_level=None, status=None):
+    try:
+        redis_service = RedisService()
+        result = redis_service.query_characters_by_deep_status(prefix=prefix, deep_level=deep_level, status=status)
+        #print("Test Result:", result)
+    except Exception as e:
+        print(f"Redis Cloud test failed: {str(e)}")
+        return False
+
+def test_query( ):
+    try:
+        redis_service = RedisService()
+        result = redis_service.query_characters('deep_level','l2')
+        print(result)
+    except Exception as e:
+        print(f"Redis Cloud test failed: {str(e)}")
+        return False
+
 # Run test
 if __name__ == "__main__":
     print("🍎_🍏")
     #test_redis_connection()
-    test_insert_as_set('150a3d23499280c98bc7c6a602ee96d4')
-    #test_sscan('rpg:cryptids:sets:all','*')
+    #test_insert_as_set('150a3d23499280c98bc7c6a602ee96d4')
+    #test_insert_as_set('0a819f70cdc44095a94d3c7dc1a724c8')
+    #test_insert_as_set('122a3d2349928020ab78ccdc6aab747d')
+    #test_sscan('rpg:cryptids:sets:l1','high*')
+    query_characters_by_deep_status( 'rpg:cryptids:', deep_level='l2')
+    #query_characters_by_deep_status( 'rpg:cryptids:', status='dead')
+    #test_query()

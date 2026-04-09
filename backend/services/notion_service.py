@@ -20,8 +20,8 @@ class NotionService:
     max_coinrwd = 10      
     max_prop_limit = 15
     lines_per_paragraph = 90
-    expiry_hours = 96
-    expiry_minutes = 90 / 60
+    expiry_hours = 72
+    expiry_minutes = 90
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
@@ -45,8 +45,23 @@ class NotionService:
             "Notion-Version": "2022-06-28",
             'Content-Type': 'application/json'
         }
+        #print(self.healthcheck())
         self.redis_service = RedisService()
-        # print(self.healthcheck())
+        
+    TYPE_KEYS = (
+        "title", "rich_text", "number", "select", "multi_select",
+        "status", "date", "checkbox", "url", "email", "phone_number",
+        "people", "files", "relation", "formula", "rollup",
+    )
+
+    def notion_prop_kind(self, prop):
+        """Return ('number', value) etc., or (None, raw) if unknown."""
+        if not isinstance(prop, dict):
+            return None, prop
+        for kind in self.TYPE_KEYS:
+            if kind in prop:
+                return kind, prop[kind]
+        return None, prop
 
     def healthcheck(self):
         """
@@ -85,42 +100,20 @@ class NotionService:
 
         return health_status
     
-    def get_all_raw_characters(self):
-        # Try to get from cache first
-        cache_key = self.redis_service.get_cache_key('characters', 'all')
-        cached_characters = self.redis_service.get(cache_key)
-        if cached_characters is not None:
-            print("Using ALL cached characters:", len(cached_characters))
-            return cached_characters
-        # If not in cache, fetch from Notion
-        url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
-        all_characters = []
-        has_more = True
-        start_cursor = None
-        while has_more:
-            payload = {}
-            if start_cursor:
-                payload['start_cursor'] = start_cursor
-            response = requests.post(url, headers=self.headers, json=payload)
-            response.raise_for_status()
-            data = response.json()
-            all_characters.extend(data.get("results", []))
-            has_more = data.get("has_more", False)
-            start_cursor = data.get("next_cursor")
-        # Cache the results
-        self.redis_service.set_with_expiry(cache_key, all_characters, expiry_hours=self.expiry_hours)
-        print("Fetched and cached ALL characters:", len(all_characters))
-        return all_characters
-
-    def count_dead_people(self, deep_level):
+    def count_dead_people_source(self, deep_level):
         """Count the number of dead people in the database."""
         url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
         headcount = 0
+        characters = []
         try:
-            dead_people = self.redis_service.query_characters('status', 'dead')
-            by_level_dp = [c for c in dead_people if c['deep_level'] == deep_level]
-            headcount = len(by_level_dp)
+            # First go to REDIS
+            characters = self.redis_service.query_characters_by_deep_status(
+                prefix=self.redis_service.get_cache_key('cryptids')
+                , deep_level=deep_level
+                ,status = 'dead' )
+            headcount = len(characters)
             if headcount <= 0:
+                print(f'no cached | going to the source | count_dead_people_source({deep_level})')
                 data_filter = {
                     "filter": {
                         "and": [
@@ -138,27 +131,44 @@ class NotionService:
                     response = requests.post(url, headers=self.headers, json=data_filter)
                     response.raise_for_status()  # Raise an error for bad responses
                     data = response.json()
-                    # Extend the characters list with the results from this page
                     headcount += len(data.get('results', []))
+                    characters.extend(self.translate_characters(data.get('results', [])))
                     # Check if there are more pages
                     has_more = data.get("has_more", False)
-                    start_cursor = data.get("next_cursor")  
-                print(f"☠️ counted {headcount} from source")
-            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',deep_level)
-                                        , headcount, self.expiry_minutes)
+                    start_cursor = data.get("next_cursor")
+                    print(f"Fetched {len(data.get('results', []))} characters 💀 for level {deep_level}, total so far: {len(characters)}")
+                print(f"☠️ {headcount} counted from source... loading cached hash...")
+                for character in characters:
+                    cache_key = self.redis_service.get_cache_key('cryptids', character['id'])
+                    if not self.redis_service.exists(cache_key):
+                        self.redis_service.set_character_hash(
+                            cache_key
+                            , character
+                            , expiry_seconds=self.expiry_hours * 3600)
         except Exception as e:
             print(f"Failed to count dead people: {e}")
             response.raise_for_status()  # Raise an error for bad responses
         return headcount
 
-    def count_people_pills(self, deep_level):
+    def count_people_pills_source(self, deep_level):
         """Count the number of people with pills in the database."""
         url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
         headcount = 0
+        characters = []
         try:
-            characters = self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray',f"{deep_level}"))
-            if not characters:
-                characters = []
+            # First go to REDIS
+            characters = self.redis_service.query_characters_by_deep_status(
+                prefix=self.redis_service.get_cache_key('cryptids')
+                , deep_level=deep_level, status = 'dead' )
+            characters += self.redis_service.query_characters_by_deep_status(
+                prefix=self.redis_service.get_cache_key('cryptids')
+                , deep_level=deep_level, status = 'dying' )
+            characters += self.redis_service.query_characters_by_deep_status(
+                prefix=self.redis_service.get_cache_key('cryptids')
+                , deep_level=deep_level, status = 'rest' )
+            headcount = len(characters)
+            if headcount <= 0:
+                print(f'no cached | going to the source | count_people_pills_source({deep_level})')
                 data_filter = {
                     "filter": {
                         "and": [
@@ -190,17 +200,15 @@ class NotionService:
                     # Check if there are more pages
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")  
-                    print(f"Fetched {len(data.get('results', []))} characters with pill for level {deep_level}, total so far: {len(characters)}")
+                    print(f"Fetched {len(data.get('results', []))} characters with 💊 for level {deep_level}, total so far: {len(characters)}")
+                print(f"💊 {headcount} counted from source... loading cached hash...")
                 for character in characters:
-                    cache_key = self.redis_service.get_cache_key('characters', character['id'])
+                    cache_key = self.redis_service.get_cache_key('cryptids', character['id'])
                     if not self.redis_service.exists(cache_key):
-                        self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
-            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray',f"{deep_level}")
-                                            , characters, self.expiry_minutes )
-            headcount = len(characters)
-            print(f"💊 counted {headcount}")
-            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:headcount',deep_level)
-                                        , headcount, self.expiry_minutes )
+                        self.redis_service.set_character_hash(
+                            cache_key
+                            , character
+                            , expiry_seconds=self.expiry_hours * 3600)
         except Exception as e:
             print(f"Failed to count pill people: {e}")
             response.raise_for_status()  # Raise an error for bad responses
@@ -212,51 +220,62 @@ class NotionService:
         character_id_replaced = character_id.replace('-','')
         character = None
         try:
-            cache_key = self.redis_service.get_cache_key('characters', character_id_replaced)
-            character = self.redis_service.get(cache_key)
+            cache_key = self.redis_service.get_cache_key('cryptids', character_id_replaced)
+            character = self.redis_service.hgetall(cache_key, character_id)
             if character is None:
                 url = f"{self.base_url}/pages/{character_id}"
                 response = requests.get(url, headers=self.headers)
                 character = self.translate_characters([response.json()] if response.json() else [])[0]
-                self.redis_service.set_with_expiry(cache_key, character, expiry_hours=self.expiry_hours)
+                self.redis_service.set_character_hash(
+                        self.redis_service.get_cache_key('cryptids', character['id'])
+                        , character
+                        , expiry_seconds=self.expiry_hours * 3600)
                 end_date = datetime.now() + timedelta(days=(self.expiry_hours/24)) 
                 print(f"👁️‍🗨️ not in cache [{character_id} | {character['name']}], went to source. expires in {end_date}")
         except Exception as e:
             print("Failed to fetch character:", e)
             response.raise_for_status()  # Raise an error for bad responses
         return character
-    
-    def get_current_gods(self):
-        try:
-            cache_key = self.redis_service.get_cache_key('loaded_characters_level:completerray', 'l2')
-            current_gods = self.redis_service.get(cache_key)
-            if current_gods is None or len(current_gods) <= 0:
-                current_gods = self.redis_service.query_characters('deep_level', 'l2')
-                if len(current_gods) <= 0:
-                    current_gods = self.get_characters_by_deep_level_status("l2","high")
-                    current_gods += self.get_characters_by_deep_level_status("l2","dead")
-                self.redis_service.set_with_expiry(cache_key, current_gods, expiry_hours=self.expiry_minutes)
-            return current_gods
-        except Exception as e:
-            print(f"Failed to fetch characters gods: {e}")
-            raise
 
-    def get_characters_by_property(self, property, value):
+    def update_character(self, character, updates):
+        """Update character attributes."""
+        character_id = character['id']
+        url = f"{self.base_url}/pages/{character_id}"
         try:
-            return self.redis_service.query_characters(property, value)                
+            response = requests.patch(url, headers=self.headers, json=updates)
+            if response.status_code == 200:  # Check if the request was successful
+                for name, prop in updates["properties"].items():
+                    kind, payload = self.notion_prop_kind(prop)
+                    if kind == "number":
+                        print(name, "number", payload)  # payload may be int/float or None
+                    elif kind in ("title", "rich_text"):
+                        print(name, kind, payload)  # list of rich text objects
+                    elif kind == "multi_select":
+                        print(name, "array of options", payload)  # list of {id,name,color}
+                    elif kind == "select":
+                        print(name, "single option", payload)  # dict or None                
+                    character[name] = payload
+                self.redis_service.set_character_hash(
+                            self.redis_service.get_cache_key('cryptids', character['id'])
+                            , character
+                            , expiry_seconds=self.expiry_hours * 3600)
+            else:
+                print("❌❌","update_character",response.status_code, response.text)  
+                response.raise_for_status()  
         except Exception as e:
-            print(f"Failed to fetch characters by properties {property} = {value}: {e}")
-            raise
+            print("Failed to update_character:", e)
+            #response.raise_for_status()  # Raise an error for bad responses
+        return character
 
-    def get_characters_by_deep_level_status(self, deep_level, status="alive"):
+    def get_characters_by_deep_level_status_source(self, deep_level, status="alive"):
         """Filter characters by deep level and is_npc, returning all matching characters."""
         url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
         try:
             characters = []
-            characters_by_status = self.redis_service.query_characters('status', status)
-            for character in characters_by_status:
-                if character['deep_level'] == deep_level:
-                    characters.append(character)
+            characters = self.redis_service.query_characters_by_deep_status(
+                prefix=self.redis_service.get_cache_key('cryptids')
+                , deep_level=deep_level
+                , status=status )
             if len(characters) <= 8:
                 print("going to the source: "+deep_level+" "+status)
                 data_filter = {
@@ -280,34 +299,33 @@ class NotionService:
                     # Check if there are more pages
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")  
-                    print(f"Fetched {len(data.get('results', []))} {deep_level} characters, total so far: {len(characters)}")
-                # Cache the characters if needed
-                #self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level', f"{deep_level}{npc}npc")
-                #                                , data_filter, self.expiry_hours)
+                    print(f"Fetched {len(data.get('results', []))} {deep_level} {status} characters, total so far: {len(characters)}")
                 for character in characters:
-                    cache_key = self.redis_service.get_cache_key('characters', character['id'])
+                    cache_key = self.redis_service.get_cache_key('cryptids', character['id'])
                     if not self.redis_service.exists(cache_key):
-                        self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
-            #self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:completerray',f"{deep_level}{npc}npc")
-            #                                , characters, self.expiry_hours)
+                        self.redis_service.set_character_hash(
+                            cache_key
+                            , character
+                            , expiry_seconds=self.expiry_hours * 3600)
         except Exception as e:
-            print(f"Failed to fetch characters by deep level {deep_level}: {e}")
+            print(f"Failed to fetch characters by deep level {deep_level} {status} : {e}")
             response.raise_for_status()  # Raise an error for bad responses
         return characters 
 
-    def get_characters_by_deep_level_npc(self, deep_level, is_npc=False):
+    def get_characters_by_deep_level_npc_source(self, deep_level, is_npc=False):
         """Filter characters by deep level and is_npc, returning all matching characters."""
         url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
         try:
-            npc = '' if is_npc is True else 'no'
             characters = []
-            characters_by_level = self.redis_service.query_characters('deep_level', deep_level)
+            characters_by_level = self.redis_service.query_characters_by_deep_status(
+                prefix=self.redis_service.get_cache_key('cryptids'), deep_level=deep_level )
             # filter characters based on is_npc
-            for character in characters_by_level:
-                if character['npc'] == is_npc:
-                    characters.append(character)
             if len(characters) <= 0:
-                print("going to the source: "+deep_level+" "+npc)
+                for character in characters_by_level:
+                    if character['npc'] == is_npc:
+                        characters.append(character)
+            if len(characters) <= 0:
+                print("going to the source: "+deep_level+" "+str(is_npc))
                 data_filter = {
                     "filter": {
                         "and": [
@@ -329,34 +347,34 @@ class NotionService:
                     # Check if there are more pages
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")  
-                    print(f"Fetched {len(data.get('results', []))} {deep_level}{npc}npc characters, total so far: {len(characters)}")
-                # Cache the characters if needed
-                #self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level', f"{deep_level}{npc}npc")
-                #                                , data_filter, self.expiry_hours)
+                    print(f"Fetched {len(data.get('results', []))} {deep_level}{str(is_npc)}NPC characters, total so far: {len(characters)}")
                 for character in characters:
-                    cache_key = self.redis_service.get_cache_key('characters', character['id'])
+                    cache_key = self.redis_service.get_cache_key('cryptids', character['id'])
                     if not self.redis_service.exists(cache_key):
-                        self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
-            #self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:completerray',f"{deep_level}{npc}npc")
-            #                                , characters, self.expiry_hours)
+                        self.redis_service.set_character_hash(
+                            cache_key
+                            , character
+                            , expiry_seconds=self.expiry_hours * 3600)
         except Exception as e:
             print(f"Failed to fetch characters by deep level {deep_level}: {e}")
             response.raise_for_status()  # Raise an error for bad responses
         return characters if is_npc else random.sample(characters, min(4, len(characters)))
 
-    def get_characters_by_deep_level_npc_and_status(self, deep_level, is_npc=False, status="alive"):
+    def get_characters_by_deep_level_npc_and_status_source(self, deep_level, is_npc=False, status="alive"):
         """Filter characters by deep level and is_npc, returning all matching characters."""
         url = f"{self.base_url}/databases/{NOTION_DBID_CHARS}/query"
         try:
-            npc = '' if is_npc is True else 'no'
             characters = []
-            characters_by_status = self.redis_service.query_characters('status', status)
+            characters_by_status = self.redis_service.query_characters_by_deep_status(
+                prefix=self.redis_service.get_cache_key('cryptids')
+                , deep_level=deep_level
+                , status=status )
             # filter characters based on is_npc
             for character in characters_by_status:
-                if character['npc'] == is_npc and character['deep_level'] == deep_level:
+                if character['npc'] == is_npc :
                     characters.append(character)
             if len(characters) <= 0:
-                print("going to the source: "+deep_level+" "+npc+" "+status)
+                print("going to the source: "+deep_level+" "+str(is_npc)+" "+status)
                 data_filter = {
                     "filter": {
                         "and": [
@@ -379,19 +397,22 @@ class NotionService:
                     # Check if there are more pages
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")  
-                    print(f"Fetched {len(data.get('results', []))} {deep_level}{npc}npc{status} characters, total so far: {len(characters)}")
-                # Cache the characters if needed
-                #self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level', f"{deep_level}{npc}npc{status}")
-                #                                , data_filter, self.expiry_hours)
+                    print(f"Fetched {len(data.get('results', []))} {deep_level}{str(is_npc)}NPC{status} characters, total so far: {len(characters)}")
                 for character in characters:
-                    cache_key = self.redis_service.get_cache_key('characters', character['id'])
+                    cache_key = self.redis_service.get_cache_key('cryptids', character['id'])
                     if not self.redis_service.exists(cache_key):
-                        self.redis_service.set_with_expiry(cache_key, character, self.expiry_hours)
+                        self.redis_service.set_character_hash(
+                            cache_key
+                            , character
+                            , expiry_seconds=self.expiry_hours * 3600)
         except Exception as e:
             print(f"Failed to fetch characters by deep level {deep_level} and status {status}: {e}")
             response.raise_for_status()  # Raise an error for bad responses
         return characters if is_npc else random.sample(characters, min(4, len(characters)))
 
+    '''
+    PILLS
+    '''
     def apply_all_pills(self, deep_level, pill_color):
         by_pill_color = []
         response_json = {'message': ''}
@@ -536,12 +557,12 @@ class NotionService:
                     max_xp *= self.GOLDEN_RATIO
                     max_hp *= self.GOLDEN_RATIO
                     max_sanity *= self.GOLDEN_RATIO
-                description = f"{character['properties']['name']['title'][-1]['plain_text']} | L{character['properties']['level']['number']} | X{character['properties']['xp']['number']} | 🫀{character['properties']['hp']['number']} | 🧠{character['properties']['sanity']['number']}"
+                description = f"{character['properties']['name']['title'][-1]['plain_text']} | L{character['properties']['level']['number']} | XP{character['properties']['xp']['number']} | HP{character['properties']['hp']['number']} | SN{character['properties']['sanity']['number']}"
                 return_characters.append({ 
                 "id": character['id'].replace('-','')
                 ,"name": character['properties']['name']['title'][-1]['plain_text']
                 ,"status": character['properties']['status']['select']['name']
-                ,"picture": character['properties']['npc']['checkbox'] if character['properties']['npc']['checkbox'] else random_picture['file']['url']
+                ,"picture": "No Picture Available" if character['properties']['npc']['checkbox'] else random_picture['file']['url']
                 ,"level": character['properties']['level']['number']
                 ,"coins": character['properties']['coins']['number']
                 ,"xp": character['properties']['xp']['number']
@@ -569,22 +590,6 @@ class NotionService:
             print(character)
             raise
     
-    def update_character(self, character, updates):
-        """Update character attributes."""
-        character_id = character['id']
-        url = f"{self.base_url}/pages/{character_id}"
-        response = requests.patch(url, headers=self.headers, json=updates)
-        if response.status_code == 200:  # Check if the request was successful
-            #print("🥶🤮",character['status'],character['deep_level'])
-            expirity = self.expiry_minutes if character['status'] != 'alive' and character['deep_level'] == 'l3' else self.expiry_hours
-            self.redis_service.set_with_expiry(self.redis_service.get_cache_key('characters',character_id), character, expirity)
-            self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:completerray',character['deep_level']+'*'))
-            self.redis_service.delete(self.redis_service.get_cache_key('loaded_characters_level:countdeadpeople',character['deep_level']+'*'))
-            return response.json()
-        else:
-            print("❌❌","update_character",response.status_code, response.text) 
-            response.raise_for_status()  # Raise an error for bad responses
-
     def sanitize_text(self, text):
         """Sanitize plain text string by removing disallowed characters.
         

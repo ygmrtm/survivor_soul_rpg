@@ -1,14 +1,16 @@
 import redis
 import json
 from config import REDIS_URL
-
+from redis.commands.search.field import TextField, NumericField, TagField
+from redis.commands.search.index_definition import IndexDefinition, IndexType
+from redis.commands.search.query import Query
 
 class RedisService:
     _instance = None
     _pool = None
     expiry_hours = 96
     expiry_minutes = 60
-    expiry_seconds = expiry_minutes * 60
+    
     def __new__(cls):
         """Implement Singleton pattern to ensure only one instance of RedisService exists."""
         if cls._instance is None:
@@ -94,14 +96,6 @@ class RedisService:
         except Exception as e:
             print(f"❌ Error setting Redis key {key}: {str(e)}")
 
-    def ssad(self, key, value):
-        try:
-            serialized_value = json.dumps(value) 
-            self.redis_client.sadd(key, serialized_value)
-            respon = self.redis_client.expire(key, self.expiry_hours * 3600)
-        except Exception as e:
-            print(f"❌ Error setting Redis key {key}: {str(e)}")
-        
 
     def get(self, key):
         """
@@ -117,7 +111,33 @@ class RedisService:
             value = self.redis_client.get(key)
             return json.loads(value) if value else None
         except Exception as e:
-            print(f"Error getting Redis key {key}: {str(e)}")
+            print(f"Error getting Redis key {key} | {str(e)}")
+            return None
+
+    def ssad(self, key, value, expiry_seconds=3600 ):
+        try:
+            serialized_value = json.dumps(value) 
+            respon = self.redis_client.sadd(key, serialized_value)
+            if expiry_seconds:
+                self.redis_client.expire(key, expiry_seconds)
+            return respon
+        except Exception as e:
+            print(f"❌ Error setting Redis key {key}: {str(e)}")       
+
+    def srem(self, key, member):
+        try:
+            respon = self.redis_client.srem(key, member)
+            return respon
+        except Exception as e:
+            print(f"❌ Error removing Redis key {key} for member {member}: {str(e)}")       
+
+    def sscan(self, name, match, count=10):
+        try:
+            result = self.redis_client.sscan(name=name, match=match, count=count)
+            print(f"sscan({name}, {match}, {count}) ? { result }")
+            return result
+        except Exception as e:
+            print(f"Error sscan({name}, {match}, {count}): {str(e)}")
             return None
 
     def smembers(self, key):
@@ -129,16 +149,86 @@ class RedisService:
             print(f"Error getting Redis key {key}: {str(e)}")
             return None
 
-    def hset(self, name, key, value):
+    def hset(self, name, key, value, expiry_seconds=3600 ):
         try:
             serialized_value = json.dumps(value) 
             result = self.redis_client.hset(name=name, key=key, value=serialized_value)
-            self.redis_client.expire(name, self.expiry_hours * 3600)
+            if expiry_seconds:
+                self.redis_client.expire(name, expiry_seconds )
             if key in ['hours_recovered']:
-                result = self.redis_client.hexpire(name, self.expiry_seconds, key)
+                result_individual = self.redis_client.hexpire(name, expiry_seconds, key)
             return result 
         except Exception as e:
             print(f"Error setting Redis key {key}: {str(e)}")
+            return None
+
+    def hgetall(self, key, character_id):
+        try:
+            doc = self.redis_client.hgetall(key)
+            if not doc:
+                return None
+            clean_data = {k: v for k, v in doc.items() if not k.startswith('_')}
+            clean_data['id'] = character_id
+            return self.adjust_character(clean_data)
+        except Exception as e:
+            print(f"Error getting Redis key {key} | {str(e)}")
+            return None
+
+    def set_character_hash(self, key, character, expiry_seconds=3600):
+        try:
+            change_status = self.hset(key, 'status' , character['status']  , expiry_seconds )
+            if change_status:
+                expiry_seconds = round(expiry_seconds / 3) if character['status'] != 'alive' and character['deep_level'] == 'l3'  else expiry_seconds
+                self.srem(self.get_cache_key('cryptids:sets', character['deep_level'] + ':rest' ) , key)
+                self.srem(self.get_cache_key('cryptids:sets', character['deep_level'] + ':alive' ) , key)
+                self.srem(self.get_cache_key('cryptids:sets', character['deep_level'] + ':dead' ) , key)
+                self.srem(self.get_cache_key('cryptids:sets', character['deep_level'] + ':dying' ) , key)
+                self.srem(self.get_cache_key('cryptids:sets', character['deep_level'] + ':high' ) , key)
+                self.ssad(self.get_cache_key('cryptids:sets', character['deep_level'] + ':' + character['status']) , key, expiry_seconds )
+                self.hset(key, 'status' , character['status']  , expiry_seconds )
+            self.ssad(self.get_cache_key('cryptids:sets', 'all') , key, expiry_seconds )
+            self.hset(key, 'name' , character['name'] , expiry_seconds )
+            self.hset(key, 'picture' , character['picture']  , expiry_seconds )
+            self.hset(key, 'level' , int(character['level'])  , expiry_seconds )
+            self.hset(key, 'coins' , float(character['coins'])  , expiry_seconds )
+            self.hset(key, 'xp' , int(character['xp'])  , expiry_seconds )
+            self.hset(key, 'max_xp' , int(character['max_xp'])  , expiry_seconds )
+            self.hset(key, 'hp' , int(character['hp'])  , expiry_seconds )
+            self.hset(key, 'max_hp' , int(character['max_hp'])  , expiry_seconds )
+            self.hset(key, 'sanity' , int(character['sanity'])  , expiry_seconds )
+            self.hset(key, 'max_sanity' , int(character['max_sanity'])  , expiry_seconds )
+            self.hset(key, 'attack' , int(character['attack'])  , expiry_seconds )
+            self.hset(key, 'defense' , int(character['defense'])  , expiry_seconds )
+            self.hset(key, 'magic' , int(character['magic'])  , expiry_seconds )
+            self.hset(key, 'inventory' , character['inventory']  , expiry_seconds )
+            self.hset(key, 'npc' , character['npc']  , expiry_seconds )
+            self.hset(key, 'deep_level' , character['deep_level']  , expiry_seconds )
+            self.hset(key, 'alter_ego' , character['alter_ego']  , expiry_seconds )
+            self.hset(key, 'alter_subego' , character['alter_subego']  , expiry_seconds )
+            self.hset(key, 'respawn' , int(character['respawn'])  , expiry_seconds )
+            self.hset(key, 'pending_reborn' , character['pending_reborn']  , expiry_seconds )
+            self.hset(key, 'hours_recovered' , int(character['hours_recovered'])  , expiry_seconds )
+            self.hset(key, 'description' , character['description']  , expiry_seconds )
+            return True
+        except Exception as e:
+            print(f"Error setting Redis key {key}: {str(e)}")
+            return False
+
+    def adjust_character(self, clean_data):
+        try:
+            clean_data["inventory"] = json.loads(clean_data["inventory"])   # string -> list
+            clean_data["alter_subego"] = json.loads(clean_data["alter_subego"]) if clean_data["alter_subego"] else None
+            clean_data["pending_reborn"] = None if clean_data["pending_reborn"] == "null" else clean_data["pending_reborn"]
+            clean_data["npc"] = clean_data["npc"] == "true"
+            clean_data["status"] = clean_data["status"].replace('"','')
+            clean_data["alter_ego"] = clean_data["alter_ego"].replace('"','')
+            clean_data["deep_level"] = clean_data["deep_level"].replace('"','')
+            clean_data["name"] = clean_data["name"].replace('"','')
+            clean_data["description"] = clean_data["description"].replace('"','')
+            clean_data["picture"] = clean_data["picture"].replace('"','')
+            return clean_data
+        except Exception as e:
+            print(f"Error ajusting -> {clean_data} | Error in {str(e)}")
             return None
 
     def hscan(self, name, match, count=10):
@@ -150,14 +240,27 @@ class RedisService:
             print(f"Error hscan({name}, {match}): {str(e)}")
             return None
 
-    def sscan(self, name, match, count=10):
+
+    def set_index(self, prefix ):
         try:
-            result = self.redis_client.sscan(name=name, match=match, count=count)
-            print(f"sscan({name}, {match}, {count}) ? { result }")
-            return result
+            hashIndexCreated = self.redis_client.ft("idx:"+prefix)
+            if not hashIndexCreated:
+                hashSchema = (
+                    TextField("name"),
+                    TextField("deep_level"),
+                    TextField("status")
+                )
+
+                hashIndexCreated = self.redis_client.ft("idx:"+prefix).create_index(
+                    hashSchema,
+                    definition=IndexDefinition(
+                        prefix=[prefix], index_type=IndexType.HASH
+                    )
+                )   
+            return hashIndexCreated
         except Exception as e:
-            print(f"Error sscan({name}, {match}, {count}): {str(e)}")
-            return None
+            print(f"Error set_index : {str(e)}")
+            return None                 
 
     def delete(self, key):
         """
@@ -231,37 +334,27 @@ class RedisService:
             *args: Variable arguments to include in the key
         """
         return f"rpg:{prefix}:{':'.join(str(arg) for arg in args)}"
-    
-    def query_characters(self, field, value):
-        """
-        Query characters based on a specific field and value.
-        
-        Args:
-            field (str): The field to query (e.g., 'name', 'deeplevel').
-            value (str): The value to match against the field.
-        
-        Returns:
-            list: A list of character IDs that match the query.
-        """
+
+    def query_characters_by_deep_status(self, prefix, deep_level=None, status=None):
         matching_characters = []
+        qry = "@deep_level:"+deep_level if deep_level else ''
+        qry += (' & ' if len(qry) > 0 else '') + "@status:"+status if status else ''
         try:
-            # Get all keys that match the character pattern
-            keys = self.redis_client.keys("rpg:characters:*")
-            
-            for key in keys:
-                # Get character data and convert it to a dictionary
-                character_data = self.redis_client.get(key)
-                if character_data:
-                    character_data = json.loads(character_data)  
-                    if character_data and character_data[field] == value:
-                        matching_characters.append(character_data)  
-            
-            print(f"✅ Found {len(matching_characters)} matching characters for {field} = {value}.")
+            findHashResult = self.redis_client.ft("idx:"+prefix).search(
+                Query(qry)
+            )    
+            for doc in findHashResult.docs:
+                data = doc.__dict__
+                clean_data = {k: v for k, v in data.items() if not k.startswith('_')}
+                adjusted = self.adjust_character(clean_data)
+                matching_characters.append(adjusted)  
+            print(f"✅ Found {len(matching_characters)} matching characters. {qry} ")
         except Exception as e:
             print(f"❌ Error querying characters: {str(e)}")
         
-        return matching_characters    
-    
+        return matching_characters   
+
+
     def query_habits(self, field, value):
         """
         Query habits based on a specific field and value.

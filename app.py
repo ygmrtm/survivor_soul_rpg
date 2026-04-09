@@ -10,7 +10,7 @@ from backend.controllers.tournament_controller import tournament_bp
 from backend.controllers.watchlist_controller import watchlist_bp
 from backend.utils.error_handling import handle_api_error, APIError
 from backend.utils.logger import setup_logger
-from backend.services.notion_service import NotionService
+#from backend.services.notion_service import NotionService
 import config
 
 # Initialize logger
@@ -39,12 +39,9 @@ def create_app():
     @app.route('/')
     def landing_page():
         """Landing page displaying playable characters."""
-        # Initialize the NotionService and retrieve character data
-        notion_service = NotionService()
-        #
-        characters = notion_service.get_characters_by_property('npc', value=False)
-        if len(characters) <= 0:
-            characters = notion_service.get_characters_by_deep_level_npc(deep_level='l3', is_npc=False) 
+        characters = None #notion_service.get_characters_by_property('npc', value=False)
+        #if len(characters) <= 0:
+        #    characters = notion_service.get_characters_by_deep_level_npc(deep_level='l3', is_npc=False) 
 
         # Mock character data in case the Notion API is empty or unavailable
         if not characters:
