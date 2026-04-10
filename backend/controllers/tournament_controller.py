@@ -29,7 +29,7 @@ def evaluate_tournaments_by_status(status='created', limit=10):
     limit = int(limit)
     if status not in ['created','accepted']:
         return jsonify({"error": "Invalid status:"+status}), 400
-    if limit < 1:
+    if limit < 1 or limit > 60:
         return jsonify({"error": "Invalid limit:"+limit}), 400
     result = tournament_service.evaluate_tournaments_by_status(full_hp=True, status=status, limit=limit)
     return jsonify(result)

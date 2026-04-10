@@ -22,6 +22,7 @@ function getISOWeekNumber(date) {
 }
 
 const currentDate = new Date();
+const currentMinutes = currentDate.getMinutes();
 const weekNumber = getISOWeekNumber(currentDate);
 const prevWeekNumber = weekNumber - 1;
 console.log(currentDate, weekNumber, prevWeekNumber);
@@ -344,9 +345,7 @@ document.addEventListener("DOMContentLoaded", function () {
             adventures_executed = data.count
             logActivity(`Adventures Executed ${adventures_executed}`);
 
-            fetch(`/api/tournament/evaluate/all`, {
-                method: 'GET'
-            })
+            fetch(`/api/tournament/do/exec/created/${currentMinutes}`, { method: 'POST' })
             .then(response => response.json())
             .then(data => {
                 console.log('tournaments response', data);
@@ -359,11 +358,10 @@ document.addEventListener("DOMContentLoaded", function () {
             })
             .finally(() => {
                 document.getElementById('pending-tournaments').innerText = "(" + still_not_executed + ")";
+                logActivity(`Tournaments executed 🗡️ ${actually_executed}/${current_to_execute}`)
                 if(still_not_executed > 0){
                     button.disabled = false;
                     logActivity(`Still pending ${still_not_executed} tournaments.`);
-                }else{
-                    logActivity(`Tournaments executed 🗡️ ${actually_executed}/${current_to_execute}`)
                 }
             });            
         })
@@ -440,9 +438,7 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById('version-number').innerText = '0.0.0'; // Fallback version
         });
 
-    fetch('/api/notion/countdeadpeople/l3', {
-        method: 'POST'
-    })
+    fetch('/api/notion/countdeadpeople/l3', { method: 'POST' } )
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok');
@@ -461,9 +457,7 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById('dead-people').innerText = '0'; // Fallback version
     });
 
-    fetch('/api/notion/countpeoplepills/l3', {
-        method: 'POST'
-    })
+    fetch('/api/notion/countpeoplepills/l3', { method: 'POST' })
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok');
@@ -486,6 +480,25 @@ document.addEventListener("DOMContentLoaded", function () {
             logActivity(`❌❌ Error : ${error.message}`);
         });
 
+    fetch('/api/tournament/do/count/created', { method: 'POST'  })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if(data.count > 0){
+                logActivity(`Pending tournaments ⚔️ ${data.count}`);
+                document.getElementById('tournament-button').disabled = false;
+                document.getElementById('pending-tournaments').innerText = "(" + data.count + ")";
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching counts:', error);
+            logActivity(`❌❌ Error : ${error.message}`);
+            document.getElementById('pending-tournaments').innerText = '0'; // Fallback version
+        });        
 /*    fetch('/api/notion/loadalivepeople/l3')
         .then(response => {
             if (!response.ok) {
@@ -516,9 +529,5 @@ document.addEventListener("DOMContentLoaded", function () {
                     });
             }
         })
-        .catch(error => {
-            console.error('Error fetching counts:', error);
-            logActivity(`❌❌ Error : ${error.message}`);
-            document.getElementById('pending-tournaments').innerText = '0'; // Fallback version
-        });*/
+*/
     }); 

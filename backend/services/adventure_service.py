@@ -191,7 +191,7 @@ class AdventureService:
             self.notion_service.persist_habit(habit)
             gods_winner = []
             if "encounter" in path_array:
-                npc_characters = self.notion_service.get_characters_by_deep_level_npc(deep_level='l2', is_npc=True)
+                npc_characters = self.notion_service.get_characters_by_deep_level_npc_source(deep_level='l2', is_npc=True)
                 high_gods = [c for c in npc_characters if c['status'] == 'high']
                 god_winner = random.choice(high_gods) if high_gods else None
                 #print("❎❎❎❎",god_winner,len(high_gods))
@@ -556,7 +556,7 @@ class AdventureService:
                     self.add_encounter_log(0,'new',new_adv['name'] + ' | ' +new_adv['desc'])
                     adventure['status'] = 'lost'
             if "discovery" in adventure['path']:
-                real_characters = self.notion_service.get_characters_by_deep_level_npc(deep_level='l0', is_npc=True) + self.notion_service.get_characters_by_deep_level_npc(deep_level='l1', is_npc=True)
+                real_characters = self.notion_service.get_characters_by_deep_level_npc_source(deep_level='l0', is_npc=True) + self.notion_service.get_characters_by_deep_level_npc_source(deep_level='l1', is_npc=True)
                 total_taken = 0
                 for character in real_characters:
                     rand_pct = random.randint(1, 25) / 100
@@ -748,7 +748,7 @@ class AdventureService:
         sample_characters = random.sample(filtered_characters, min( to_execute, len(filtered_characters)))
         done = 1
         return_array = []
-        npc_gods = self.notion_service.get_characters_by_deep_level_npc(deep_level='l2', is_npc=True)
+        npc_gods = self.notion_service.get_characters_by_deep_level_npc_source(deep_level='l2', is_npc=True)
         for character in sample_characters:
             print("💀 underworld for "+character['name'],' | {}/{} [{}]'.format(done, len(sample_characters), len(filtered_characters)))
             adventure = self.create_adventure(character['notionid'], underworld=True, npc_gods=npc_gods)
