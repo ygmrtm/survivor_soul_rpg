@@ -10,6 +10,7 @@ class RedisService:
     _pool = None
     expiry_hours = 96
     expiry_minutes = 60
+    limit_redis_results = 50
     
     def __new__(cls):
         """Implement Singleton pattern to ensure only one instance of RedisService exists."""
@@ -114,12 +115,25 @@ class RedisService:
             print(f"Error getting Redis key {key} | {str(e)}")
             return None
 
+    def expire(self, key, expiry_seconds):
+        try:
+            print(key,expiry_seconds)
+            respon = self.redis_client.expire(key, expiry_seconds, lt=True)
+            return respon
+        except Exception as e:
+            print(f"❌ Error expiring Redis key {key} by {expiry_seconds} seconds: {str(e)}")
+
+    def zincrby(self, board, value_increment, key):
+        try:
+            respon = self.redis_client.zincrby(board, float(value_increment), key)
+            return respon
+        except Exception as e:
+            print(f"❌ Error zincrby Redis key {key}: {str(e)}")            
+
     def ssad(self, key, value, expiry_seconds=3600 ):
         try:
             serialized_value = json.dumps(value) 
             respon = self.redis_client.sadd(key, serialized_value)
-            if expiry_seconds:
-                self.redis_client.expire(key, expiry_seconds)
             return respon
         except Exception as e:
             print(f"❌ Error setting Redis key {key}: {str(e)}")       
@@ -131,7 +145,7 @@ class RedisService:
         except Exception as e:
             print(f"❌ Error removing Redis key {key} for member {member}: {str(e)}")       
 
-    def sscan(self, name, match, count=10):
+    def sscan(self, name, match, count=100):
         try:
             result = self.redis_client.sscan(name=name, match=match, count=count)
             print(f"sscan({name}, {match}, {count}) ? { result }")
@@ -149,14 +163,10 @@ class RedisService:
             print(f"Error getting Redis key {key}: {str(e)}")
             return None
 
-    def hset(self, name, key, value, expiry_seconds=3600 ):
+    def hset(self, name, key, value ):
         try:
             serialized_value = json.dumps(value) 
             result = self.redis_client.hset(name=name, key=key, value=serialized_value)
-            if expiry_seconds:
-                self.redis_client.expire(name, expiry_seconds )
-            if key in ['hours_recovered']:
-                result_individual = self.redis_client.hexpire(name, expiry_seconds, key)
             return result 
         except Exception as e:
             print(f"Error setting Redis key {key}: {str(e)}")
@@ -176,39 +186,45 @@ class RedisService:
 
     def set_character_hash(self, key, character, expiry_seconds=3600):
         try:
-            change_status = self.hset(key, 'status' , character['status']  , expiry_seconds )
-            if change_status:
-                expiry_seconds = round(expiry_seconds / 3) if character['status'] != 'alive' and character['deep_level'] == 'l3'  else expiry_seconds
-                self.srem(self.get_cache_key('cryptids:sets', character['deep_level'] + ':rest' ) , key)
-                self.srem(self.get_cache_key('cryptids:sets', character['deep_level'] + ':alive' ) , key)
-                self.srem(self.get_cache_key('cryptids:sets', character['deep_level'] + ':dead' ) , key)
-                self.srem(self.get_cache_key('cryptids:sets', character['deep_level'] + ':dying' ) , key)
-                self.srem(self.get_cache_key('cryptids:sets', character['deep_level'] + ':high' ) , key)
-                self.ssad(self.get_cache_key('cryptids:sets', character['deep_level'] + ':' + character['status']) , key, expiry_seconds )
-                self.hset(key, 'status' , character['status']  , expiry_seconds )
-            self.ssad(self.get_cache_key('cryptids:sets', 'all') , key, expiry_seconds )
-            self.hset(key, 'name' , character['name'] , expiry_seconds )
-            self.hset(key, 'picture' , character['picture']  , expiry_seconds )
-            self.hset(key, 'level' , int(character['level'])  , expiry_seconds )
-            self.hset(key, 'coins' , float(character['coins'])  , expiry_seconds )
-            self.hset(key, 'xp' , int(character['xp'])  , expiry_seconds )
-            self.hset(key, 'max_xp' , int(character['max_xp'])  , expiry_seconds )
-            self.hset(key, 'hp' , int(character['hp'])  , expiry_seconds )
-            self.hset(key, 'max_hp' , int(character['max_hp'])  , expiry_seconds )
-            self.hset(key, 'sanity' , int(character['sanity'])  , expiry_seconds )
-            self.hset(key, 'max_sanity' , int(character['max_sanity'])  , expiry_seconds )
-            self.hset(key, 'attack' , int(character['attack'])  , expiry_seconds )
-            self.hset(key, 'defense' , int(character['defense'])  , expiry_seconds )
-            self.hset(key, 'magic' , int(character['magic'])  , expiry_seconds )
-            self.hset(key, 'inventory' , character['inventory']  , expiry_seconds )
-            self.hset(key, 'npc' , character['npc']  , expiry_seconds )
-            self.hset(key, 'deep_level' , character['deep_level']  , expiry_seconds )
-            self.hset(key, 'alter_ego' , character['alter_ego']  , expiry_seconds )
-            self.hset(key, 'alter_subego' , character['alter_subego']  , expiry_seconds )
-            self.hset(key, 'respawn' , int(character['respawn'])  , expiry_seconds )
-            self.hset(key, 'pending_reborn' , character['pending_reborn']  , expiry_seconds )
-            self.hset(key, 'hours_recovered' , int(character['hours_recovered'])  , expiry_seconds )
-            self.hset(key, 'description' , character['description']  , expiry_seconds )
+            expiry_seconds = round(expiry_seconds / 3) if character['status'] != 'alive' and character['deep_level'] == 'l3'  else expiry_seconds
+            old_status = str(self.redis_client.hget(key,'status')).replace('"','')
+            change_status = old_status != character['status']
+            #print(f"moving from {old_status} to {character['status']} | {character['id']}:{character['name']} = {change_status}")
+            if change_status :
+                self.srem(self.get_cache_key('sets', character['deep_level'] + ':' + old_status ) , key)
+                set_name = self.get_cache_key('sets', character['deep_level'] + ':' + character['status']) 
+                self.ssad(set_name, key )
+                self.redis_client.expire(name=set_name, time=expiry_seconds)
+                #print(f"del viejo status {old_status} añadiendo al set {set_name}")
+            self.hset(key, 'status' , character['status']  )
+            self.hset(key, 'name' , character['name'] )
+            self.hset(key, 'picture' , character['picture']  )
+            self.hset(key, 'notionid' , character['notionid']  )
+            self.hset(key, 'level' , int(character['level'])  )
+            self.hset(key, 'coins' , float(character['coins'])  )
+            self.hset(key, 'xp' , int(character['xp'])  )
+            self.hset(key, 'max_xp' , int(character['max_xp'])  )
+            self.hset(key, 'hp' , int(character['hp'])  )
+            self.hset(key, 'max_hp' , int(character['max_hp'])  )
+            self.hset(key, 'sanity' , int(character['sanity'])  )
+            self.hset(key, 'max_sanity' , int(character['max_sanity'])  )
+            self.hset(key, 'attack' , int(character['attack'])  )
+            self.hset(key, 'defense' , int(character['defense'])  )
+            self.hset(key, 'magic' , int(character['magic'])  )
+            self.hset(key, 'inventory' , character['inventory']  )
+            self.hset(key, 'npc' , character['npc']  )
+            self.hset(key, 'deep_level' , character['deep_level']  )
+            self.hset(key, 'alter_ego' , character['alter_ego']  )
+            self.hset(key, 'alter_subego' , character['alter_subego']  )
+            self.hset(key, 'respawn' , int(character['respawn'])  )
+            self.hset(key, 'pending_reborn' , character['pending_reborn']  )
+            self.hset(key, 'hours_recovered' , int(character['hours_recovered'])  )
+            self.hset(key, 'description' , character['description']  )
+            self.redis_client.expire(name=key, time=expiry_seconds)
+            #sets
+            set_name = self.get_cache_key('sets', 'all') 
+            self.ssad(set_name, key )
+            self.redis_client.expire(name=set_name, time=expiry_seconds)
             return True
         except Exception as e:
             print(f"Error setting Redis key {key}: {str(e)}")
@@ -226,12 +242,27 @@ class RedisService:
             clean_data["name"] = clean_data["name"].replace('"','')
             clean_data["description"] = clean_data["description"].replace('"','')
             clean_data["picture"] = clean_data["picture"].replace('"','')
+            clean_data["id"] = clean_data["id"].replace('"','')
+            clean_data["notionid"] = clean_data["notionid"].replace('"','')
+            clean_data['hours_recovered'] = int(clean_data['hours_recovered'])
+            clean_data['respawn'] = int(clean_data['respawn'])
+            clean_data['level'] = int(clean_data['level'])
+            clean_data['coins'] = float(clean_data['coins'])
+            clean_data['xp'] = int(clean_data['xp'])
+            clean_data['max_xp'] = int(clean_data['max_xp'])
+            clean_data['hp'] = int(clean_data['hp'])
+            clean_data['max_hp'] = int(clean_data['max_hp'])
+            clean_data['sanity'] = int(clean_data['sanity'])
+            clean_data['max_sanity'] = int(clean_data['max_sanity'])
+            clean_data['attack'] = int(clean_data['attack'])
+            clean_data['defense'] = int(clean_data['defense'])
+            clean_data['magic'] = int(clean_data['magic'])
             return clean_data
         except Exception as e:
             print(f"Error ajusting -> {clean_data} | Error in {str(e)}")
             return None
 
-    def hscan(self, name, match, count=10):
+    def hscan(self, name, match, count=100):
         try:
             result = self.redis_client.hscan(name=name, match=match, count=count)
             print(f"hscan({name}, {match}, {count}) ? { result }")
@@ -337,18 +368,17 @@ class RedisService:
 
     def query_characters_by_deep_status(self, prefix, deep_level=None, status=None):
         matching_characters = []
-        qry = "@deep_level:"+deep_level if deep_level else ''
-        qry += (' & ' if len(qry) > 0 else '') + "@status:"+status if status else ''
         try:
-            findHashResult = self.redis_client.ft("idx:"+prefix).search(
-                Query(qry)
-            )    
+            qry = "@deep_level:"+deep_level if deep_level else ''
+            qry += (' & ' if len(qry) > 0 else '') + "@status:"+status if status else ''
+            findHashResult = self.redis_client.ft("idx:"+prefix).search(Query(qry).paging(0,self.limit_redis_results))
+            total = self.redis_client.ft("idx:"+prefix).search(Query(qry).paging(0,self.limit_redis_results)).total
             for doc in findHashResult.docs:
                 data = doc.__dict__
                 clean_data = {k: v for k, v in data.items() if not k.startswith('_')}
                 adjusted = self.adjust_character(clean_data)
                 matching_characters.append(adjusted)  
-            print(f"✅ Found {len(matching_characters)} matching characters. {qry} ")
+            print(f"🚻 Returning {len(matching_characters)} characters out of {total}. qry={qry} paging {self.limit_redis_results}")
         except Exception as e:
             print(f"❌ Error querying characters: {str(e)}")
         

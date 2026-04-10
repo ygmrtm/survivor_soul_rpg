@@ -239,7 +239,7 @@ class AdventureService:
                                                     ,"got failure for {} w {} days off".format(who['name'], days_off))
                 who['sanity'] += self.add_encounter_log(challenge['xpRwd']*-1,"sanity"
                                                         ,"got failure for {}".format(who['name'] ))
-            if who['id'] not in [character['id'] for character in pool_whos]:
+            if who['id'] not in [character['notionid'] for character in pool_whos]:
                 pool_whos.append(who)
             prev_status = challenge['status']
             self.add_encounter_log(self.GOLDEN_RATIO, "status", 'old status [{}]'.format(prev_status))
@@ -273,7 +273,7 @@ class AdventureService:
                                                     ,"got victory for {} w {} alive".format(who['name'], days_alive ))
                 who['sanity'] += self.add_encounter_log(challengew['xpRwd'],"sanity"
                                                     ,"got victory for {}".format(who['name'] ))
-            if who['id'] not in [character['id'] for character in pool_whos]:
+            if who['id'] not in [character['notionid'] for character in pool_whos]:
                 pool_whos.append(who)
             prev_status = challengew['status']
             self.add_encounter_log(0, "status", 'old status [{}]'.format(prev_status))
@@ -323,7 +323,7 @@ class AdventureService:
             else:
                 challenge['status'] = 'lost'
                 self.add_encounter_log(self.GOLDEN_RATIO, "lost", f"got [{total_got}/{xTimesTotal}] 😪")    
-            if who['id'] not in [character['id'] for character in pool_whos]:
+            if who['id'] not in [character['notionid'] for character in pool_whos]:
                 pool_whos.append(who)
             self.add_encounter_log(self.GOLDEN_RATIO, "status", f"from[{prev_status}]:[{challenge['status']}]to")
             challenge['encounter_log'] = self.encounter_log
@@ -751,9 +751,9 @@ class AdventureService:
         npc_gods = self.notion_service.get_characters_by_deep_level_npc(deep_level='l2', is_npc=True)
         for character in sample_characters:
             print("💀 underworld for "+character['name'],' | {}/{} [{}]'.format(done, len(sample_characters), len(filtered_characters)))
-            adventure = self.create_adventure(character['id'], underworld=True, npc_gods=npc_gods)
+            adventure = self.create_adventure(character['notionid'], underworld=True, npc_gods=npc_gods)
             return_array.append({"adventure_id": adventure['adventure_id']
-                                , "character_id": character['id']
+                                , "character_id": character['notionid']
                                 , "character_name": character['name']})
             #time.sleep(random.randint(1, 5))
             done += 1
@@ -841,7 +841,7 @@ class AdventureService:
             if go:
                 datau = {"properties": { "hp": {"number": character['hp']},"status": {"select": {"name":character['status']} } }}
                 upd_character = self.notion_service.update_character(character, datau)
-                return_array.append({ "character_id": character['id'], "character_name": character['name'], "character_hp": character['hp']})
+                return_array.append({ "character_id": character['notionid'], "character_name": character['name'], "character_hp": character['hp']})
                 print(character['hours_recovered'],character['name'],'{}->{} awakening as {}'.format(pct_before,pct_after,character['status']))
         return return_array
     
@@ -862,5 +862,5 @@ class AdventureService:
             adventure['encounter_log'] = self.encounter_log
             self.notion_service.persist_habit(habit)
             self.notion_service.persist_adventure(adventure=adventure, characters=[character])
-            return_array.append({"adventure_id": adventure['id'], "character_id": character['id'], "character_name": character['name'],"adventure_status": adventure['status']})
+            return_array.append({"adventure_id": adventure['id'], "character_id": character['notionid'], "character_name": character['name'],"adventure_status": adventure['status']})
         return return_array

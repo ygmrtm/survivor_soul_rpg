@@ -60,10 +60,10 @@ def test_insert_as_set(character_id):
             redis_service.hset(cache_key_to, 'hours_recovered' , character['hours_recovered']  )
             redis_service.hset(cache_key_to, 'description' , character['description']  )
             
-            redis_service.ssad(redis_service.get_cache_key('cryptids:sets', 'all') , cache_key_to)
-            #redis_service.ssad(redis_service.get_cache_key('cryptids:sets', character['status']) , cache_key_to)
-            #redis_service.ssad(redis_service.get_cache_key('cryptids:sets', character['deep_level']) , cache_key_to)
-            redis_service.ssad(redis_service.get_cache_key('cryptids:sets', character['deep_level'] + ':' + character['status']) , cache_key_to)
+            redis_service.ssad(redis_service.get_cache_key('sets', 'all') , cache_key_to)
+            #redis_service.ssad(redis_service.get_cache_key('sets', character['status']) , cache_key_to)
+            #redis_service.ssad(redis_service.get_cache_key('sets', character['deep_level']) , cache_key_to)
+            redis_service.ssad(redis_service.get_cache_key('sets', character['deep_level'] + ':' + character['status']) , cache_key_to)
 
             redis_service.set_index(redis_service.get_cache_key('cryptids') ) 
     except Exception as e:
@@ -113,7 +113,7 @@ if __name__ == "__main__":
     #test_insert_as_set('150a3d23499280c98bc7c6a602ee96d4')
     #test_insert_as_set('0a819f70cdc44095a94d3c7dc1a724c8')
     #test_insert_as_set('122a3d2349928020ab78ccdc6aab747d')
-    #test_sscan('rpg:cryptids:sets:l1','high*')
+    #test_sscan('rpg:sets:l1','high*')
     query_characters_by_deep_status( 'rpg:cryptids:', deep_level='l2')
     #query_characters_by_deep_status( 'rpg:cryptids:', status='dead')
     #test_query()

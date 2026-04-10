@@ -22,6 +22,7 @@ class NotionService:
     lines_per_paragraph = 90
     expiry_hours = 72
     expiry_minutes = 90
+    expirity_tournament_hours = 12
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
@@ -139,7 +140,7 @@ class NotionService:
                     print(f"Fetched {len(data.get('results', []))} characters 💀 for level {deep_level}, total so far: {len(characters)}")
                 print(f"☠️ {headcount} counted from source... loading cached hash...")
                 for character in characters:
-                    cache_key = self.redis_service.get_cache_key('cryptids', character['id'])
+                    cache_key = self.redis_service.get_cache_key('cryptids', character['notionid'])
                     if not self.redis_service.exists(cache_key):
                         self.redis_service.set_character_hash(
                             cache_key
@@ -166,6 +167,7 @@ class NotionService:
             characters += self.redis_service.query_characters_by_deep_status(
                 prefix=self.redis_service.get_cache_key('cryptids')
                 , deep_level=deep_level, status = 'rest' )
+            #TODO: filter those with pills
             headcount = len(characters)
             if headcount <= 0:
                 print(f'no cached | going to the source | count_people_pills_source({deep_level})')
@@ -203,7 +205,7 @@ class NotionService:
                     print(f"Fetched {len(data.get('results', []))} characters with 💊 for level {deep_level}, total so far: {len(characters)}")
                 print(f"💊 {headcount} counted from source... loading cached hash...")
                 for character in characters:
-                    cache_key = self.redis_service.get_cache_key('cryptids', character['id'])
+                    cache_key = self.redis_service.get_cache_key('cryptids', character['notionid'])
                     if not self.redis_service.exists(cache_key):
                         self.redis_service.set_character_hash(
                             cache_key
@@ -227,7 +229,7 @@ class NotionService:
                 response = requests.get(url, headers=self.headers)
                 character = self.translate_characters([response.json()] if response.json() else [])[0]
                 self.redis_service.set_character_hash(
-                        self.redis_service.get_cache_key('cryptids', character['id'])
+                        self.redis_service.get_cache_key('cryptids', character['notionid'])
                         , character
                         , expiry_seconds=self.expiry_hours * 3600)
                 end_date = datetime.now() + timedelta(days=(self.expiry_hours/24)) 
@@ -239,32 +241,30 @@ class NotionService:
 
     def update_character(self, character, updates):
         """Update character attributes."""
-        character_id = character['id']
+        character_id = character['notionid']
         url = f"{self.base_url}/pages/{character_id}"
         try:
             response = requests.patch(url, headers=self.headers, json=updates)
-            if response.status_code == 200:  # Check if the request was successful
-                for name, prop in updates["properties"].items():
-                    kind, payload = self.notion_prop_kind(prop)
-                    if kind == "number":
-                        print(name, "number", payload)  # payload may be int/float or None
-                    elif kind in ("title", "rich_text"):
-                        print(name, kind, payload)  # list of rich text objects
-                    elif kind == "multi_select":
-                        print(name, "array of options", payload)  # list of {id,name,color}
-                    elif kind == "select":
-                        print(name, "single option", payload)  # dict or None                
-                    character[name] = payload
-                self.redis_service.set_character_hash(
-                            self.redis_service.get_cache_key('cryptids', character['id'])
-                            , character
-                            , expiry_seconds=self.expiry_hours * 3600)
-            else:
-                print("❌❌","update_character",response.status_code, response.text)  
-                response.raise_for_status()  
+            for name, prop in updates["properties"].items():
+                kind, payload = self.notion_prop_kind(prop)
+                """ if kind == "number":
+                    print(name, "number", payload)  # payload may be int/float or None
+                elif kind in ("title", "rich_text"):
+                    print(name, kind, payload)  # list of rich text objects
+                elif kind == "multi_select":
+                    print(name, "array of options", payload)  # list of {id,name,color}
+                el"""
+                if kind == "select":
+                    #print(name, f"single option")  # dict or None
+                    payload = str(payload['name'])
+                character[name] = payload
+            self.redis_service.set_character_hash(
+                        self.redis_service.get_cache_key('cryptids', character['notionid'])
+                        , character
+                        , expiry_seconds = self.expiry_hours * 3600)
         except Exception as e:
             print("Failed to update_character:", e)
-            #response.raise_for_status()  # Raise an error for bad responses
+            response.raise_for_status()  # Raise an error for bad responses
         return character
 
     def get_characters_by_deep_level_status_source(self, deep_level, status="alive"):
@@ -301,7 +301,7 @@ class NotionService:
                     start_cursor = data.get("next_cursor")  
                     print(f"Fetched {len(data.get('results', []))} {deep_level} {status} characters, total so far: {len(characters)}")
                 for character in characters:
-                    cache_key = self.redis_service.get_cache_key('cryptids', character['id'])
+                    cache_key = self.redis_service.get_cache_key('cryptids', character['notionid'])
                     if not self.redis_service.exists(cache_key):
                         self.redis_service.set_character_hash(
                             cache_key
@@ -349,7 +349,7 @@ class NotionService:
                     start_cursor = data.get("next_cursor")  
                     print(f"Fetched {len(data.get('results', []))} {deep_level}{str(is_npc)}NPC characters, total so far: {len(characters)}")
                 for character in characters:
-                    cache_key = self.redis_service.get_cache_key('cryptids', character['id'])
+                    cache_key = self.redis_service.get_cache_key('cryptids', character['notionid'])
                     if not self.redis_service.exists(cache_key):
                         self.redis_service.set_character_hash(
                             cache_key
@@ -399,7 +399,7 @@ class NotionService:
                     start_cursor = data.get("next_cursor")  
                     print(f"Fetched {len(data.get('results', []))} {deep_level}{str(is_npc)}NPC{status} characters, total so far: {len(characters)}")
                 for character in characters:
-                    cache_key = self.redis_service.get_cache_key('cryptids', character['id'])
+                    cache_key = self.redis_service.get_cache_key('cryptids', character['notionid'])
                     if not self.redis_service.exists(cache_key):
                         self.redis_service.set_character_hash(
                             cache_key
@@ -430,7 +430,7 @@ class NotionService:
                     #print(f"Using complete cached array for deep level {deep_level} | {len(by_pill_color)} characters")
                     alive_chars = self.get_characters_by_deep_level_npc_and_status(deep_level='l3', is_npc=True, status='alive')
                     for character in by_pill_color:
-                        cache_key = self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:characterpillprocessed', character['id'])
+                        cache_key = self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:characterpillprocessed', character['notionid'])
                         character = character if not self.redis_service.exists(cache_key) else self.redis_service.get(cache_key)
                         results = self.apply_pill_color_to_character(character, pill_color, alive_chars)
                         response_json[pill_color] = results
@@ -493,7 +493,7 @@ class NotionService:
             final_enemies = random.sample(alive_chars, min(enemies_to_encounter, len(alive_chars)))
             final_enemies_ids = [{"id":enemy['id']} for enemy in final_enemies]
             description = "Adventure to die for... (thanks to orange pill)" 
-            response = self.create_adventure(character['id'], final_enemies_ids, xp_reward, coin_reward, description)
+            response = self.create_adventure(character['notionid'], final_enemies_ids, xp_reward, coin_reward, description)
             print(response)
             character['inventory'].append({'name':'red.pill'})
         elif pill_color == "purple":
@@ -560,6 +560,7 @@ class NotionService:
                 description = f"{character['properties']['name']['title'][-1]['plain_text']} | L{character['properties']['level']['number']} | XP{character['properties']['xp']['number']} | HP{character['properties']['hp']['number']} | SN{character['properties']['sanity']['number']}"
                 return_characters.append({ 
                 "id": character['id'].replace('-','')
+                ,"notionid": character['id'].replace('-','')
                 ,"name": character['properties']['name']['title'][-1]['plain_text']
                 ,"status": character['properties']['status']['select']['name']
                 ,"picture": "No Picture Available" if character['properties']['npc']['checkbox'] else random_picture['file']['url']
@@ -636,26 +637,30 @@ class NotionService:
 
     def update_adventure(self, adventure_id, updates):
         """Update character attributes."""
-        # Sanitize rich_text fields before sending to Notion
-        if 'properties' in updates:
-            for prop_name, prop_value in updates['properties'].items():
-                if isinstance(prop_value, dict) and 'rich_text' in prop_value:
-                    prop_value['rich_text'] = self.sanitize_rich_text(prop_value['rich_text'])
-        
-        #print(adventure_id, updates)
-        url = f"{self.base_url}/pages/{adventure_id}"
-        response = requests.patch(url, headers=self.headers, json=updates)
-        if response.status_code == 200:  # Check if the request was successful
-            return response.json()
-        else:
-            print("❌❌","update_adventure",response.status_code, response.text) 
+        adventure = None
+        try:
+            # Sanitize rich_text fields before sending to Notion
+            if 'properties' in updates:
+                for prop_name, prop_value in updates['properties'].items():
+                    if isinstance(prop_value, dict) and 'rich_text' in prop_value:
+                        prop_value['rich_text'] = self.sanitize_rich_text(prop_value['rich_text'])
+            
+            #print(adventure_id, updates)
+            url = f"{self.base_url}/pages/{adventure_id}"
+            response = requests.patch(url, headers=self.headers, json=updates)
+            if response.status_code == 200:  # Check if the request was successful
+                adventure = response.json()
+        except Exception as e:
+            print("Failed to update_adventure:", e)
             response.raise_for_status()  # Raise an error for bad responses
+        return adventure
         
 
     def persist_adventure(self, adventure, characters):
         #print(self.translate_encounter_log(adventure['encounter_log']))
         self.add_blocks(adventure['id'], 'paragraph', self.translate_encounter_log(adventure['encounter_log']))
-        RESULT_LOG = adventure['resultlog'] + CLOSED_LOG + (WON_LOG if adventure['status'] == 'won' else MISSED_LOG if adventure['status'] == 'missed' else LOST_LOG)
+        RESULT_LOG = adventure['resultlog'] + CLOSED_LOG \
+                + (WON_LOG if adventure['status'] == 'won' else MISSED_LOG if adventure['status'] == 'missed' else LOST_LOG)
         datau = {
             "properties": { "status": {"status": {"name":adventure['status']}},
                             "resultlog": { "rich_text": RESULT_LOG  } }
@@ -669,18 +674,22 @@ class NotionService:
                 root = characters[0]
                 rest_of_chars = characters[-(len(characters)-1):] 
             else:
-                roots = self.get_characters_by_deep_level_npc(deep_level='l0', is_npc=True)
+                roots = self.get_characters_by_deep_level_npc_source(deep_level='l0', is_npc=True)
                 root = roots[0] if len(roots[0]) > 0 else None
                 rest_of_chars = [root]
-            datau['properties']['who'] = { "relation": [{"id": root['id']}] }
-            datau['properties']['vs'] = { "relation": [{"id": c['id']} for c in rest_of_chars] }
+            datau['properties']['who'] = { "relation": [{"id": root['notionid']}] }
+            datau['properties']['vs'] = { "relation": [{"id": c['notionid']} for c in rest_of_chars] }
         upd_adventure = self.update_adventure(adventure['id'], datau)
+        self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", adventure['id'])
+            , adventure
+            , expiry_hours=round(self.expirity_tournament_hours/3))
+
 
         ''' 
         All logic for validating the Character before pushing the changes 
         '''
         upd_character = None
-        for character in characters if characters else []:
+        for character in characters :
             character['level'] += 1 if character['xp'] >= character['max_xp'] else 0
             character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp']
             character['sanity'] = character['sanity'] if character['sanity'] < character['max_sanity'] else character['max_sanity']
@@ -1433,27 +1442,54 @@ class NotionService:
         self.redis_service.set_with_expiry(cache_key, ability, expiry_hours=self.expiry_hours)
         return upd_ability                
     
-    def get_all_open_tournaments(self):
+
+    """
+    TOURNAMENTS
+    """
+    def count_n_get_by_status_source(self, status="created"):
         end_date = datetime.now() + timedelta(days = self.tour_days_vigencia) 
         end_date_str = end_date.strftime('%Y-%m-%d')
         url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
-        data = {
-            "filter": {
-                "and": [
-                    { "property": "path", "multi_select": {"contains": "tournament"} }
-                    ,{ "property": "status", "status": { "equals": "created"} }
-                    ,{ "property": "due", "date": { "on_or_before": end_date_str } }                    
-                ]
-            },
-            "sorts":[{"property": "due", "direction" : "ascending"}]
-        }
-        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
-        if response.status_code == 200: 
-            print(len(response.json().get("results", [])), " tournaments")
-            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
-        else:
-            print("-->",response.status_code, response.text)  # Debugging: Print the response
-            response.raise_for_status()  # Raise an error for bad responses        
+        tournaments = []
+        try:
+            tournaments = self.redis_service.query_tournaments('status',status)
+            headcount = len(tournaments)
+            if not tournaments:
+                print(f'no cached | going to the source | count_n_get_by_status({status})')
+                data_filter = {
+                    "filter": {
+                        "and": [
+                            { "property": "path", "multi_select": {"contains": "tournament"} }
+                            ,{ "property": "status", "status": { "equals": status} }
+                            ,{ "property": "due", "date": { "on_or_before": end_date_str } }                    
+                        ]
+                    },
+                    "sorts":[{"property": "due", "direction" : "ascending"}]
+                }
+                has_more = True
+                start_cursor = None
+
+                while has_more:
+                    if start_cursor:
+                        data_filter['start_cursor'] = start_cursor
+                    response = requests.post(url, headers=self.headers, json=data_filter)
+                    response.raise_for_status()  # Raise an error for bad responses
+                    data = response.json()
+                    headcount += len(data.get('results', []))
+                    tournaments.extend(self.translate_adventure(data.get('results', [])))
+                    # Check if there are more pages
+                    has_more = data.get("has_more", False)
+                    start_cursor = data.get("next_cursor")
+                    print(f"Fetched {len(data.get('results', []))} Tournaments for status {status}, total so far: {len(tournaments)}")
+                print(f"☠️ {headcount} counted from source... loading cached hash...")
+                for tournament in tournaments:
+                    self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id'])
+                    ,tournament
+                    , expiry_hours=self.expirity_tournament_hours)
+        except Exception as e:
+            print(f"Failed to count_n_get_by_status: {e}")
+            response.raise_for_status()  # Raise an error for bad responses
+        return headcount, tournaments
 
     def create_tournament(self, character_id, xp_reward, coin_reward, title , description):
         today_date = datetime.now()
@@ -1478,7 +1514,7 @@ class NotionService:
                 "who": { "relation": [{"id": character_id}] },
                 "vs": {"relation": [{"id": character_id}]},
                 "resultlog": { "rich_text": CREATED_LOG  },
-                "path": {"multi_select": [{"name": "tournament"}]}
+                "path": {"multi_select": [{"name": "tournament", "name": "l.c.s."}]}
             }
         }
         url = f"{self.base_url}/pages"

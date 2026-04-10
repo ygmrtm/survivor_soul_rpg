@@ -440,16 +440,18 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById('version-number').innerText = '0.0.0'; // Fallback version
         });
 
-    fetch('/api/notion/loaddeadpeople/l3')
+    fetch('/api/notion/countdeadpeople/l3', {
+        method: 'POST'
+    })
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok | loaddeadpeople');
+                throw new Error('Network response was not ok');
             }
             return response.json();
         })
         .then(data => {
             if(data.count > 0){
-                logActivity(`Dead people loaded 💀 ${data.count}`);
+                logActivity(`Dead people  💀 ${data.count}`);
                 document.getElementById('underworld-button').disabled = false;
                 document.getElementById('dead-people').innerText = "(" + data.count + "☠️)";
             }
@@ -459,7 +461,9 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById('dead-people').innerText = '0'; // Fallback version
     });
 
-    fetch('/api/notion/countpeoplepills/l3')
+    fetch('/api/notion/countpeoplepills/l3', {
+        method: 'POST'
+    })
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok');
@@ -482,7 +486,7 @@ document.addEventListener("DOMContentLoaded", function () {
             logActivity(`❌❌ Error : ${error.message}`);
         });
 
-    fetch('/api/notion/loadalivepeople/l3')
+/*    fetch('/api/notion/loadalivepeople/l3')
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok | loadalivepeople');
@@ -516,5 +520,5 @@ document.addEventListener("DOMContentLoaded", function () {
             console.error('Error fetching counts:', error);
             logActivity(`❌❌ Error : ${error.message}`);
             document.getElementById('pending-tournaments').innerText = '0'; // Fallback version
-        });
-    });
+        });*/
+    }); 
