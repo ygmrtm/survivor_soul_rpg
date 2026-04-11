@@ -26,13 +26,13 @@ def create_adventure(id):
     result = adventure_service.create_adventure(id, underworld=False, npc_gods=None)
     return jsonify(result)
 
-@adventure_bp.route('/<id>/execute', methods=['POST'])
+@adventure_bp.route('/<id>', methods=['POST'])
 def execute_adventure(id):
     # Call the service to execute the adventure
     result = adventure_service.execute_adventure(id)
     return jsonify(result)
 
-@adventure_bp.route('/<id>/trash', methods=['POST'])
+@adventure_bp.route('/<id>', methods=['DELETE'])
 def update_adventure(id):
     # Call the service to update the adventure
     payload = {"archived": True } 
@@ -60,8 +60,8 @@ def execute_adventure_by_status(status):
         executed.append(adventure_service.execute_adventure(adv['id']))
     return jsonify({"count": len(executed) , "adventures": executed}), 200
 
-@adventure_bp.route('/underworld', methods=['POST'])
-def execute_underworld():
+@adventure_bp.route('/underworld/<limit>', methods=['POST'])
+def execute_underworld(limit):
     # Call the service to execute the adventure
     adventure_service = AdventureService()
     adventures_created = []
@@ -72,7 +72,7 @@ def execute_underworld():
 
     adventures_created, dead_people_count = adventure_service.create_underworld_4_deadpeople()
     adventures_executed= adventure_service.execute_underworld()
-    characters_awaked = adventure_service.awake_characters()
+    characters_awaked = adventure_service.awake_characters(limit=limit)
     adventures_punishment = adventure_service.apply_punishment()
     return jsonify({ "reborn" : len(adventures_executed)
                     , "still_dead" : dead_people_count - len(adventures_executed) 
@@ -81,12 +81,12 @@ def execute_underworld():
                     , "awaked" : characters_awaked, "awaked_count" : len(characters_awaked)
                     , "punishments" : adventures_punishment, "punishments_count" : len(adventures_punishment)})
 
-@adventure_bp.route('/underworld/awake', methods=['POST'])
-def execute_awake_characters():
-    # Call the service to execute the adventure
+@adventure_bp.route('/underworld/awake/<limit>', methods=['POST'])
+def execute_awake_characters(limit):
+    if not limit.isdigit():
+        return jsonify({"error": f"Invalid limit {limit}"}), 400
     adventure_service = AdventureService()
-    characters_awaked = []
-    characters_awaked = adventure_service.awake_characters()
+    characters_awaked = adventure_service.awake_characters(limit=limit)
     return jsonify({ "awaked" : characters_awaked, "awaked_count" : len(characters_awaked)} )
 
 @adventure_bp.route('/underworld/create', methods=['POST'])

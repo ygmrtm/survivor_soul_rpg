@@ -86,8 +86,8 @@ def flush_redis_cache():
                     ,"indicators_del": indicators_del}
                     ), 200
 
-@notion_bp.route('/characters/applypills/deep_level/<deep_level>', methods=['POST'])
-def apply_character_pills(deep_level):
+@notion_bp.route('/characters/applypills/deep_level/<deep_level>/<limit>', methods=['POST'])
+def apply_character_pills(deep_level, limit):
     # validate deep_level is valid "l"+int
     if not deep_level.startswith('l'):
         return jsonify({"error": "Invalid deep_level"}), 400
@@ -97,7 +97,7 @@ def apply_character_pills(deep_level):
     for pill_color in ['red','yellow', 'blue', 'green',  'orange', 'purple', 'gray', 'brown', 'pink']:
         result = apply_all_pills(deep_level=deep_level, pill_color=pill_color)
         jsonback[pill_color] = result
-    characters_awaked = adventure_service.awake_characters()
+    characters_awaked = adventure_service.awake_characters(limit=limit)
     jsonback['awaked'] = characters_awaked
     jsonback['awaked_count'] = len(characters_awaked)
     return jsonify(jsonback)

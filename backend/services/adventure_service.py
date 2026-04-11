@@ -811,16 +811,17 @@ class AdventureService:
             done += 1
         return return_array
 
-    def awake_characters(self):
+    def awake_characters(self, limit=0):
         characters = []
-        # First go to REDIS
-        characters = self.redis_service.query_characters_by_deep_status(
-            prefix=self.redis_service.get_cache_key('cryptids')
-            , status = 'rest' )
-        characters += self.redis_service.query_characters_by_deep_status(
-            prefix=self.redis_service.get_cache_key('cryptids')
-            , status = 'dying' )
         return_array = []
+        actually_executed = 0
+        characters = self.notion_service.get_characters_by_deep_level_status_source(deep_level='l3', status = 'rest' )
+        characters += self.notion_service.get_characters_by_deep_level_status_source(deep_level='l3', status = 'dying' )
+        characters += self.notion_service.get_characters_by_deep_level_npc_source(deep_level='l0', is_npc=True)
+        characters += self.notion_service.get_characters_by_deep_level_npc_source(deep_level='l1', is_npc=True)
+        characters += self.notion_service.get_characters_by_deep_level_npc_source(deep_level='l2', is_npc=True)
+        limit = int(limit if int(limit) > 0 else len(characters))
+        #print(f"characters found {len(characters)} limit {limit}")
         for character in characters:
             go = False
             pct_before = character['hp'] / character['max_hp']
@@ -840,9 +841,13 @@ class AdventureService:
                 go = True
             if go:
                 datau = {"properties": { "hp": {"number": character['hp']},"status": {"select": {"name":character['status']} } }}
-                upd_character = self.notion_service.update_character(character, datau)
+                _ = self.notion_service.update_character(character, datau)
                 return_array.append({ "character_id": character['notionid'], "character_name": character['name'], "character_hp": character['hp']})
-                print(character['hours_recovered'],character['name'],'{}->{} awakening as {}'.format(pct_before,pct_after,character['status']))
+                actually_executed += 1
+                strmsg = f"{character['name']} ⌛️{character['hours_recovered']} {pct_before}->{pct_after} awakening as {character['status']} {actually_executed}/{limit}/{len(characters)} "
+                print(strmsg)
+            if actually_executed >= limit :
+                break                
         return return_array
     
     def apply_punishment(self):

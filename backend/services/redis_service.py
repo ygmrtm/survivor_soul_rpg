@@ -378,7 +378,7 @@ class RedisService:
                 clean_data = {k: v for k, v in data.items() if not k.startswith('_')}
                 adjusted = self.adjust_character(clean_data)
                 matching_characters.append(adjusted)  
-            print(f"🚻 Returning {len(matching_characters)} characters out of {total}. qry={qry} paging {self.limit_redis_results}")
+            #print(f"🚻 Returning {len(matching_characters)} characters out of {total}. qry={qry} paging {self.limit_redis_results}")
         except Exception as e:
             print(f"❌ Error querying characters: {str(e)}")
         
