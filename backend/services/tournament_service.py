@@ -48,16 +48,15 @@ class TournamentService:
             print("tournament for root | ", tournament)
         return tournament
     
-    def get_by_id(self, tournament_id):
+    def get_by_id(self, tournament_id, prefix_save_ifnot='adventure'):
         try:
             tournament_id = tournament_id.replace('-','')
             adventure = None
-            adventure = self.redis_service.get(self.redis_service.get_cache_key("tournaments", tournament_id))
+            adventure = self.redis_service.get(prefix_save_ifnot + tournament_id)
             if not adventure:
                 adventure = self.notion_service.get_adventure_by_id(tournament_id)
                 adventure['id'] = tournament_id
-                self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament_id)
-                                                    ,adventure, expiry_hours=self.expirity_tournament_hours)
+                self.redis_service.set_with_expiry(prefix_save_ifnot + tournament_id,adventure, expiry_hours=self.expirity_tournament_hours)
             return adventure
         except Exception as e:
             print(f"Failed to fetch get_by_id {tournament_id} ::: {e}")
@@ -65,7 +64,7 @@ class TournamentService:
 
     def count_n_get_by_status(self, status):
         try:
-            return self.notion_service.count_n_get_by_status_source(status=status)
+            return self.notion_service.count_n_get_by_status_source(status=status, prefix=self.redis_service.get_cache_key('tournaments'))
         except Exception as e:
             print(f"Failed to fetch count_n_get_by_status ::: {e}")
             raise        
@@ -119,7 +118,7 @@ class TournamentService:
                 tournament['status'] = 'won'
                 tournament['encounter_log'] = self.encounter_log
                 tournament['top_5'] = whos
-                self.notion_service.persist_adventure(adventure=tournament, characters=whos)
+                self.notion_service.persist_adventure(adventure=tournament, characters=whos, prefix=self.redis_service.get_cache_key('tournaments'))
                 message_back = f"{tournament['id']} EXECUTED AS {tournament['status']} WINNERS >> {winners} GOT AS REWARD {tournament['xpRwd']} ${tournament['coinRwd']}"
             else:
                 message_back = f"NO WINNER"

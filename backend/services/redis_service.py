@@ -442,8 +442,36 @@ class RedisService:
             print(f"✅ Found {len(matching_tournaments)} matching tournaments for {field} = {value}.")
         except Exception as e:
             print(f"❌ Error querying tournaments: {str(e)}")
-        
         return matching_tournaments        
+
+    def query_deadventures(self, prefix, field, value):
+        """
+        Query adventures based on a specific field and value.
+        
+        Args:
+            prefix (str): key
+            field (str): The field to query (e.g., 'name', 'deeplevel').
+            value (str): The value to match against the field.
+        
+        Returns:
+            list: A list of adventures  that match the query.
+        """
+        matching_adventures = []
+        try:
+            # Get all keys that match the habit pattern
+            keys = self.redis_client.keys(f"{prefix}*")
+            for key in keys:
+                # Get habit data and convert it to a dictionary
+                adventure_data = self.redis_client.get(key)
+                if adventure_data:
+                    adventure_data = json.loads(adventure_data)  
+                    if adventure_data and adventure_data[field] == (value):
+                        matching_adventures.append(adventure_data)  
+            
+            print(f"✅ Found {len(matching_adventures)} matching deadventures for {field} = {value}.")
+        except Exception as e:
+            print(f"❌ Error querying deadventures: {str(e)}")
+        return matching_adventures      
 
     def get_by_pattern(self, pattern):
         """

@@ -71,7 +71,7 @@ def execute_underworld(limit):
     dead_people_count = 0
 
     adventures_created, dead_people_count = adventure_service.create_underworld_4_deadpeople()
-    adventures_executed= adventure_service.execute_underworld()
+    adventures_executed= adventure_service.execute_underworld(limit=limit)
     characters_awaked = adventure_service.awake_characters(limit=limit)
     adventures_punishment = adventure_service.apply_punishment()
     return jsonify({ "reborn" : len(adventures_executed)
@@ -89,6 +89,28 @@ def execute_awake_characters(limit):
     characters_awaked = adventure_service.awake_characters(limit=limit)
     return jsonify({ "awaked" : characters_awaked, "awaked_count" : len(characters_awaked)} )
 
+@adventure_bp.route('/underworld/punish', methods=['POST'])
+def execute_underworld_punish():
+    # Apply punishment for adventures
+    adventure_service = AdventureService()
+    adventures_punishment = adventure_service.apply_punishment()
+    return jsonify({
+        "punishments": adventures_punishment,
+        "punishments_count": len(adventures_punishment)
+    })
+
+@adventure_bp.route('/underworld/execute/<limit>', methods=['POST'])
+def execute_underworld_execute(limit):
+    # Execute underworld adventures
+    if not limit.isdigit():
+        return jsonify({"error": f"Invalid limit {limit}"}), 400
+    adventure_service = AdventureService()
+    adventures_executed = adventure_service.execute_underworld(limit=limit)
+    return jsonify({
+        "executed": adventures_executed,
+        "executed_count": len(adventures_executed)
+    })
+
 @adventure_bp.route('/underworld/create', methods=['POST'])
 def execute_underworld_create():
     # Create underworld adventures for dead people
@@ -98,26 +120,6 @@ def execute_underworld_create():
         "created": adventures_created,
         "created_count": len(adventures_created),
         "dead_people_count": dead_people_count
-    })
-
-@adventure_bp.route('/underworld/execute', methods=['POST'])
-def execute_underworld_execute():
-    # Execute underworld adventures
-    adventure_service = AdventureService()
-    adventures_executed = adventure_service.execute_underworld()
-    return jsonify({
-        "executed": adventures_executed,
-        "executed_count": len(adventures_executed)
-    })
-
-@adventure_bp.route('/underworld/punish', methods=['POST'])
-def execute_underworld_punish():
-    # Apply punishment for adventures
-    adventure_service = AdventureService()
-    adventures_punishment = adventure_service.apply_punishment()
-    return jsonify({
-        "punishments": adventures_punishment,
-        "punishments_count": len(adventures_punishment)
     })
 
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/create', methods=['POST'])

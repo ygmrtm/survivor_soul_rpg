@@ -23,6 +23,7 @@ class NotionService:
     expiry_hours = 72
     expiry_minutes = 90
     expirity_tournament_hours = 12
+    expirity_adventure_done_hours = 1
     tour_days_vigencia = 7
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
@@ -656,7 +657,7 @@ class NotionService:
         return adventure
         
 
-    def persist_adventure(self, adventure, characters):
+    def persist_adventure(self, adventure, characters, prefix='adventure'):
         #print(self.translate_encounter_log(adventure['encounter_log']))
         self.add_blocks(adventure['id'], 'paragraph', self.translate_encounter_log(adventure['encounter_log']))
         RESULT_LOG = adventure['resultlog'] + CLOSED_LOG \
@@ -680,9 +681,7 @@ class NotionService:
             datau['properties']['who'] = { "relation": [{"id": root['notionid']}] }
             datau['properties']['vs'] = { "relation": [{"id": c['notionid']} for c in rest_of_chars] }
         upd_adventure = self.update_adventure(adventure['id'], datau)
-        self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", adventure['id'])
-            , adventure
-            , expiry_hours=round(self.expirity_tournament_hours/3))
+        self.redis_service.set_with_expiry(prefix+adventure['id'], adventure, expiry_hours=round(self.expirity_tournament_hours))
 
 
         ''' 
@@ -1261,76 +1260,99 @@ class NotionService:
             response.raise_for_status() 
             return None  
 
-    def get_underworld_adventures(self):
-        # Prepare the query for Notion API
-        url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
-        data_filter = {
-            "filter": {
-                "and": [
-                    {
-                        "property": "name",
-                        "rich_text": {
-                        "contains": "DEADVENTURE"
-                        }
+    """
+    UNDERWORLD
+    """
+    def get_underworld_adventures_source(self):
+        try:
+            # Prepare the query for Notion API
+            url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
+            adventures = []
+            adventures = self.redis_service.query_deadventures(
+                prefix=self.redis_service.get_cache_key('deadventures'),field='status', value='created')            
+            if len(adventures) <= 0:
+                data_filter = {
+                    "filter": {
+                        "and": [
+                            {
+                                "property": "name",
+                                "rich_text": {
+                                "contains": "DEADVENTURE"
+                                }
+                            },
+                            {
+                                "property": "status",
+                                "status": { "equals": "created"}
+                            }
+                        ]
                     },
-                    {
-                        "property": "status",
-                        "status": { "equals": "created"}
-                    }
-                ]
-            },
-            "sorts":[{"property": "due", "direction" : "ascending"}]
-        }
-        has_more = True
-        start_cursor = None
-        adventures = []
-        while has_more:
-            if start_cursor:
-                data_filter['start_cursor'] = start_cursor
-            response = requests.post(url, headers=self.headers, json=data_filter)
-            response.raise_for_status()  # Raise an error for bad responses
-            data = response.json()
-            # Extend the characters list with the results from this page
-            adventures.extend(self.translate_adventure(data.get("results", []) if data.get("results", []) else []))
-            # Check if there are more pages
-            has_more = data.get("has_more", False)
-            start_cursor = data.get("next_cursor")  
-            print(f"Fetched {len(data.get('results', []))} deadventures, total so far: {len(adventures)}")
-        
-        return adventures
+                    "sorts":[{"property": "due", "direction" : "ascending"}]
+                }
+                has_more = True
+                start_cursor = None
+                adventures = []
+                while has_more:
+                    if start_cursor:
+                        data_filter['start_cursor'] = start_cursor
+                    response = requests.post(url, headers=self.headers, json=data_filter)
+                    response.raise_for_status()  # Raise an error for bad responses
+                    data = response.json()
+                    # Extend the characters list with the results from this page
+                    adventures.extend(self.translate_adventure(data.get("results", []) if data.get("results", []) else []))
+                    # Check if there are more pages
+                    has_more = data.get("has_more", False)
+                    start_cursor = data.get("next_cursor")  
+                    print(f"Fetched {len(data.get('results', []))} deadventures, total so far: {len(adventures)}")
+                for adventure in adventures:
+                    cache_key = self.redis_service.get_cache_key('deadventures', adventure['id'])
+                    if not self.redis_service.exists(cache_key):
+                        self.redis_service.set_with_expiry(self.redis_service.get_cache_key('deadventures')+adventure['id']
+                        , adventure, expiry_hours=round(self.expirity_adventure_done_hours))
+                        
+            return adventures
+        except Exception as e:
+            print(f"Failed to get_punishment_adventure_source: {e}")
+            response.raise_for_status() 
         
     def get_punishment_adventures(self):
         # Prepare the query for Notion API
         url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
-        data = {
-            "filter": {
-                "and": [
-                    {  "property": "path", "multi_select": {"contains": "punishment"} }
-                    ,{ "property": "status", "status": { "equals": "accepted"} }
-                ]
+        try:
+            data = {
+                "filter": {
+                    "and": [
+                        {  "property": "path", "multi_select": {"contains": "punishment"} }
+                        ,{ "property": "status", "status": { "equals": "accepted"} }
+                    ]
+                }
             }
-        }
-        response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
-        if response.status_code == 200: 
-            return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
-        else:
-            print("-->",response.status_code, response.text)  # Debugging: Print the response
-            response.raise_for_status()  # Raise an error for bad responses        
-
+            response = requests.post(url, headers=self.headers, json=data)  # Use json to send data
+            if response.status_code == 200: 
+                return self.translate_adventure(response.json().get("results", []) if response.json().get("results", []) else [])
+            else:
+                print("-->",response.status_code, response.text)  
+                response.raise_for_status()  
+        except Exception as e:
+            print(f"Failed to get_punishment_adventures: {e}")
+            response.raise_for_status() 
     def get_all_habits(self):
         url = f"{self.base_url}/databases/{NOTION_DBID_HABIT}/query"
-        response = requests.post(url, headers=self.headers)
-        if response.status_code != 200:  
-            print("❌❌","get_all_habits",response.status_code, response.text) 
-            response.raise_for_status()  
-        habits = response.json().get("results", [])  
-        translated_habits = []
-        for habit in habits:
-            translated = self.translate_habit(habit)
-            translated_habits.append(translated)
-            cache_key = self.redis_service.get_cache_key('habits', translated['id'])
-            self.redis_service.set_with_expiry(cache_key, translated, self.expiry_hours)
-        return translated_habits
+        try:
+            response = requests.post(url, headers=self.headers)
+            if response.status_code != 200:  
+                print("❌❌","get_all_habits",response.status_code, response.text) 
+                response.raise_for_status()  
+            habits = response.json().get("results", [])  
+            translated_habits = []
+            for habit in habits:
+                translated = self.translate_habit(habit)
+                translated_habits.append(translated)
+                cache_key = self.redis_service.get_cache_key('habits', translated['id'])
+                self.redis_service.set_with_expiry(cache_key, translated, self.expiry_hours)
+            return translated_habits
+        except Exception as e:
+            print(f"Failed to get_all_habits: {e}")
+            response.raise_for_status() 
     
     def translate_habit(self, habit):
         habit_level = int(habit['properties']['level']['number'])
@@ -1446,7 +1468,7 @@ class NotionService:
     """
     TOURNAMENTS
     """
-    def count_n_get_by_status_source(self, status="created"):
+    def count_n_get_by_status_source(self, status="created", prefix='adventure'):
         end_date = datetime.now() + timedelta(days = self.tour_days_vigencia) 
         end_date_str = end_date.strftime('%Y-%m-%d')
         url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
@@ -1481,9 +1503,9 @@ class NotionService:
                     has_more = data.get("has_more", False)
                     start_cursor = data.get("next_cursor")
                     print(f"Fetched {len(data.get('results', []))} Tournaments for status {status}, total so far: {len(tournaments)}")
-                print(f"☠️ {headcount} counted from source... loading cached hash...")
+                print(f"⚔️ {headcount} counted from source... loading cached hash...")
                 for tournament in tournaments:
-                    self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id'])
+                    self.redis_service.set_with_expiry(prefix + tournament['id']
                     ,tournament
                     , expiry_hours=self.expirity_tournament_hours)
         except Exception as e:

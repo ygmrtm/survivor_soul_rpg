@@ -145,7 +145,7 @@ class AdventureService:
             challenge['encounter_log'] = self.encounter_log
             challenge['dlylog'] = dlylog_array
             self.notion_service.persist_habit(habit)
-            self.notion_service.persist_adventure(adventure=challenge, characters=[who])
+            self.notion_service.persist_adventure(adventure=challenge, characters=[who], prefix=self.redis_service.get_cache_key('challenges'))
         return challenges
     
     def evaluate_weekhabits_challenges(self, week_number, year_number):
@@ -207,7 +207,7 @@ class AdventureService:
             gods_winner.append(who)
             challenge['encounter_log'] = self.encounter_log
             challenge['dlylog'] = dlylog_array
-            self.notion_service.persist_adventure(adventure=challenge, characters=gods_winner)
+            self.notion_service.persist_adventure(adventure=challenge, characters=gods_winner, prefix=self.redis_service.get_cache_key('challenges'))
         return challenges
 
     def evaluate_expired_challenges(self,week_number, year_number):
@@ -245,7 +245,7 @@ class AdventureService:
             self.add_encounter_log(self.GOLDEN_RATIO, "status", 'old status [{}]'.format(prev_status))
             challenge['status'] = 'lost'
             challenge['encounter_log'] = self.encounter_log
-            upd_adventure, upd_character = self.notion_service.persist_adventure(adventure=challenge, characters=pool_whos)
+            upd_adventure, upd_character = self.notion_service.persist_adventure(adventure=challenge, characters=pool_whos, prefix=self.redis_service.get_cache_key('challenges'))
             upd_challenges.append({ 'adventure_id':upd_adventure['id']
                                 , 'who_id':upd_character['id']
                                 , 'challenge_name':challenge['name']
@@ -279,7 +279,7 @@ class AdventureService:
             self.add_encounter_log(0, "status", 'old status [{}]'.format(prev_status))
             challengew['status'] = 'Archived'
             challengew['encounter_log'] = self.encounter_log
-            upd_adventure, upd_character = self.notion_service.persist_adventure(adventure=challengew, characters=pool_whos)
+            upd_adventure, upd_character = self.notion_service.persist_adventure(adventure=challengew, characters=pool_whos, prefix=self.redis_service.get_cache_key('challenges'))
             upd_challenges.append({ 'adventure_id':upd_adventure['id']
                                 , 'who_id':upd_character['id']
                                 , 'challenge_name':challengew['name']
@@ -328,7 +328,7 @@ class AdventureService:
             self.add_encounter_log(self.GOLDEN_RATIO, "status", f"from[{prev_status}]:[{challenge['status']}]to")
             challenge['encounter_log'] = self.encounter_log
             challenge['dlylog'] = dlylog_array
-            upd_adventure, upd_character = self.notion_service.persist_adventure(adventure=challenge, characters=pool_whos)
+            upd_adventure, upd_character = self.notion_service.persist_adventure(adventure=challenge, characters=pool_whos, prefix=self.redis_service.get_cache_key('challenges'))
             upd_challenges.append({ 'adventure_id':upd_adventure['id']
                                 , 'who_id':upd_character['id']
                                 , 'challenge_name':challenge['name']
@@ -568,7 +568,7 @@ class AdventureService:
                 who['coins'] += self.add_encounter_log(total_taken,"coins","You have found 💰💰💰 of real 🌎")
             enemies.append(who)
             adventure['encounter_log'] = self.encounter_log
-            self.notion_service.persist_adventure(adventure=adventure, characters=enemies)
+            self.notion_service.persist_adventure(adventure=adventure, characters=enemies, prefix=self.redis_service.get_cache_key('adventure'))
         return {
             "adventure_id": adventure_id,
             "status": adventure['status'],
@@ -737,7 +737,7 @@ class AdventureService:
         return upd_character
 
     def create_underworld_4_deadpeople(self):
-        l3_characters = self.notion_service.get_characters_by_deep_level_status(deep_level='l3', status='dead') 
+        l3_characters = self.notion_service.get_characters_by_deep_level_status_source(deep_level='l3', status='dead') 
         dead_people_count = len(l3_characters)
         filtered_characters =  [c for c in l3_characters if c['pending_reborn'] is None]   
         to_execute = 0
@@ -759,9 +759,9 @@ class AdventureService:
             done += 1
         return return_array, dead_people_count
     
-    def execute_underworld(self):
+    def execute_underworld(self, limit=0):
         return_array = []
-        all_adventures = self.notion_service.get_underworld_adventures()
+        all_adventures = self.notion_service.get_underworld_adventures_source()
         if len(all_adventures) <= 0:
             print("no underworld adventures")
             return return_array
@@ -769,7 +769,7 @@ class AdventureService:
         if len(all_adventures) <= 5:
             to_execute = len(all_adventures)
         else:
-            to_execute = int(len(all_adventures) * self.percentage_execute_dead)
+            to_execute = int(len(all_adventures) * self.percentage_execute_dead) if limit == 0 else int(limit)
         sample_adventures = random.sample(all_adventures, min(to_execute, len(all_adventures)))
         done = 1
         dead_gods_pool = []
@@ -789,7 +789,7 @@ class AdventureService:
                 who['hp'] += self.add_encounter_log(who['hours_recovered'], "hp", 'hours recovered as')
                 properties = ['magic', 'attack', 'defense']
                 total = 0
-                prev_value = 100000000
+                prev_value = 100000000000
                 minor_prop = ''
                 for prop in properties:
                     value = who[prop]
@@ -805,7 +805,7 @@ class AdventureService:
                 deaadventure['status'] = 'lost'
                 self.add_encounter_log(who['hp'], "hp", 'You have been defeated in 100 encounters.')
                 deaadventure['encounter_log'] = self.encounter_log
-            self.notion_service.persist_adventure(adventure=deaadventure, characters=[who,enemy])
+            self.notion_service.persist_adventure(adventure=deaadventure, characters=[who,enemy] , prefix=self.redis_service.get_cache_key('deadventures'))
             #time.sleep(random.randint(1, 5))
             return_array.append({"adventure_id": deaadventure['id'], "character_id": who['id'], "character_name": who['name'], "deadgod_name": enemy['name'],"adventure_status": deaadventure['status']})
             done += 1
@@ -854,8 +854,7 @@ class AdventureService:
         return_array = []
         all_adventures = self.notion_service.get_punishment_adventures()
         if len(all_adventures) <= 0:
-            print("no punishment adventures")
-            return return_array
+            print("no punishment adventures found")
         for adventure in all_adventures:
             self.encounter_log = []
             character = self.notion_service.get_character_by_id(adventure['who'])
@@ -866,6 +865,6 @@ class AdventureService:
             adventure['status'] = 'lost'
             adventure['encounter_log'] = self.encounter_log
             self.notion_service.persist_habit(habit)
-            self.notion_service.persist_adventure(adventure=adventure, characters=[character])
+            self.notion_service.persist_adventure(adventure=adventure, characters=[character], prefix=self.redis_service.get_cache_key('punishment'))
             return_array.append({"adventure_id": adventure['id'], "character_id": character['notionid'], "character_name": character['name'],"adventure_status": adventure['status']})
         return return_array

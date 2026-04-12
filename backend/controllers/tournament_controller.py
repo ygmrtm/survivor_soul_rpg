@@ -47,5 +47,3 @@ def create_tournament():
 
     result = tournament_service.create_tournament(title, description)
     return jsonify(result)
-
- 
