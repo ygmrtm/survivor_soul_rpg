@@ -52,7 +52,21 @@ def loaddeadpeople(deep_level):
     if not deep_level.startswith('l'):
         return jsonify({"error": "Invalid deep_level"}), 400
     dead_people = notion_service.get_characters_by_deep_level_status_source(deep_level, status="dead")
-    return jsonify({"count": len(dead_people) , "characters": dead_people}), 200
+    characters_awaked_smoke = adventure_service.awake_characters(limit=48)
+    deadventures_executed_smoke = adventure_service.execute_underworld(limit=50)
+    deadventures_created_smoke = adventure_service.create_underworld_4_deadpeople(limit=77)
+    count_need_underwold_creation = 0
+    for zombie in dead_people:
+        if not zombie['pending_reborn']:
+            count_need_underwold_creation += 1
+    dead_ids = [obj['id'] for obj in dead_people if obj['id'] is not None]               
+    return jsonify({"count_l3_dead": len(dead_people) 
+        , "count_need_underwold_creation":count_need_underwold_creation
+        , "count_need_awake":len(characters_awaked_smoke)
+        , "count_deadventures_to_execute":len(deadventures_executed_smoke)
+        , "count_deadventures_tobe_created":len(deadventures_created_smoke)
+        , "dead_people": dead_ids
+        }), 200
 
 @notion_bp.route('/loadalivepeople/<deep_level>', methods=['GET'])
 def loadalivepeople(deep_level):

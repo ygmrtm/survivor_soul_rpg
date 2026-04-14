@@ -20,24 +20,24 @@ watchlist_service = WatchlistService()
 redis_service = RedisService()
 notion_service = NotionService()
 
-@adventure_bp.route('/<id>/create', methods=['POST'])
-def create_adventure(id):
+@adventure_bp.route('/<character_id>/create', methods=['POST'])
+def create_adventure(character_id):
     # Create a new adventure
-    result = adventure_service.create_adventure(id, underworld=False, npc_gods=None)
+    result = adventure_service.create_adventure(character_id, underworld=False, npc_gods=None)
     return jsonify(result)
 
-@adventure_bp.route('/<id>', methods=['POST'])
-def execute_adventure(id):
+@adventure_bp.route('/<adventure_id>/go', methods=['POST'])
+def execute_adventure(adventure_id):
     # Call the service to execute the adventure
-    result = adventure_service.execute_adventure(id)
+    result = adventure_service.execute_adventure(adventure_id)
     return jsonify(result)
 
-@adventure_bp.route('/<id>', methods=['DELETE'])
-def update_adventure(id):
+@adventure_bp.route('/<adventure_id>', methods=['DELETE'])
+def update_adventure(adventure_id):
     # Call the service to update the adventure
     payload = {"archived": True } 
     try:
-        result = notion_service.update_adventure(id, payload)
+        result = notion_service.update_adventure(adventure_id, payload)
     except Exception as e:
         return jsonify({"error": str(e), "result": None}), 500
     return jsonify(result)
@@ -70,7 +70,7 @@ def execute_underworld(limit):
     adventures_punishment = []
     dead_people_count = 0
 
-    adventures_created, dead_people_count = adventure_service.create_underworld_4_deadpeople()
+    adventures_created, dead_people_count = adventure_service.create_underworld_4_deadpeople(limit=limit)
     adventures_executed= adventure_service.execute_underworld(limit=limit)
     characters_awaked = adventure_service.awake_characters(limit=limit)
     adventures_punishment = adventure_service.apply_punishment()
@@ -85,6 +85,10 @@ def execute_underworld(limit):
 def execute_awake_characters(limit):
     if not limit.isdigit():
         return jsonify({"error": f"Invalid limit {limit}"}), 400
+    else:
+        limit = int(limit)
+    if limit < 1 or limit > 60:
+        return jsonify({"error": "Invalid limit:"+limit}), 400        
     adventure_service = AdventureService()
     characters_awaked = adventure_service.awake_characters(limit=limit)
     return jsonify({ "awaked" : characters_awaked, "awaked_count" : len(characters_awaked)} )
@@ -104,6 +108,10 @@ def execute_underworld_execute(limit):
     # Execute underworld adventures
     if not limit.isdigit():
         return jsonify({"error": f"Invalid limit {limit}"}), 400
+    else:
+        limit = int(limit)
+    if limit < 1 or limit > 60:
+        return jsonify({"error": "Invalid limit:"+limit}), 400
     adventure_service = AdventureService()
     adventures_executed = adventure_service.execute_underworld(limit=limit)
     return jsonify({
@@ -111,15 +119,20 @@ def execute_underworld_execute(limit):
         "executed_count": len(adventures_executed)
     })
 
-@adventure_bp.route('/underworld/create', methods=['POST'])
-def execute_underworld_create():
+@adventure_bp.route('/underworld/create/<limit>', methods=['POST'])
+def execute_underworld_create(limit):
     # Create underworld adventures for dead people
+    if not limit.isdigit():
+        return jsonify({"error": f"Invalid limit {limit}"}), 400
+    else:
+        limit = int(limit)
+    if limit < 1 or limit > 60:
+        return jsonify({"error": "Invalid limit:"+limit}), 400
     adventure_service = AdventureService()
-    adventures_created, dead_people_count = adventure_service.create_underworld_4_deadpeople()
+    adventures_created = adventure_service.create_underworld_4_deadpeople(limit=limit)
     return jsonify({
         "created": adventures_created,
-        "created_count": len(adventures_created),
-        "dead_people_count": dead_people_count
+        "created_count": len(adventures_created)
     })
 
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/create', methods=['POST'])

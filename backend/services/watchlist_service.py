@@ -155,10 +155,11 @@ class WatchlistService:
         loaded_watchlist = self.get_watchlist_by_estado('loaded')
         cache_key = self.redis_service.get_cache_key('watchlist', f'suggested{tamano}')
         return_watchlist = self.redis_service.get(cache_key) if self.redis_service.get(cache_key) else [] 
-        #print("Got", len(return_watchlist), "movies from cache" )
+        print("Got", len(return_watchlist), "movies from cache", len(checked_watchlist), "movies checked", len(loaded_watchlist), "movies loaded"  )
         priority = 0
-        while len(return_watchlist) < tamano:
+        while len(return_watchlist) <= tamano and priority <= 2:
             for year in range(self.year_start, datetime.now().year, 20):
+                print(f"🎬 Getting random watchlist for year {year} to {year + self.year_range} | {priority} | {len(return_watchlist)}")
                 if priority == 0:
                     checked_streaming_watchlist = [movie for movie in checked_watchlist if movie['streaming'] and movie['año'] >= year and movie['año'] <= (year + self.year_range)]
                     if len(checked_streaming_watchlist) > 0:
@@ -173,8 +174,9 @@ class WatchlistService:
                         sample = random.sample(loaded_watchlist_todo, self.size_for_loaded_suggested if len(loaded_watchlist_todo) >= self.size_for_loaded_suggested else len(loaded_watchlist_todo))
                         if len(sample) > 0:
                             return_watchlist.extend(sample)
-                #print(f"🎬 Getting random watchlist for year {year} to {year + self.year_range} | {priority} | {len(return_watchlist)}")
-            priority += 1 if priority < 2 else 0
+                else:
+                    print(f"wrong priority {priority}")
+            priority += 1 
         return return_watchlist[:tamano]
 
     def persist_suggested_watchlist(self, watchlist, week):
