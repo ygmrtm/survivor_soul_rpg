@@ -380,7 +380,7 @@ class AdventureService:
                 priority = 2
                 description = f'__{daysoff} Days!__ is close, try to start'
             print(priority, challenge['name'], challenge['due'])
-            cached_key = self.redis_service.get_cache_key('notification:duesoon', challenge['id'])
+            cached_key = self.redis_service.get_cache_key_nomerge('notification', 'duesoon', challenge['id'])
             cached_notification = self.redis_service.get(cached_key)
             if not cached_notification:
                 due_date = challenge['due'] if challenge['due'] < today_str else today_str
@@ -391,7 +391,7 @@ class AdventureService:
                                                                         , "description": description }, expirity_hours)
                 if challenge['due'] >= today_str:
                     heading = '__deadline ⌛️__ '
-                    self.redis_service.set_with_expiry(self.redis_service.get_cache_key('notification:deadline', challenge['id'])
+                    self.redis_service.set_with_expiry(self.redis_service.get_cache_key_nomerge('notification', 'deadline', challenge['id'])
                                                                             , { "content": heading + challenge['name']
                                                                             , "due_date": challenge['due']
                                                                             , "priority": 1
@@ -423,7 +423,7 @@ class AdventureService:
             else:
                 print(f"❌❌|WTF? {dbid['notion_char']}? as notion_char wrong parameter")
             for challenge in challenges_array:
-                cached_key = self.redis_service.get_cache_key('notification:notplanned', challenge['id'])
+                cached_key = self.redis_service.get_cache_key_nomerge('notification', 'notplanned', challenge['id'])
                 cached_notification = self.redis_service.get(cached_key)
                 heading = '__Not Planned Yet |__ '
                 if not cached_notification:
@@ -457,7 +457,7 @@ class AdventureService:
                                     ,'max_consecutive':max(output[habit]['max_consecutive'], consecutive_ )
                                     ,'last_date' : cuando_ }
             for key in keys:                
-                cached_key = self.redis_service.get_cache_key('notification:' + key_str, key )
+                cached_key = self.redis_service.get_cache_key_nomerge('notification' , key_str, key )
                 next_suggested_streak = round(output[key]['max_consecutive'] * self.GOLDEN_RATIO)
                 next_suggested_streak = 1 if next_suggested_streak <= 0 else next_suggested_streak
                 days_since_last_date = 0
@@ -474,7 +474,7 @@ class AdventureService:
                                                                             , "priority": 1
                                                                             , "description": description
                                                                             , "section_id": None, "labels": [f"notion:{key}"]}, self.expiry_hours)
-                cached_key = self.redis_service.get_cache_key('notification:' + key_str, key + 'challenge' )    
+                cached_key = self.redis_service.get_cache_key_nomerge('notification' , key_str, key + 'challenge' )    
                 if create_challenge is True and not self.redis_service.exists(cached_key):
                     self.notion_service.get_all_habits() #force to load all habits
                     habit = self.notion_service.get_habits_by_property('name', key)[0]

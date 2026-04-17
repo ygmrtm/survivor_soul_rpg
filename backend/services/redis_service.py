@@ -110,6 +110,7 @@ class RedisService:
         """
         try:
             value = self.redis_client.get(key)
+            print("☠️ get value ",value)
             return json.loads(value) if value else None
         except Exception as e:
             print(f"Error getting Redis key {key} | {str(e)}")
@@ -134,6 +135,7 @@ class RedisService:
         try:
             serialized_value = json.dumps(value) 
             respon = self.redis_client.sadd(key, serialized_value)
+            self.redis_client.expire(name=key, time=expiry_seconds)            
             return respon
         except Exception as e:
             print(f"❌ Error setting Redis key {key}: {str(e)}")       
@@ -156,11 +158,26 @@ class RedisService:
 
     def smembers(self, key):
         try:
-            value = self.redis_client.smembers(key)
-            print(f"smembers({key}) type {type(value)}")
-            return value if value else None
+            values = self.redis_client.smembers(key)
+            return values if values else []
         except Exception as e:
-            print(f"Error getting Redis key {key}: {str(e)}")
+            print(f"Error getting smembers {key}: {str(e)}")
+            return None
+
+    def smembers_w_hash(self, key):
+        try:
+            values = self.smembers(key)
+            return_list = []
+            #print("☠️ value ",value)
+            for member in values:
+                member_hash = self.redis_client.hgetall(member.replace('"',''))
+                #print(member," ☠️ member_hash ",member_hash)
+                if member_hash:
+                    adjusted = self.adjust_watchcard(member_hash)
+                    return_list.append(adjusted)
+            return return_list 
+        except Exception as e:
+            print(f"Error getting smembers_w_hash {key} | {str(e)}")
             return None
 
     def hset(self, name, key, value ):
@@ -181,7 +198,7 @@ class RedisService:
             clean_data['id'] = character_id
             return self.adjust_character(clean_data)
         except Exception as e:
-            print(f"Error getting Redis key {key} | {str(e)}")
+            print(f"Error getting hgetall {key} | {str(e)}")
             return None
 
     def set_character_hash(self, key, character, expiry_seconds=3600):
@@ -193,8 +210,7 @@ class RedisService:
             if change_status :
                 self.srem(self.get_cache_key('sets', character['deep_level'] + ':' + old_status ) , key)
                 set_name = self.get_cache_key('sets', character['deep_level'] + ':' + character['status']) 
-                self.ssad(set_name, key )
-                self.redis_client.expire(name=set_name, time=expiry_seconds)
+                self.ssad(set_name, key , expiry_seconds)
                 #print(f"del viejo status {old_status} añadiendo al set {set_name}")
             self.hset(key, 'status' , character['status']  )
             self.hset(key, 'name' , character['name'] )
@@ -223,8 +239,7 @@ class RedisService:
             self.redis_client.expire(name=key, time=expiry_seconds)
             #sets
             set_name = self.get_cache_key('sets', 'all') 
-            self.ssad(set_name, key )
-            self.redis_client.expire(name=set_name, time=expiry_seconds)
+            self.ssad(set_name, key, expiry_seconds )
             return True
         except Exception as e:
             print(f"Error setting Redis key {key}: {str(e)}")
@@ -272,11 +287,12 @@ class RedisService:
             return None
 
 
-    def set_index(self, prefix ):
+    def set_cryptid_index(self, prefix ):
         try:
             hashIndexCreated = self.redis_client.ft("idx:"+prefix)
             if not hashIndexCreated:
                 hashSchema = (
+                    TextField("notionid"),
                     TextField("name"),
                     TextField("deep_level"),
                     TextField("status")
@@ -290,7 +306,26 @@ class RedisService:
                 )   
             return hashIndexCreated
         except Exception as e:
-            print(f"Error set_index : {str(e)}")
+            print(f"Error set_cryptid_index : {str(e)}")
+            return None                 
+
+    def set_watchlist_index(self, *args ):
+        try:
+            prefix = ':'.join(str(arg) for arg in args) 
+            hashIndexCreated = self.redis_client.ft("idx:"+prefix)
+            if not hashIndexCreated:
+                hashIndexCreated = self.redis_client.ft("idx:"+prefix).create_index(
+                    (
+                        TextField("notion_id")
+                        ,TextField("titulo")
+                        ,TextField("anio")
+                        ,TextField("estado")
+                    ),
+                    definition=IndexDefinition( prefix=[prefix], index_type=IndexType.HASH)
+                )   
+            return hashIndexCreated
+        except Exception as e:
+            print(f"Error set_watchlist_index : {str(e)}")
             return None                 
 
     def delete(self, key):
@@ -384,6 +419,26 @@ class RedisService:
         
         return matching_characters   
 
+    def get_cache_key_nomerge(self, prefix, *args):
+        return f"{prefix}{':' if (len(args)>0) else ''}{':'.join(str(arg) for arg in args)}"
+
+    def query_watchcards(self, prefix='X_x', qry=None, limit=0):
+        matching_watchcards = []
+        try:
+            qry = qry if len(qry) > 0 else '*'
+            #print(f"👋 {prefix} {qry}")
+            findHashResult = self.redis_client.ft("idx:"+prefix).search(Query(qry).paging(0,limit))
+            total = findHashResult.total
+            for doc in findHashResult.docs:
+                data = doc.__dict__
+                clean_data = {k: v for k, v in data.items() if not k.startswith('_')}
+                adjusted = self.adjust_watchcard(clean_data)
+                matching_watchcards.append(adjusted)  
+            print(f"🚻 Returning {len(matching_watchcards)} watchcards out of {total} paging {limit} qry: {qry}")
+        except Exception as e:
+            print(f"❌ Error querying watchcards: {str(e)}")
+        
+        return matching_watchcards   
 
     def query_habits(self, field, value):
         """
@@ -508,3 +563,54 @@ class RedisService:
         except Exception as e:
             print(f"❌ Error retrieving keys by pattern '{pattern}': {str(e)}")
             return {}
+
+    def set_watchcard_hash(self, key, watchcard, expiry_seconds=3600):
+        try:
+            #sets
+            set_name = self.get_cache_key_nomerge('watchlist','sets', 'all') 
+            self.ssad(set_name, key, expiry_seconds )
+            if watchcard['estado'] in ['watched']:
+                expiry_seconds = 86400 * 91
+            self.hset(key, 'notion_id' , watchcard['notion_id']  )
+            self.hset(key, 'imdb_id' , watchcard['imdb_id'] )
+            self.hset(key, 'titulo' , watchcard['titulo']  )
+            self.hset(key, 'tipo' , watchcard['tipo']  )
+            self.hset(key, 'generos' , watchcard['generos'])  
+            self.hset(key, 'url' , watchcard['url']  )
+            self.hset(key, 'estreno' , watchcard['estreno']  )
+            self.hset(key, 'estado' , watchcard['estado']  )
+            self.hset(key, 'streaming' , watchcard['streaming']  )
+            self.hset(key, 'vista' , watchcard['vista']  )
+            self.hset(key, 'directores' , watchcard['directores']  )
+            self.hset(key, 'calificacion' , int(watchcard['calificacion'])  )
+            self.hset(key, 'anio' , int(watchcard['anio'])  )
+            self.hset(key, 'minutos' , int(watchcard['minutos'])  )
+            self.hset(key, 'semana_sugerida' , watchcard['semana_sugerida']  )
+            self.redis_client.expire(name=key, time=expiry_seconds)
+            return True
+        except Exception as e:
+            print(f"Error setting Redis key {key}: {str(e)}")
+            return False
+
+    def adjust_watchcard(self, clean_data):
+        try:
+            clean_data["notion_id"] = clean_data["notion_id"].replace('"','')
+            clean_data["imdb_id"] = clean_data["imdb_id"].replace('"','')
+            clean_data["titulo"] = clean_data["titulo"].replace('"','')
+            clean_data["tipo"] = clean_data["tipo"].replace('"','')
+            clean_data["generos"] = clean_data["generos"].replace('"','')
+            clean_data["url"] = clean_data["url"].replace('"','')
+            clean_data["estreno"] = clean_data["estreno"].replace('"','')
+            clean_data["estado"] = clean_data["estado"].replace('"','')
+            clean_data["streaming"] = clean_data["streaming"] == "true"
+            clean_data["vista"] = clean_data["vista"] == "true"
+            clean_data["directores"] = clean_data["directores"].replace('"','')
+            clean_data["semana_sugerida"] = clean_data["semana_sugerida"].replace('"','') if clean_data["semana_sugerida"] else None
+
+            clean_data['calificacion'] = int(clean_data['calificacion'])
+            clean_data['anio'] = int(clean_data['anio'])
+            clean_data['minutos'] = int(clean_data['minutos'])
+            return clean_data
+        except Exception as e:
+            print(f"Error ajusting -> {clean_data} | Error in {str(e)}")
+            return None

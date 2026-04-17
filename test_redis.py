@@ -65,7 +65,7 @@ def test_insert_as_set(character_id):
             #redis_service.ssad(redis_service.get_cache_key('sets', character['deep_level']) , cache_key_to)
             redis_service.ssad(redis_service.get_cache_key('sets', character['deep_level'] + ':' + character['status']) , cache_key_to)
 
-            redis_service.set_index(redis_service.get_cache_key('cryptids') ) 
+            redis_service.set_cryptid_index(redis_service.get_cache_key('cryptids') ) 
     except Exception as e:
         print(f"Redis Cloud test failed: {str(e)}")
         return False
@@ -114,6 +114,6 @@ if __name__ == "__main__":
     #test_insert_as_set('0a819f70cdc44095a94d3c7dc1a724c8')
     #test_insert_as_set('122a3d2349928020ab78ccdc6aab747d')
     #test_sscan('rpg:sets:l1','high*')
-    query_characters_by_deep_status( 'rpg:cryptids:', deep_level='l2')
+    #query_characters_by_deep_status( 'rpg:cryptids:', deep_level='l2')
     #query_characters_by_deep_status( 'rpg:cryptids:', status='dead')
     #test_query()

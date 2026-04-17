@@ -306,7 +306,7 @@ def evaluate_due_soon_challenges_endpoint(lookforward):
 def evaluate_watchlist_challenge():
     try:
         # Get tamano/size parameter from Redis Cache
-        tamano = redis_service.get(redis_service.get_cache_key('num83r5', 'watchlist_size'))
+        tamano = redis_service.get(redis_service.get_cache_key_nomerge('watchlist','num83r5', 'watchlist_size'))
         if tamano is None:
             tamano = 7
             redis_service.set_without_expiry(redis_service.get_cache_key('num83r5','watchlist_size'), tamano)
@@ -314,7 +314,7 @@ def evaluate_watchlist_challenge():
             tamano = int(tamano)
         current_week = datetime.now().isocalendar()[1]
         # Call the watchlist service to get random watchlist
-        watchlist_result = watchlist_service.persist_suggested_watchlist(watchlist_service.get_random_watchlist(tamano), current_week)
+        watchlist_result = watchlist_service.persist_suggested_watchlist(watchlist_service.get_random_suggested_watchlist(tamano), current_week, tamano)
         watchlist_count = len(watchlist_result)
 
         return jsonify({"watchlist": watchlist_result, "watchlist_count": watchlist_count})
