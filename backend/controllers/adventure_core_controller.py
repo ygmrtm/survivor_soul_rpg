@@ -20,24 +20,24 @@ watchlist_service = WatchlistService()
 redis_service = RedisService()
 notion_service = NotionService()
 
-@adventure_bp.route('/<id>/create', methods=['POST'])
-def create_adventure(id):
+@adventure_bp.route('/<character_id>/create', methods=['POST'])
+def create_adventure(character_id):
     # Create a new adventure
-    result = adventure_service.create_adventure(id, underworld=False, npc_gods=None)
+    result = adventure_service.create_adventure(character_id, underworld=False, npc_gods=None)
     return jsonify(result)
 
-@adventure_bp.route('/<id>/execute', methods=['POST'])
-def execute_adventure(id):
+@adventure_bp.route('/<adventure_id>/go', methods=['POST'])
+def execute_adventure(adventure_id):
     # Call the service to execute the adventure
-    result = adventure_service.execute_adventure(id)
+    result = adventure_service.execute_adventure(adventure_id)
     return jsonify(result)
 
-@adventure_bp.route('/<id>/trash', methods=['POST'])
-def update_adventure(id):
+@adventure_bp.route('/<adventure_id>', methods=['DELETE'])
+def update_adventure(adventure_id):
     # Call the service to update the adventure
     payload = {"archived": True } 
     try:
-        result = notion_service.update_adventure(id, payload)
+        result = notion_service.update_adventure(adventure_id, payload)
     except Exception as e:
         return jsonify({"error": str(e), "result": None}), 500
     return jsonify(result)
@@ -60,8 +60,8 @@ def execute_adventure_by_status(status):
         executed.append(adventure_service.execute_adventure(adv['id']))
     return jsonify({"count": len(executed) , "adventures": executed}), 200
 
-@adventure_bp.route('/underworld', methods=['POST'])
-def execute_underworld():
+@adventure_bp.route('/underworld/<limit>', methods=['POST'])
+def execute_underworld(limit):
     # Call the service to execute the adventure
     adventure_service = AdventureService()
     adventures_created = []
@@ -70,9 +70,9 @@ def execute_underworld():
     adventures_punishment = []
     dead_people_count = 0
 
-    adventures_created, dead_people_count = adventure_service.create_underworld_4_deadpeople()
-    adventures_executed= adventure_service.execute_underworld()
-    characters_awaked = adventure_service.awake_characters()
+    adventures_created, dead_people_count = adventure_service.create_underworld_4_deadpeople(limit=limit)
+    adventures_executed= adventure_service.execute_underworld(limit=limit)
+    characters_awaked = adventure_service.awake_characters(limit=limit)
     adventures_punishment = adventure_service.apply_punishment()
     return jsonify({ "reborn" : len(adventures_executed)
                     , "still_dead" : dead_people_count - len(adventures_executed) 
@@ -81,34 +81,17 @@ def execute_underworld():
                     , "awaked" : characters_awaked, "awaked_count" : len(characters_awaked)
                     , "punishments" : adventures_punishment, "punishments_count" : len(adventures_punishment)})
 
-@adventure_bp.route('/underworld/awake', methods=['POST'])
-def execute_awake_characters():
-    # Call the service to execute the adventure
+@adventure_bp.route('/underworld/awake/<limit>', methods=['POST'])
+def execute_awake_characters(limit):
+    if not limit.isdigit():
+        return jsonify({"error": f"Invalid limit {limit}"}), 400
+    else:
+        limit = int(limit)
+    if limit < 1 or limit > 60:
+        return jsonify({"error": "Invalid limit:"+limit}), 400        
     adventure_service = AdventureService()
-    characters_awaked = []
-    characters_awaked = adventure_service.awake_characters()
+    characters_awaked = adventure_service.awake_characters(limit=limit)
     return jsonify({ "awaked" : characters_awaked, "awaked_count" : len(characters_awaked)} )
-
-@adventure_bp.route('/underworld/create', methods=['POST'])
-def execute_underworld_create():
-    # Create underworld adventures for dead people
-    adventure_service = AdventureService()
-    adventures_created, dead_people_count = adventure_service.create_underworld_4_deadpeople()
-    return jsonify({
-        "created": adventures_created,
-        "created_count": len(adventures_created),
-        "dead_people_count": dead_people_count
-    })
-
-@adventure_bp.route('/underworld/execute', methods=['POST'])
-def execute_underworld_execute():
-    # Execute underworld adventures
-    adventure_service = AdventureService()
-    adventures_executed = adventure_service.execute_underworld()
-    return jsonify({
-        "executed": adventures_executed,
-        "executed_count": len(adventures_executed)
-    })
 
 @adventure_bp.route('/underworld/punish', methods=['POST'])
 def execute_underworld_punish():
@@ -118,6 +101,38 @@ def execute_underworld_punish():
     return jsonify({
         "punishments": adventures_punishment,
         "punishments_count": len(adventures_punishment)
+    })
+
+@adventure_bp.route('/underworld/execute/<limit>', methods=['POST'])
+def execute_underworld_execute(limit):
+    # Execute underworld adventures
+    if not limit.isdigit():
+        return jsonify({"error": f"Invalid limit {limit}"}), 400
+    else:
+        limit = int(limit)
+    if limit < 1 or limit > 60:
+        return jsonify({"error": "Invalid limit:"+limit}), 400
+    adventure_service = AdventureService()
+    adventures_executed = adventure_service.execute_underworld(limit=limit)
+    return jsonify({
+        "executed": adventures_executed,
+        "executed_count": len(adventures_executed)
+    })
+
+@adventure_bp.route('/underworld/create/<limit>', methods=['POST'])
+def execute_underworld_create(limit):
+    # Create underworld adventures for dead people
+    if not limit.isdigit():
+        return jsonify({"error": f"Invalid limit {limit}"}), 400
+    else:
+        limit = int(limit)
+    if limit < 1 or limit > 60:
+        return jsonify({"error": "Invalid limit:"+limit}), 400
+    adventure_service = AdventureService()
+    adventures_created = adventure_service.create_underworld_4_deadpeople(limit=limit)
+    return jsonify({
+        "created": adventures_created,
+        "created_count": len(adventures_created)
     })
 
 @adventure_bp.route('/challenges/<int:week_number>/<int:year_number>/create', methods=['POST'])
@@ -291,7 +306,7 @@ def evaluate_due_soon_challenges_endpoint(lookforward):
 def evaluate_watchlist_challenge():
     try:
         # Get tamano/size parameter from Redis Cache
-        tamano = redis_service.get(redis_service.get_cache_key('num83r5', 'watchlist_size'))
+        tamano = redis_service.get(redis_service.get_cache_key_nomerge('watchlist','num83r5', 'watchlist_size'))
         if tamano is None:
             tamano = 7
             redis_service.set_without_expiry(redis_service.get_cache_key('num83r5','watchlist_size'), tamano)
@@ -299,7 +314,7 @@ def evaluate_watchlist_challenge():
             tamano = int(tamano)
         current_week = datetime.now().isocalendar()[1]
         # Call the watchlist service to get random watchlist
-        watchlist_result = watchlist_service.persist_suggested_watchlist(watchlist_service.get_random_watchlist(tamano), current_week)
+        watchlist_result = watchlist_service.persist_suggested_watchlist(watchlist_service.get_random_suggested_watchlist(tamano), current_week, tamano)
         watchlist_count = len(watchlist_result)
 
         return jsonify({"watchlist": watchlist_result, "watchlist_count": watchlist_count})

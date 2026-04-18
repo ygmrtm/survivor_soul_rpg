@@ -9,14 +9,11 @@ class TournamentService:
     GOLDEN_RATIO = 1.618033988749895
     dice_size = 360
     encounter_log = []
-    #max_xp = 500
-    #max_hp = 100
-    #max_sanity = 60    
-    #max_prop_limit = 20
     max_xprwd = 4
     max_coinrwd = 10    
     total_rounds = 500
-    expiry_minutes = 90 / 60
+    expirity_tournament_hours = 12
+    percentage_lost = 0.2
     _instance = None
 
     def __new__(cls):
@@ -28,10 +25,10 @@ class TournamentService:
     def __init__(self):
         self.notion_service = NotionService()
         self.redis_service = RedisService()
-        # print(self.healthcheck())
+
 
     def create_tournament(self, title, description):
-        gods = self.notion_service.get_characters_by_deep_level_npc(deep_level='l0', is_npc=True)
+        gods = self.notion_service.get_characters_by_deep_level_npc_source(deep_level='l0', is_npc=True)
         character = gods[0] if len(gods[0]) > 0 else None
         tournament = None
         if character is not None:
@@ -45,97 +42,117 @@ class TournamentService:
             xp_reward = random.randint(1, round(max_xprwd))
             coin_reward = random.randint(1, round(max_coinrwd))      
 
-            tournament = self.notion_service.create_tournament(character_id=character['id']
+            tournament = self.notion_service.create_tournament(character_id=character['notionid']
                                                             , xp_reward=xp_reward, coin_reward=coin_reward
                                                             , title=title , description=description)  
-            print("tournament | ", tournament)
+            print("tournament for root | ", tournament)
         return tournament
     
-    def get_by_id(self, tournament_id):
+    def get_by_id(self, tournament_id, prefix_save_ifnot='adventure'):
         try:
+            tournament_id = tournament_id.replace('-','')
             adventure = None
-            adventure = self.redis_service.get(self.redis_service.get_cache_key("tournaments", tournament_id))
+            adventure = self.redis_service.get(prefix_save_ifnot + tournament_id)
             if not adventure:
                 adventure = self.notion_service.get_adventure_by_id(tournament_id)
-                self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament_id)
-                                                    ,adventure, expiry_hours=self.expiry_minutes)
+                adventure['id'] = tournament_id
+                self.redis_service.set_with_expiry(prefix_save_ifnot + tournament_id,adventure, expiry_hours=self.expirity_tournament_hours)
             return adventure
         except Exception as e:
             print(f"Failed to fetch get_by_id {tournament_id} ::: {e}")
             raise
 
-    def get_all_open_tournaments(self):
+    def count_n_get_by_status(self, status):
         try:
-            tournaments = self.redis_service.query_tournaments('status','created')
-            if not tournaments:
-                tournaments = self.notion_service.get_all_open_tournaments()
-                for tournament in tournaments:
-                    self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id']),tournament, expiry_hours=self.expiry_minutes)
-            return tournaments
+            return self.notion_service.count_n_get_by_status_source(status=status, prefix=self.redis_service.get_cache_key('tournaments'))
         except Exception as e:
-            print(f"Failed to fetch get_all_open_tournaments ::: {e}")
+            print(f"Failed to fetch count_n_get_by_status ::: {e}")
             raise        
 
-    def evaluate_all_tournaments(self, full_hp=True):
+    def evaluate_tournament_by_id(self, tournament_id=None, tournament_obj=None, full_hp=True):
         try:
-            tournaments = self.get_all_open_tournaments()
-            and_break = False
-            #print(len(tournaments), " tournaments")
+            tournament = None
+            if tournament_id:
+                tournament = self.get_by_id(tournament_id)
+            elif tournament_obj:
+                tournament = tournament_obj
+                tournament_id = tournament_obj['id']
+            else:
+                raise ValueError("🚨 No Tournament ID Provided") 
+            if tournament['status'] not in ['created','accepted']:
+                return {"tournament":tournament, "message_back":f"🚨 Tournament {tournament_id} is in wrong status {tournament['status']}" }
+            self.encounter_log = []
+            whos = []
+            l3_characters = self.notion_service.get_characters_by_deep_level_status_source(deep_level='l3', status="alive")        
+            l2_gods = self.notion_service.get_characters_by_deep_level_npc_source(deep_level='l2', is_npc=True)
+            print(f"{tournament['path']} 🏟️ {tournament['name']} 🏟️  {tournament['desc']} 🏟️  {tournament['xpRwd']} reward")
+            if 'l.c.s.' in tournament['path']:
+                whos = self.last_cryptid_stand(l3_characters=l3_characters, full_hp=full_hp)
+                if whos[0] is None:
+                    print(f"{tournament['path']} 🏟️ 2nd try now without full power")
+                    whos = self.last_cryptid_stand(l3_characters=l3_characters, full_hp = not(full_hp))
+            elif 'g.v.c.' in tournament['path']:
+                whos = self.gods_v_cryptids(gods=l2_gods, cryptids=l3_characters, full_hp=full_hp)
+                if whos[0] is None:
+                    print(f"{tournament['path']} 🏟️ 2nd try now without full power")
+                    whos = self.gods_v_cryptids(gods=l2_gods, cryptids=l3_characters, full_hp=not(full_hp))
+            elif 'r.v.w.' in tournament['path']:
+                root = self.notion_service.get_characters_by_deep_level_npc_source(deep_level='l0', is_npc=True)
+                sorted_items = sorted(l2_gods, key=lambda x: (x['level'], x['xp']))
+                the_top_ten = sorted_items[-10:]
+                the_last_six = sorted_items[:6]
+                sample_gods = random.sample(the_top_ten, min( 6, len(the_top_ten))) + [random.choice(the_last_six)]
+                whos = self.root_gods_v_cryptids(root=root[0], gods=sample_gods, cryptids=l3_characters)
+            else:
+                raise ValueError("🚨 Invalid tournament path")
+            if len(whos) > 1 and whos[0]['description'] != "dummy":
+                winners = ''
+                for who in whos:
+                    who['xp'] += self.add_encounter_log(tournament['xpRwd'], 'xp',f"{who['name']} won tournament reward")
+                    who['coins'] += self.add_encounter_log(tournament['coinRwd'], 'coins',f"{who['name']} won tournament reward")
+                    self.redis_service.zincrby(self.redis_service.get_cache_key('sets','leaderboard:xp')
+                        , tournament['xpRwd']
+                        , self.redis_service.get_cache_key('cryptids',who['notionid']))
+                    winners += (who['name'] + '| ')
+                tournament['who'] = None #Forcing to take the Who from Characters Array / Or Root
+                tournament['status'] = 'won'
+                tournament['encounter_log'] = self.encounter_log
+                tournament['top_5'] = whos
+                self.notion_service.persist_adventure(adventure=tournament, characters=whos, prefix=self.redis_service.get_cache_key('tournaments'))
+                message_back = f"{tournament['id']} EXECUTED AS {tournament['status']} WINNERS >> {winners} GOT AS REWARD {tournament['xpRwd']} ${tournament['coinRwd']}"
+            else:
+                message_back = f"NO WINNER"
+                
+            return {"tournament":tournament, "message_back":message_back }
+
+        except Exception as e:
+            print(f"Failed to fetch evaluate_tournaments_by_id {tournament_id} ::: {e}")
+            raise    
+    
+    def evaluate_tournaments_by_status(self, full_hp=True, status='created', limit=10):
+        try:
+            count, tournaments = self.count_n_get_by_status(status=status)
+            if count <= 0:
+                return {"tournaments":None, "still_not_executed":0, "actually_executed":0, "message":"Nothing to execute here, there're no Tournaments for "+status}
+
             actually_executed = 0
-            cache_key = self.redis_service.get_cache_key('loaded_characters_level:completerray', 'l2')
-            l2_gods = self.redis_service.get(cache_key)
-            if l2_gods is None:
-                l2_gods = self.notion_service.get_characters_by_deep_level_npc(deep_level='l2', is_npc=True)
-                self.redis_service.set_with_expiry(cache_key, l2_gods, expiry_hours=self.expiry_minutes)
+            executed_but_lost = 0
+            over_percentage = False
             for tournament in tournaments:
+
                 self.encounter_log = []
-                whos = []
-                if 'l.c.s.' in tournament['path']:
-                    #print("l.c.s.", tournament['id'], tournament['name'])
-                    l3_characters = self.notion_service.get_characters_by_deep_level_status(deep_level='l3', status="alive")        
-                    whos = self.last_cryptid_stand(l3_characters=l3_characters, full_hp=full_hp)
-                    if whos[0] is None:
-                        whos = self.last_cryptid_stand(l3_characters=l3_characters, full_hp = not(full_hp))
-                elif 'g.v.c.' in tournament['path']:
-                    #print("g.v.c.", tournament['id'], tournament['name'])
-                    alive_cryptids = self.redis_service.query_characters('status','alive')
-                    l3_cryptids = [c for c in alive_cryptids if c['deep_level'] == 'l3' ]
-                    whos = self.gods_v_cryptids(gods=l2_gods, cryptids=l3_cryptids, full_hp=full_hp)
-                elif 'r.v.w.' in tournament['path']:
-                    #print("r.v.w.", tournament['id'], tournament['name'])
-                    root = self.notion_service.get_characters_by_deep_level_npc(deep_level='l0', is_npc=True)[0]
-                    sorted_items = sorted(l2_gods, key=lambda x: (x['level'], x['xp']))
-                    the_top_ten = sorted_items[-10:]
-                    the_last_six = sorted_items[:6]
-                    sample_gods = random.sample(the_top_ten, min( 6, len(the_top_ten))) + [random.choice(the_last_six)]
-                    alive_cryptids = self.redis_service.query_characters('status','alive')
-                    l3_cryptids = [c for c in alive_cryptids if c['deep_level'] == 'l3' ]
-                    whos = self.root_gods_v_cryptids(root=root, gods=sample_gods, cryptids=l3_cryptids)
-                else:
-                    raise ValueError("🚨 Invalid tournament path")
-                if len(whos) > 1 and whos[0]['description'] != "dummy":
-                    whos[0]['xp'] += self.add_encounter_log(tournament['xpRwd'], 'xp',f"{whos[0]['name']} won tournament reward")
-                    whos[0]['coins'] += self.add_encounter_log(tournament['coinRwd'], 'coins',f"{whos[0]['name']} won tournament reward")
-                    tournament['who'] = None #Forcing to take the Who from Characters Array / Or Root
-                    tournament['status'] = 'won'
-                    tournament['encounter_log'] = self.encounter_log
-                    tournament['top_5'] = whos
-                    hours = abs(datetime.datetime.now() - datetime.datetime.fromisoformat(tournament['due'])).total_seconds() / 3600
-                    #print(self.encounter_log)
-                    self.notion_service.persist_adventure(adventure=tournament, characters=whos)
-                    self.redis_service.delete(self.redis_service.get_cache_key('tournaments',tournament['id']))
-                    #self.redis_service.set_with_expiry(self.redis_service.get_cache_key("tournaments", tournament['id'])
-                    #                                                        ,tournament, expiry_hours=hours)
-                else:
-                    print("No winner...")
-                    and_break = True
+                response = self.evaluate_tournament_by_id(tournament_obj=tournament, full_hp=full_hp)
                 actually_executed += 1
-                print(f"🏟️ {actually_executed} 🏟️  | {tournament['path']} | {tournament['name']} | {tournament['desc']} | {tournament['xpRwd']} reward")
-                if and_break is True:
-                    print("... and break ‼️ ")
+                executed_but_lost += (1 if tournament['status'] != 'won' else 0)
+                pct_lost = executed_but_lost/limit
+                over_percentage = pct_lost >= self.percentage_lost
+                #print(f"{tournament['status']} 🏟️ {tournament['desc']} 🏟️ | {response['message_back']}")
+                if actually_executed >= limit or over_percentage:
+                    print(f'🚨 {pct_lost} exceeds the threshold {self.percentage_lost} for Lost Tournaments' if over_percentage else '')
                     break
-            remainOpen = len(self.get_all_open_tournaments())
-            return {"tournaments":tournaments, "still_not_executed":remainOpen, "actually_executed":actually_executed}
+
+            remainOpen = count - actually_executed + executed_but_lost
+            return {"tournaments":tournaments, "still_not_executed":remainOpen, "actually_executed":actually_executed, "message":'done'}
 
         except Exception as e:
             print(f"Failed to fetch evaluate_all_tournaments ::: {e}")
@@ -146,7 +163,9 @@ class TournamentService:
         fights = 0
         alive_characters = [c for c in l3_characters if c['status'] == 'alive']
         if full_hp is True:
-            alive_characters = [c for c in alive_characters if c['hp'] >= c['max_hp']]
+            full_alive_characters = [c for c in alive_characters if c['hp'] >= c['max_hp']]
+            #print(f'🔋 {len(full_alive_characters)} from {len(alive_characters)}')
+            alive_characters = full_alive_characters
         random.shuffle(alive_characters)
         #print("🔔 Duplicates",self.check_for_duplicates(alive_characters))
         charLead = None
@@ -163,9 +182,6 @@ class TournamentService:
         self.add_encounter_log(fights, 'fights', f'Tournament fights')
         self.add_encounter_log(len(alive_characters), 'alive'
                             , f"L3 Characters Alive {'w Full HP' if full_hp is True else ''}")
-        #for cem in cemetery:
-        #    print(f"🪦 {cem['name']} hp:{cem['hp']}")
-        # get the last 4 elements of cemetery + lead = TOP 5 characters
         return [charLead] + (cemetery[-10:] if len(cemetery) >= 10 else cemetery)
 
     def gods_v_cryptids(self, gods=[], cryptids=[], full_hp=False):
@@ -196,12 +212,8 @@ class TournamentService:
                 cemetery['gods'].append(looser)
         self.add_encounter_log(fights, '+total', f'Tournament fights')
         self.add_encounter_log(fights, '+winner', winner['description'])
-        print(f"🪦🚨 size {len(cemetery['gods'])} | {len(gods)} left alive")
-        #for cem in cemetery['gods']:
-        #    print(f"🪦🚨 {cem['name']} hp:{cem['hp']}")
-        print(f"🪦🔔 size {len(cemetery['cryptids'])} | {len(alive_criptids)} left alive")
-        #for cem in cemetery['cryptids']:
-        #    print(f"🪦🔔 {cem['name']} hp:{cem['hp']}")
+        print(f"gods | 💀 {len(cemetery['gods'])} | {len(gods)} left alive {'🏆' if len(gods)>0 else ''}")
+        print(f"cryp | 💀 {len(cemetery['cryptids'])} | {len(alive_criptids)} left alive{'🏆' if len(alive_criptids)>0 else ''}")
         return [winner] \
             + (cemetery['cryptids'][-10:] if len(cemetery['cryptids'][-10:]) >= 10 else cemetery['cryptids']) \
             + (cemetery['gods'][-5:] if len(cemetery['gods'][-5:]) >= 5 else cemetery['gods']) 

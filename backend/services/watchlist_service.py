@@ -1,8 +1,7 @@
-from datetime import datetime, timedelta
-from operator import is_not
+from ast import keyword
+from datetime import datetime
 import requests
 import random 
-from flask import jsonify
 from backend.services.redis_service import RedisService
 from config import NOTION_API_KEY, NOTION_DBID_WATCH
 
@@ -12,7 +11,10 @@ class WatchlistService:
     year_start = 1920
     year_range = 20
     size_for_loaded_suggested = 2
-
+    limit=75
+    current_date = datetime.now()
+    week_number = current_date.isocalendar()[1]
+    day_number = current_date.day
     _instance = None
 
     def __new__(cls):
@@ -72,52 +74,60 @@ class WatchlistService:
 
         return health_status
 
-    def get_watchlist(self):
+    def get_watchlist(self, *args):
         """Retrieve the complete watchlist from Notion API or cache."""
         # Try to get from cache first
-        cache_key = self.redis_service.get_cache_key('watchlist', 'all')
-        cached_watchlist = self.redis_service.get(cache_key)
-        if cached_watchlist is not None:
-            print("Using ALL cached watchlist:", len(cached_watchlist))
-            return cached_watchlist
+        qry=''
+        key = True
+        secondkey = False
+        for arg in args:
+            qry += (' & ' if secondkey else '')+(f'@{str(arg)}:' if key else str(arg) + ' ')
+            key = not key 
+            secondkey = key
+        watchcards = self.redis_service.query_watchcards(prefix=self.redis_service.get_cache_key_nomerge('watchlist','movies'),  qry=qry, limit=self.limit)     
         # If not in cache, fetch from Notion
-        url = f"{self.base_url}/databases/{NOTION_DBID_WATCH}/query"
-        all_watchlist = []
-        has_more = True
-        start_cursor = None
-        while has_more:
-            payload = {}
-            if start_cursor:
-                payload['start_cursor'] = start_cursor
-            response = requests.post(url, headers=self.headers, json=payload)
-            response.raise_for_status()
-            data = response.json()
-            all_watchlist.extend(data.get("results", []))
-            has_more = data.get("has_more", False)
-            start_cursor = data.get("next_cursor")
-        # Cache the results
-        translated_list = self.translate_watchlist(all_watchlist)
-        self.redis_service.set_with_expiry(cache_key, translated_list, expiry_hours=self.expiry_hours * 3 )
-        self.redis_service.set_with_expiry(self.redis_service.get_cache_key('watchlist', 'all_raw'), all_watchlist, expiry_hours=self.expiry_hours * 3 )
-        print("Fetched and cached ALL watchlist:", len(translated_list))
-        return translated_list
+        if len(watchcards) <= 0:
+            print(f'no cached 🎥 going to the source')
+            url = f"{self.base_url}/databases/{NOTION_DBID_WATCH}/query"
+            all_watchlist = []
+            has_more = True
+            start_cursor = None
+            while has_more:
+                payload = {}
+                if start_cursor:
+                    payload['start_cursor'] = start_cursor
+                response = requests.post(url, headers=self.headers, json=payload)
+                response.raise_for_status()
+                data = response.json()
+                all_watchlist.extend(data.get("results", []))
+                has_more = data.get("has_more", False)
+                start_cursor = data.get("next_cursor")
+                print(f"Fetched {len(data.get('results', []))} 🎥s , total so far: {len(all_watchlist)}")
+                
+            # Cache the results
+            catched_count = 0
+            watchcards = self.translate_watchlist(all_watchlist)
+            for watchcard in watchcards:
+                cache_key = self.redis_service.get_cache_key_nomerge('watchlist', 'movies', watchcard['notion_id'])
+                if not self.redis_service.exists(cache_key):
+                    self.redis_service.set_watchcard_hash(
+                        cache_key
+                        , watchcard
+                        , expiry_seconds=self.expiry_hours * 3600)  
+                    catched_count += 1
+            print(f"Fetched:{len(watchcards)} & cached:{catched_count} watchlists")
+        return watchcards
 
-    def get_watchlist_by_year(self, year_from, year_to):
+    def get_watchlist_by_year(self, year_from, year_to, limit):
         """Filter watchlist by year range."""
-        watchlist = self.get_watchlist()
-        return_watchlist = []
-        for movie in watchlist:
-            if movie['año'] >= year_from and movie['año'] <= year_to:
-                return_watchlist.append(movie)
+        self.limit = limit
+        return_watchlist = self.get_watchlist("anio",f'[{year_from} {year_to}]')
         return return_watchlist
 
-    def get_watchlist_by_estado(self, estado):
+    def get_watchlist_by_estado(self, estado, limit):
         """Filter watchlist by status."""
-        watchlist = self.get_watchlist()
-        return_watchlist = []
-        for movie in watchlist:
-            if movie['estado'] == estado and movie['semana_sugerida'] is None and movie['estreno'] <= datetime.now().strftime('%Y-%m-%d'):
-                return_watchlist.append(movie)
+        self.limit = limit
+        return_watchlist = self.get_watchlist("estado", estado)
         return return_watchlist
 
     def translate_watchlist(self, watchlist=[]):
@@ -139,7 +149,7 @@ class WatchlistService:
                 "estado": movie['properties']['Status']['status']['name'],
                 "streaming": movie['properties']['Available in Streaming?']['checkbox'],
                 "vista": movie['properties']['Watched']['checkbox'],
-                "año": movie['properties']['Year']['number'],
+                "anio": movie['properties']['Year']['number'],
                 "directores": movie['properties']['Directors']['rich_text'][-1]['plain_text'] if movie['properties']['Directors']['rich_text'] else None,
                 "minutos": movie['properties']['Runtime (mins)']['number'],
                 "semana_sugerida": movie['properties']['Your Rating']['rich_text'][-1]['plain_text'] if movie['properties']['Your Rating']['rich_text'] else None
@@ -149,54 +159,64 @@ class WatchlistService:
             print("😓 Damn it i can't translate watchlist:", e)
             raise
 
-    def get_random_watchlist(self, tamano):
+    def get_random_suggested_watchlist(self, tamano):
         """Get a random selection from the watchlist."""
-        checked_watchlist = self.get_watchlist_by_estado('checked')
-        loaded_watchlist = self.get_watchlist_by_estado('loaded')
-        cache_key = self.redis_service.get_cache_key('watchlist', f'suggested{tamano}')
-        return_watchlist = self.redis_service.get(cache_key) if self.redis_service.get(cache_key) else [] 
-        #print("Got", len(return_watchlist), "movies from cache" )
+        set_cache_key = self.redis_service.get_cache_key_nomerge('watchlist','sets', f'suggested{tamano}',str(self.day_number))
+        return_watchlist = self.redis_service.smembers_w_hash(set_cache_key)
+        checked_watchlist = self.get_watchlist_by_estado('checked', tamano)
+        loaded_watchlist = self.get_watchlist_by_estado('loaded', tamano)
+        print("Got", len(return_watchlist), "movies from cache", len(checked_watchlist), ":<=checked", len(loaded_watchlist), "<=loaded"  )
         priority = 0
-        while len(return_watchlist) < tamano:
+        while len(return_watchlist) < tamano and priority < 3:
             for year in range(self.year_start, datetime.now().year, 20):
+                #print(f"🎬 Getting random watchlist for year {year} to {year + self.year_range} | p:{priority} | size:{len(return_watchlist)}")
                 if priority == 0:
-                    checked_streaming_watchlist = [movie for movie in checked_watchlist if movie['streaming'] and movie['año'] >= year and movie['año'] <= (year + self.year_range)]
+                    checked_streaming_watchlist = [movie for movie in checked_watchlist if movie['streaming'] and movie['anio'] >= year and movie['anio'] <= (year + self.year_range)]
                     if len(checked_streaming_watchlist) > 0:
                         return_watchlist.append(random.choice(checked_streaming_watchlist))
                 elif priority == 1:
-                    checked_notstreaming_watchlist = [movie for movie in checked_watchlist if not(movie['streaming']) and movie['año'] >= year and movie['año'] <= (year + self.year_range)]
+                    checked_notstreaming_watchlist = [movie for movie in checked_watchlist if not(movie['streaming']) and movie['anio'] >= year and movie['anio'] <= (year + self.year_range)]
                     if len(checked_notstreaming_watchlist) > 0:
                         return_watchlist.append(random.choice(checked_notstreaming_watchlist))
                 elif priority == 2:
-                    loaded_watchlist_todo = [movie for movie in loaded_watchlist if movie['año'] >= year and movie['año'] <= (year + self.year_range)]
+                    loaded_watchlist_todo = [movie for movie in loaded_watchlist if movie['anio'] >= year and movie['anio'] <= (year + self.year_range)]
                     if len(loaded_watchlist_todo) > 0:
                         sample = random.sample(loaded_watchlist_todo, self.size_for_loaded_suggested if len(loaded_watchlist_todo) >= self.size_for_loaded_suggested else len(loaded_watchlist_todo))
                         if len(sample) > 0:
                             return_watchlist.extend(sample)
-                #print(f"🎬 Getting random watchlist for year {year} to {year + self.year_range} | {priority} | {len(return_watchlist)}")
-            priority += 1 if priority < 2 else 0
+                else:
+                    print(f"wrong priority {priority}")
+            priority += 1 
+        for wl in return_watchlist:
+            if wl['estado'] not in ['loaded','checked']:
+                print(f"⚠️ w {wl['titulo']} is {wl['status']}")
         return return_watchlist[:tamano]
 
-    def persist_suggested_watchlist(self, watchlist, week):
-        #print(f'got {len(watchlist)} for week {week}')
+    def persist_suggested_watchlist(self, watchlist, week, size=1):
+        set_cache_key = self.redis_service.get_cache_key_nomerge('watchlist','sets', f'suggested{size}',str(self.day_number))
+        if self.redis_service.exists(set_cache_key):
+            print(f"The {set_cache_key} is already loaded, not persisting again")
+            return watchlist
+        suggested_seconds = 86400 * int(size)
         for movie in watchlist:
             #print(movie)
-            cache_key = self.redis_service.get_cache_key('watchlist:suggested', movie['imdb_id'])
-            if not(self.redis_service.exists(cache_key)):
-                movie['semana_sugerida'] = (movie['semana_sugerida'] if movie['semana_sugerida'] else '') + ' | w' + str(week) 
-                #persist in Notion
-                datau = { "icon" : { "emoji" : "🎞️" },
-                    "properties": { "Your Rating": { "rich_text": [{"text": {"content": movie['semana_sugerida']}}] },}}
-                self.update_movie(movie['notion_id'], datau)
-                #persist in Redis
-                self.redis_service.set_with_expiry(cache_key, movie, expiry_hours=self.expiry_hours * 3 )
-        cache_key = self.redis_service.get_cache_key('watchlist', f'suggested{len(watchlist)}')
-        self.redis_service.set_with_expiry(cache_key, watchlist, expiry_hours=self.expiry_hours * 3 )
+            movie['semana_sugerida'] = (movie['semana_sugerida'] if movie['semana_sugerida'] else '') + ' | w' + str(week) 
+            #persist in Notion
+            datau = { "icon" : { "emoji" : "🎞️" },
+                "properties": { "Your Rating": { "rich_text": [{"text": {"content": movie['semana_sugerida']}}] },}}
+            self.update_movie(movie['notion_id'], datau)
+            #persist in Redis
+            movie_cache_key = self.redis_service.get_cache_key_nomerge('watchlist', 'movies', movie['notion_id'])
+            self.redis_service.set_watchcard_hash(
+                movie_cache_key
+                , movie
+                , expiry_seconds=suggested_seconds)
+            self.redis_service.ssad(key=set_cache_key, value=movie_cache_key, expiry_seconds=suggested_seconds)
         return watchlist
 
 
     def update_movie(self, movie_notion_id, updates):
-        """Update character attributes."""
+        """Update watchcard attributes."""
         url = f"{self.base_url}/pages/{movie_notion_id}"
         response = requests.patch(url, headers=self.headers, json=updates)
         if response.status_code == 200: 

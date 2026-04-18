@@ -1,9 +1,11 @@
 from flask import Blueprint, jsonify
 from backend.services.watchlist_service import WatchlistService
-from datetime import datetime, timedelta
+from backend.services.redis_service import RedisService
+from datetime import datetime
 
 watchlist_bp = Blueprint('watchlist', __name__)
 watchlist_service = WatchlistService()
+redis_service = RedisService()
 
 @watchlist_bp.route('/movies', methods=['GET'])
 def get_watchlist():
@@ -11,8 +13,10 @@ def get_watchlist():
     result = watchlist_service.get_watchlist()
     return jsonify(result)
 
-@watchlist_bp.route('/movies/<year_from>/<year_to>', methods=['GET'])
-def get_watchlist_by_year(year_from, year_to):
+
+@watchlist_bp.route('/movies/range/<year_from>/<year_to>/<limit>', methods=['GET'])
+def get_watchlist_by_year(year_from, year_to, limit):
+    limit = int(limit)
     """Get watchlist filtered by year range."""
     # validate year_from and year_to are valid integers
     if not year_from.isdigit() or not year_to.isdigit():
@@ -21,22 +25,28 @@ def get_watchlist_by_year(year_from, year_to):
     year_to = int(year_to)
     if year_from > year_to:
         return jsonify({"error": "Year from must be less than year to"}), 400
-    result = watchlist_service.get_watchlist_by_year(year_from, year_to)
+    if limit < 1 or limit > 100:
+        return jsonify({"error": "Invalid limit:"+limit}), 400        
+    result = watchlist_service.get_watchlist_by_year(year_from, year_to, limit)
     return jsonify(result)
 
-@watchlist_bp.route('/movies/estado/<estado>', methods=['GET'])
-def get_watchlist_by_estado(estado):
+@watchlist_bp.route('/movies/estado/<estado>/<limit>', methods=['GET'])
+def get_watchlist_by_estado(estado, limit):
     """Get watchlist filtered by status."""
-    result = watchlist_service.get_watchlist_by_estado(estado)
+    limit = int(limit)
+    if limit < 1 or limit > 100:
+        return jsonify({"error": "Invalid limit:"+limit}), 400        
+    result = watchlist_service.get_watchlist_by_estado(estado, limit)
     return jsonify(result)
 
 @watchlist_bp.route('/movies/aleatorio/<tamano>', methods=['GET'])
-def get_random_watchlist(tamano):
+def get_random_suggested_watchlist(tamano):
     """Get a random selection from the watchlist."""
     # validate tamano is a valid integer
     if not tamano.isdigit():
         return jsonify({"error": "Invalid size"}), 400
-    tamano = int(tamano)
+    else:
+        tamano = int(tamano)
     current_week = datetime.now().isocalendar()[1]
-    result = watchlist_service.persist_suggested_watchlist(watchlist_service.get_random_watchlist(tamano), current_week)
+    result = watchlist_service.persist_suggested_watchlist(watchlist_service.get_random_suggested_watchlist(tamano), current_week, tamano)
     return jsonify(result)
