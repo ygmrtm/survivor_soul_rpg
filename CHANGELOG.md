@@ -502,3 +502,70 @@ various changes
 Update CHANGELOG for version 1.4.6
 ---
 
+## [1.5.1] - 2026-04-18
+Merge 7a1f638436857dfded5b15c1962b69f197468bc7 into 172fe9f9121b974a7d76c85fe8048fca4df43387
+
+Watchlists
+
+- [ ]  chore: Use of Hash, Lists or other Data Structure in Redis.(faster)
+    - [x]  characters
+    - [x]  tournaments
+    - [ ]  underworld
+        - [x]  awake
+        - [x]  create new
+        - [x]  execute existing
+        - [x]  punishment
+        - [ ]  include counts in countdeadpeople
+    - [x]  adventures
+    - [x]  watchlist
+    - [x]  habits
+    - [x]  abilities
+    - [ ]  pills
+
+adventures, habits, abilities, tournaments, underworlds
+
+- [ ]  chore: Use of Hash, Lists or other Data Structure in Redis.(faster)
+    - [x]  characters
+    - [x]  tournaments
+    - [ ]  underworld
+        - [x]  awake
+        - [x]  create new
+        - [x]  execute existing
+        - [x]  punishment
+        - [ ]  include counts in countdeadpeople
+    - [x]  adventures
+    - [ ]  watchlist
+    - [x]  habits
+    - [x]  abilities
+    - [ ]  pills
+
+Underworld punishment and execute existing
+
+- [ ]  chore: Use of Hash, Lists or other Data Structure in Redis.(faster)
+    - [x]  characters
+    - [x]  tournaments
+    - [ ]  underworld
+        - [x]  awake
+        - [ ]  create new
+        - [x]  execute existing
+        - [x]  punishment
+        - [ ]  include counts in countdeadpeople
+
+Awakening in Underworld
+
+- [ ]  chore: Use of Hash, Lists or other Data Structure in Redis.(faster)
+    - [x]  characters
+    - [x]  tournaments
+    - [ ]  underworld
+        - [x]  awake
+        - [ ]  create new
+        - [ ]  execute existing
+        - [ ]  punishment
+        - [ ]  include counts in countdeadpeople
+    - [ ]  adventures
+    - [ ]  watchlist
+    - [ ]  habits
+    - [ ]  abilities
+    - [ ]  pills
+---
+
