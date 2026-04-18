@@ -41,7 +41,7 @@
         <div class="character-grid">
             <!-- Dynamically render character cards -->
             {% for character in characters %}
-            <div class="character-card" data-character-id="{{ character.id }}" data-character-hp="{{ character.hp }}" data-character-status="{{ character.status }}" data-character-name="{{ character.name }}">
+            <div class="character-card" data-character-id="{{ character.notionid }}" data-character-hp="{{ character.hp }}" data-character-status="{{ character.status }}" data-character-name="{{ character.name }}">
                 <img src="{{ character.picture }}" alt="{{ character.name }}">
                 <h3>{{ character.name }}</h3>
                 <h4>Level: {{ character.level }} | <span class="status-{{ character.status.lower().replace(' ', '-') }}">{{ character.status }}</span></h4>

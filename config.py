@@ -1,8 +1,9 @@
 import os
 from datetime import datetime
 from urllib.parse import urlparse
+from dotenv import load_dotenv
 today_date = datetime.now()
-
+load_dotenv()
 
 # Notion API credentials
 NOTION_API_KEY = os.getenv('NOTION_API_KEY')

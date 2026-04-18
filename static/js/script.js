@@ -22,9 +22,12 @@ function getISOWeekNumber(date) {
 }
 
 const currentDate = new Date();
+const currentMinutes = currentDate.getMinutes();
 const weekNumber = getISOWeekNumber(currentDate);
 const prevWeekNumber = weekNumber - 1;
-console.log(currentDate, weekNumber, prevWeekNumber);
+console.log(weekNumber, prevWeekNumber,currentDate);
+currentDate.setMinutes(currentDate.getMinutes() + currentMinutes);
+console.log('+',currentMinutes,currentDate);
 
 function logActivity(message) {
     const currentTime = new Date().toLocaleTimeString();
@@ -87,7 +90,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 logActivity(`Executing adventure for ${card.dataset.characterName} ID ${adventureId}.`);
 
                 // Only proceed to execute if we have a valid adventure_id
-                return fetch(`/api/adventure/${adventureId}/execute`, {
+                return fetch(`/api/adventure/${adventureId}/go`, {
                     method: 'POST'
                 });
             })
@@ -219,8 +222,8 @@ document.addEventListener("DOMContentLoaded", function () {
         const button = this;
         button.disabled = true;
         let still_dead = 0;
+        let still_w_pills = 0;
         let reborn = 0;
-        let totalDead = 0;
         logActivity(`Executing 💀 underworld(s)...`);
 
         // Define sequential underworld steps
@@ -235,7 +238,7 @@ document.addEventListener("DOMContentLoaded", function () {
             },
             {
                 name: 'Underworlds Awaking...',
-                endpoint: '/api/adventure/underworld/awake',
+                endpoint: '/api/adventure/underworld/awake/'+currentMinutes,
                 process: (data) => {
                     const awaked = data.awaked_count || 0;
                     logActivity(`Underworlds 💀 awaked: ${awaked}`);
@@ -243,28 +246,34 @@ document.addEventListener("DOMContentLoaded", function () {
             },
             {
                 name: 'Underworlds Creating...',
-                endpoint: '/api/adventure/underworld/create',
+                endpoint: '/api/adventure/underworld/create/'+currentMinutes,
                 process: (data) => {
                     const created = data.created_count || 0;
-                    totalDead = data.dead_people_count || 0;
                     logActivity(`Underworlds 💀 created: ${created}`);
                 }
             },
             {
                 name: 'Underworlds Executing...',
-                endpoint: '/api/adventure/underworld/execute',
+                endpoint: '/api/adventure/underworld/execute/'+currentMinutes,
                 process: (data) => {
-                    const executed = data.executed_count || 0;
-                    reborn = executed;
-                    logActivity(`Underworlds 💀 executed: ${executed}`);
+                    reborn = data.executed_count || 0;
+                    logActivity(`Underworlds 💀 executed: ${reborn}`);
                 }
             },
             {
-                name: 'Counting 💀 People...',
+                name: 'Counting again ☠️ people...',
                 endpoint: '/api/notion/countdeadpeople/l3',
                 process: (data) => {
                     still_dead = data.count || 0;
-                    logActivity(`Remains 💀: ${still_dead}`);
+                    logActivity(`People 💀 ${still_dead} still`);
+                }
+            },
+            {
+                name: 'Counting again 💊 people...',
+                endpoint: '/api/notion/countpeoplepills/l3',
+                process: (data) => {
+                    still_dead = data.count || 0;
+                    logActivity(`People 💊 ${still_w_pills} still`);
                 }
             }
         ];
@@ -293,33 +302,20 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         }, Promise.resolve())
         .finally(() => {
-            const still_dead_str = "(" + reborn + " but " + still_dead + " still ☠️)";
+            const still_dead_str = "(" + reborn + " reborn but " + still_dead + " still ☠️)";
             logActivity(still_dead_str);
             if (still_dead > 0){
                 document.getElementById('dead-people').innerText = still_dead_str;
                 button.disabled = false;
             }
-            fetch('/api/notion/countpeoplepills/l3')
-                .then(response => {
-                    if (!response.ok) {
-                        throw new Error('Network response was not ok');
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if(data.count > 0){
-                        logActivity(`People with pills 💊 ${data.count}`);
-                        document.getElementById('heal-button').disabled = false;
-                        setTimeout(() => {
-                            logActivity(`People with pills 💊 timeout.`);
-                            document.getElementById('heal-button').disabled = true;
-                        }, 60000 * 60);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching counts:', error);
-                    logActivity(`❌❌ Error : ${error.message}`);
-                });
+            if (still_w_pills > 0){
+                document.getElementById('heal-button').disabled = false;
+                logActivity(`Disabling 💊 at ${currentDate} ⚠️`);
+                setTimeout(() => {
+                    logActivity(`People with pills 💊 timeout.`);
+                    document.getElementById('heal-button').disabled = true;
+                }, 60000 * currentMinutes);
+            }
         });
     });
 
@@ -344,9 +340,7 @@ document.addEventListener("DOMContentLoaded", function () {
             adventures_executed = data.count
             logActivity(`Adventures Executed ${adventures_executed}`);
 
-            fetch(`/api/tournament/evaluate/all`, {
-                method: 'GET'
-            })
+            fetch(`/api/tournament/do/exec/created/${currentMinutes}`, { method: 'POST' })
             .then(response => response.json())
             .then(data => {
                 console.log('tournaments response', data);
@@ -359,11 +353,10 @@ document.addEventListener("DOMContentLoaded", function () {
             })
             .finally(() => {
                 document.getElementById('pending-tournaments').innerText = "(" + still_not_executed + ")";
+                logActivity(`Tournaments executed 🗡️ ${actually_executed}/${current_to_execute}`)
                 if(still_not_executed > 0){
                     button.disabled = false;
                     logActivity(`Still pending ${still_not_executed} tournaments.`);
-                }else{
-                    logActivity(`Tournaments executed 🗡️ ${actually_executed}/${current_to_execute}`)
                 }
             });            
         })
@@ -432,6 +425,7 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(data => {
             logActivity(`Version: ${data.version}`);
+            logActivity(`Límite Iteraciones: ${currentMinutes} ⚠️`);
             document.getElementById('version-number').innerText = data.version;
         })
         .catch(error => {
@@ -440,16 +434,16 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById('version-number').innerText = '0.0.0'; // Fallback version
         });
 
-    fetch('/api/notion/loaddeadpeople/l3')
+    fetch('/api/notion/countdeadpeople/l3', { method: 'POST' } )
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok | loaddeadpeople');
+                throw new Error('Network response was not ok');
             }
             return response.json();
         })
         .then(data => {
             if(data.count > 0){
-                logActivity(`Dead people loaded 💀 ${data.count}`);
+                logActivity(`Dead people  💀 ${data.count}`);
                 document.getElementById('underworld-button').disabled = false;
                 document.getElementById('dead-people').innerText = "(" + data.count + "☠️)";
             }
@@ -459,7 +453,7 @@ document.addEventListener("DOMContentLoaded", function () {
             document.getElementById('dead-people').innerText = '0'; // Fallback version
     });
 
-    fetch('/api/notion/countpeoplepills/l3')
+    fetch('/api/notion/countpeoplepills/l3', { method: 'POST' })
         .then(response => {
             if (!response.ok) {
                 throw new Error('Network response was not ok');
@@ -468,13 +462,13 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(data => {
             if(data.count > 0){
-                logActivity(`People with pills 💊 ${data.count}`);
+                logActivity(`People w💊s ${data.count}`);
                 document.getElementById('heal-button').disabled = false;
+                logActivity(`Disabling 💊 at ${currentDate} ⚠️`);
                 setTimeout(() => {
                     logActivity(`People with pills 💊 timeout.`);
                     document.getElementById('heal-button').disabled = true;
-                }, 60000 * 60); // Disable the heal button after 60 seconds
-
+                }, 60000 * currentMinutes);
             }
         })
         .catch(error => {
@@ -482,39 +476,23 @@ document.addEventListener("DOMContentLoaded", function () {
             logActivity(`❌❌ Error : ${error.message}`);
         });
 
-    fetch('/api/notion/loadalivepeople/l3')
+    fetch('/api/tournament/do/count/created', { method: 'POST'  })
         .then(response => {
             if (!response.ok) {
-                throw new Error('Network response was not ok | loadalivepeople');
+                throw new Error('Network response was not ok');
             }
             return response.json();
         })
         .then(data => {
             if(data.count > 0){
-                fetch('/api/tournament/all')
-                    .then(response => {
-                        if (!response.ok) {
-                            throw new Error('Network response was not ok');
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        if(data.pending_tournaments > 0){
-                            logActivity(`Pending tournaments ⚔️ ${data.pending_tournaments}`);
-                            document.getElementById('tournament-button').disabled = false;
-                            document.getElementById('pending-tournaments').innerText = "(" + data.pending_tournaments + ")";
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error fetching counts:', error);
-                        logActivity(`❌❌ Error : ${error.message}`);
-                        document.getElementById('pending-tournaments').innerText = '0'; // Fallback version
-                    });
+                logActivity(`Pending tournaments ⚔️ ${data.count}`);
+                document.getElementById('tournament-button').disabled = false;
+                document.getElementById('pending-tournaments').innerText = "(" + data.count + ")";
             }
         })
         .catch(error => {
             console.error('Error fetching counts:', error);
             logActivity(`❌❌ Error : ${error.message}`);
             document.getElementById('pending-tournaments').innerText = '0'; // Fallback version
-        });
-    });
+        });        
+    }); 

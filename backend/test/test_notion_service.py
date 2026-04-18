@@ -23,7 +23,7 @@ class TestFilterByDeepLevel:
         mocker.patch.object(notion_service, 'get_all_characters', return_value=mock_characters)
     
         # Act
-        result = notion_service.get_characters_by_deep_level_npc(3, False)
+        result = notion_service.get_characters_by_deep_level_npc_source(3, False)
     
         # Assert
         assert len(result) == 4
@@ -42,7 +42,7 @@ class TestFilterByDeepLevel:
         mocker.patch.object(notion_service, 'get_all_characters', return_value=mock_characters)
     
         # Act
-        result = notion_service.get_characters_by_deep_level_npc(3, False)
+        result = notion_service.get_characters_by_deep_level_npc_source(3, False)
     
         # Assert
         assert result == []
