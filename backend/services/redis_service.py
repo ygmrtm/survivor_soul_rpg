@@ -589,7 +589,9 @@ class RedisService:
             set_name = self.get_cache_key_nomerge('watchlist','sets', 'all') 
             self.ssad(set_name, key, expiry_seconds )
             if watchcard['estado'] in ['watched']:
-                expiry_seconds = 86400 * 91
+                expiry_seconds = 3600 * 24 * 91
+            elif watchcard['estado'] in ['loaded','checked']:
+                expiry_seconds = 3600 * 24 * 1
             self.hset(key, 'notion_id' , watchcard['notion_id']  )
             self.hset(key, 'imdb_id' , watchcard['imdb_id'] )
             self.hset(key, 'titulo' , watchcard['titulo']  )

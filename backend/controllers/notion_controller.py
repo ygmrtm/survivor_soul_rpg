@@ -89,12 +89,17 @@ def countpeoplepills(deep_level):
     count_people_pills = notion_service.count_people_pills_source(deep_level)
     return jsonify({"count": count_people_pills}), 200
 
-@notion_bp.route('/flushredis', methods=['POST'])
+@notion_bp.route('/flushredis/cryptids', methods=['POST'])
 def flush_redis_cache():
-    characters_del = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('cryptids','*'))
+    cryptids_count = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('cryptids','*'))
+    deadventures_count = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('deadventures','*'))
+    tournamentes_count = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('tournaments','*'))
+    sets_count = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('sets','l*','*'))
     return jsonify({"message": "Redis cache flushed successfully"
-                    ,"characters:*": characters_del
-                    ,"characters_del": characters_del
+                    ,"cryptids_count": cryptids_count
+                    ,"deadventures_count": deadventures_count
+                    ,"tournamentes_count": tournamentes_count
+                    ,"sets_count": sets_count
                     }), 200
 
 @notion_bp.route('/characters/applypills/<deep_level>/<limit>', methods=['POST'])

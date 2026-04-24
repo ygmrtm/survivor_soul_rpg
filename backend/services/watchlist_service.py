@@ -165,7 +165,7 @@ class WatchlistService:
         return_watchlist = self.redis_service.smembers_w_hash_watchcard(set_cache_key)
         checked_watchlist = self.get_watchlist_by_estado('checked', tamano)
         loaded_watchlist = self.get_watchlist_by_estado('loaded', tamano)
-        print("Got", len(return_watchlist), "movies from cache", len(checked_watchlist), ":<=checked", len(loaded_watchlist), "<=loaded"  )
+        print("Got", len(return_watchlist), "movies from cache | ", len(checked_watchlist), "<= checked", len(loaded_watchlist), "<= loaded"  )
         priority = 0
         while len(return_watchlist) < tamano and priority < 3:
             for year in range(self.year_start, datetime.now().year, 20):
@@ -189,7 +189,7 @@ class WatchlistService:
             priority += 1 
         for wl in return_watchlist:
             if wl['estado'] not in ['loaded','checked']:
-                print(f"⚠️ w {wl['titulo']} is {wl['status']}")
+                print(f"⚠️ w {wl['titulo']} is {wl['estado']}")
         return return_watchlist[:tamano]
 
     def persist_suggested_watchlist(self, watchlist, week, size=1):

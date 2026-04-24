@@ -371,14 +371,16 @@ document.addEventListener("DOMContentLoaded", function () {
         const button = this;
         button.disabled = true;
         logActivity(`Flushing cache (Redis)...`);
-        fetch(`/api/notion/flushredis`, {
+        fetch(`/api/notion/flushredis/cryptids`, {
             method: 'POST'
         })
         .then(response => response.json())
         .then(data => {
             logActivity(`🚽 ${data.message}`);
-            logActivity(`characters:* (${data.characters_del})`)
-            logActivity(`loaded_characters_*:* (${data.indicators_del})`)
+            logActivity(`cryptids:* (${data.cryptids_count})`)
+            logActivity(`deadventures:* (${data.deadventures_count})`)
+            logActivity(`tournaments:* (${data.tournamentes_count})`)
+            logActivity(`sets:l*:* (${data.sets_count})`)
         })
         .catch(error => {
             console.error('Error flushing:', error);
