@@ -780,7 +780,10 @@ class AdventureService:
             self.encounter_log = []
             enemy = None
             who = self.notion_service.get_character_by_id(deaadventure['who'])
-            print("underworld exec "+deaadventure['name']+"|"+who['name'],'| {}/{} [{}]'.format(done, len(sample_adventures), len(all_adventures)))
+            if who is None:
+                print(f"The Deadventure {deaadventure['id']} do not have who {deaadventure['who']}")
+                continue
+            print("underworld exec "+deaadventure['id']+"|"+who['name'],'| {}/{} [{}]'.format(done, len(sample_adventures), len(all_adventures)))
             for vs in deaadventure['vs']:
                 if vs['id'].replace('-','') in dead_gods_pool:
                     dead_gods_pool = []
@@ -808,6 +811,7 @@ class AdventureService:
                 deaadventure['status'] = 'lost'
                 self.add_encounter_log(who['hp'], "hp", 'You have been defeated in 100 encounters.')
                 deaadventure['encounter_log'] = self.encounter_log
+            deaadventure['pending_reborn'] = None
             self.notion_service.persist_adventure(adventure=deaadventure, characters=[who,enemy] , prefix=self.redis_service.get_cache_key('deadventures'))
             #time.sleep(random.randint(1, 5))
             return_array.append({"adventure_id": deaadventure['id'], "character_id": who['id'], "character_name": who['name'], "deadgod_name": enemy['name'],"adventure_status": deaadventure['status']})
@@ -828,6 +832,7 @@ class AdventureService:
             print(f"{limit} 💨 mode 💨 awake_characters")
             return characters
         #print(f"characters found {len(characters)} limit {limit}")
+        goto_update = False
         for character in characters:
             pct_before = character['hp'] / character['max_hp']
             pct_after = (character['hp'] + character['hours_recovered']) / character['max_hp']
@@ -835,18 +840,25 @@ class AdventureService:
                 character['status'] = 'alive' if pct_after > 0.3 else character['status']
                 character['hp'] = character['hp'] + character['hours_recovered']
                 character['hp'] = character['hp'] if character['hp'] < character['max_hp'] else character['max_hp'] 
-            if character['deep_level'] != 'l3' and len(character['alter_subego']) > 0 and character['status'] != 'high':
+                character['hours_recovered'] += character['hours_recovered']
+                goto_update = True
+            elif character['deep_level'] != 'l3' and len(character['alter_subego']) > 0 and character['status'] != 'high':
                 character['status'] = 'high'
                 character['hp'] = character['max_hp']
-            if character['deep_level'] != 'l3' and len(character['alter_subego']) == 0 and character['status'] != 'dead':
+                goto_update = True
+            elif character['deep_level'] != 'l3' and len(character['alter_subego']) == 0 and character['status'] != 'dead':
                 character['status'] = 'dead'
                 character['hp'] = abs(character['max_hp']) * -1
-            datau = {"properties": { "hp": {"number": character['hp']},"status": {"select": {"name":character['status']} } }}
-            _ = self.notion_service.update_character(character, datau)
-            return_array.append({ "character_id": character['notionid'], "character_name": character['name'], "character_hp": character['hp']})
-            actually_executed += 1
-            strmsg = f"{character['name']} ⌛️{character['hours_recovered']} {pct_before}->{pct_after} {'awakening' if pct_after > 0.3 else 'keeping'} as {character['status']} {actually_executed}/{limit}/{len(characters)} "
-            print(strmsg)
+                goto_update = True
+            else:
+                goto_update = False
+            if goto_update:
+                datau = {"properties": { "hp": {"number": character['hp']},"status": {"select": {"name":character['status']} } }}
+                _ = self.notion_service.update_character(character, datau)
+                return_array.append({ "character_id": character['notionid'], "character_name": character['name'], "character_hp": character['hp']})
+                actually_executed += 1
+                strmsg = f"{character['name']} ⌛️{character['hours_recovered']} {pct_before}->{pct_after} {'awakening' if pct_after > 0.3 else 'keeping'} as {character['status']} {actually_executed}/{limit}/{len(characters)} "
+                print(strmsg)
             if actually_executed >= limit :
                 break                
         return return_array

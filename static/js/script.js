@@ -396,7 +396,7 @@ document.addEventListener("DOMContentLoaded", function () {
         healImage.src = "/static/img/smoking-logo.png";
 
         // First endpoint to
-        fetch(`/api/notion/characters/applypills/deep_level/l3`, {
+        fetch(`/api/notion/characters/applypills/l3/${currentMinutes}`, {
             method: 'POST'
         })
         .then(response => response.json())
@@ -462,9 +462,8 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(data => {
             if(data.count > 0){
-                logActivity(`People w💊s ${data.count}`);
                 document.getElementById('heal-button').disabled = false;
-                logActivity(`Disabling 💊 at ${currentDate} ⚠️`);
+                logActivity(`People w💊s ${data.count} disabling at ${currentDate} ⚠️`);
                 setTimeout(() => {
                     logActivity(`People with pills 💊 timeout.`);
                     document.getElementById('heal-button').disabled = true;

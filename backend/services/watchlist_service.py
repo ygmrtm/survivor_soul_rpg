@@ -162,7 +162,7 @@ class WatchlistService:
     def get_random_suggested_watchlist(self, tamano):
         """Get a random selection from the watchlist."""
         set_cache_key = self.redis_service.get_cache_key_nomerge('watchlist','sets', f'suggested{tamano}',str(self.day_number))
-        return_watchlist = self.redis_service.smembers_w_hash(set_cache_key)
+        return_watchlist = self.redis_service.smembers_w_hash_watchcard(set_cache_key)
         checked_watchlist = self.get_watchlist_by_estado('checked', tamano)
         loaded_watchlist = self.get_watchlist_by_estado('loaded', tamano)
         print("Got", len(return_watchlist), "movies from cache", len(checked_watchlist), ":<=checked", len(loaded_watchlist), "<=loaded"  )

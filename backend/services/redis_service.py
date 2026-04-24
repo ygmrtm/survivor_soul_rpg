@@ -110,7 +110,7 @@ class RedisService:
         """
         try:
             value = self.redis_client.get(key)
-            print("☠️ get value ",value)
+            #print("☠️ get value ",value)
             return json.loads(value) if value else None
         except Exception as e:
             print(f"Error getting Redis key {key} | {str(e)}")
@@ -164,7 +164,7 @@ class RedisService:
             print(f"Error getting smembers {key}: {str(e)}")
             return None
 
-    def smembers_w_hash(self, key):
+    def smembers_w_hash_watchcard(self, key):
         try:
             values = self.smembers(key)
             return_list = []
@@ -177,7 +177,20 @@ class RedisService:
                     return_list.append(adjusted)
             return return_list 
         except Exception as e:
-            print(f"Error getting smembers_w_hash {key} | {str(e)}")
+            print(f"Error getting smembers_w_hash_watchcard {key} | {str(e)}")
+            return None
+
+    def smembers_w_hash_cryptid(self, key):
+        try:
+            values = self.smembers(key)
+            return_list = []
+            #print(key, "☠️ value",values)
+            for member in values:
+                character = self.hgetall(member.replace('"',''), member.replace('"','').rsplit(':', 1)[-1])
+                return_list.append(character)
+            return return_list 
+        except Exception as e:
+            print(f"Error getting smembers_w_hash_cryptid {key} | {str(e)}")
             return None
 
     def hset(self, name, key, value ):
@@ -240,6 +253,12 @@ class RedisService:
             #sets
             set_name = self.get_cache_key('sets', 'all') 
             self.ssad(set_name, key, expiry_seconds )
+            inventory = character['inventory']
+            for i in inventory:
+                if i['name'].endswith('.pill'):
+                    prefix = i['name'][:i['name'].find('.')]
+                    set_name = self.get_cache_key('sets', character['deep_level'], prefix) 
+                    self.ssad(set_name, key, expiry_seconds )
             return True
         except Exception as e:
             print(f"Error setting Redis key {key}: {str(e)}")
@@ -257,7 +276,7 @@ class RedisService:
             clean_data["name"] = clean_data["name"].replace('"','')
             clean_data["description"] = clean_data["description"].replace('"','')
             clean_data["picture"] = clean_data["picture"].replace('"','')
-            clean_data["id"] = clean_data["id"].replace('"','')
+            clean_data["id"] = clean_data["id"].replace('"','') 
             clean_data["notionid"] = clean_data["notionid"].replace('"','')
             clean_data['hours_recovered'] = int(clean_data['hours_recovered'])
             clean_data['respawn'] = int(clean_data['respawn'])
@@ -274,7 +293,7 @@ class RedisService:
             clean_data['magic'] = int(clean_data['magic'])
             return clean_data
         except Exception as e:
-            print(f"Error ajusting -> {clean_data} | Error in {str(e)}")
+            print(f"Error ajusting character-> {clean_data} | Error in {str(e)}")
             return None
 
     def hscan(self, name, match, count=100):
@@ -612,5 +631,5 @@ class RedisService:
             clean_data['minutos'] = int(clean_data['minutos'])
             return clean_data
         except Exception as e:
-            print(f"Error ajusting -> {clean_data} | Error in {str(e)}")
+            print(f"Error ajusting watchcard-> {clean_data} | Error in {str(e)}")
             return None

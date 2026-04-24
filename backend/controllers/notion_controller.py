@@ -91,16 +91,13 @@ def countpeoplepills(deep_level):
 
 @notion_bp.route('/flushredis', methods=['POST'])
 def flush_redis_cache():
-    characters_del = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('characters','*'))
-    indicators_del = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('loaded_characters_*','*'))
+    characters_del = redis_service.flush_keys_by_pattern(redis_service.get_cache_key('cryptids','*'))
     return jsonify({"message": "Redis cache flushed successfully"
                     ,"characters:*": characters_del
-                    ,"loaded_characters_*:*": indicators_del
                     ,"characters_del": characters_del
-                    ,"indicators_del": indicators_del}
-                    ), 200
+                    }), 200
 
-@notion_bp.route('/characters/applypills/deep_level/<deep_level>/<limit>', methods=['POST'])
+@notion_bp.route('/characters/applypills/<deep_level>/<limit>', methods=['POST'])
 def apply_character_pills(deep_level, limit):
     # validate deep_level is valid "l"+int
     if not deep_level.startswith('l'):
@@ -109,15 +106,15 @@ def apply_character_pills(deep_level, limit):
     jsonback = {}
     
     for pill_color in ['red','yellow', 'blue', 'green',  'orange', 'purple', 'gray', 'brown', 'pink']:
-        result = apply_all_pills(deep_level=deep_level, pill_color=pill_color)
+        result = apply_all_pills(deep_level=deep_level, pill_color=pill_color, limit=limit)
         jsonback[pill_color] = result
     characters_awaked = adventure_service.awake_characters(limit=limit)
     jsonback['awaked'] = characters_awaked
     jsonback['awaked_count'] = len(characters_awaked)
     return jsonify(jsonback)
 
-@notion_bp.route('/characters/applypills/<deep_level>/color/<pill_color>', methods=['POST'])
-def apply_all_pills(deep_level, pill_color ):
+@notion_bp.route('/characters/applypills/<deep_level>/<pill_color>/<limit>', methods=['POST'])
+def apply_all_pills(deep_level, pill_color, limit ):
     print(f'💊 {pill_color}')
     # validate deep_level is valid "l"+int
     if not deep_level.startswith('l'):
@@ -126,15 +123,15 @@ def apply_all_pills(deep_level, pill_color ):
     if pill_color not in ('yellow', 'blue', 'green', 'red', 'orange', 'purple', 'gray', 'brown', 'pink'):
         return jsonify({"error": "Invalid pill color"}), 400
     
-    result = notion_service.apply_all_pills(deep_level=deep_level, pill_color=pill_color, )
+    result = notion_service.apply_all_pills(deep_level=deep_level, pill_color=pill_color, limit=limit)
     return result
 
-@notion_bp.route('/characters/applypill/color/<pill_color>/<character_id>', methods=['POST'])
+@notion_bp.route('/characters/applypill/character/<pill_color>/<character_id>', methods=['POST'])
 def apply_pill( pill_color ,character_id):
     if pill_color not in ('yellow', 'blue', 'green', 'red', 'orange', 'purple', 'gray', 'brown', 'pink'):
         return jsonify({"error": "Invalid pill color " + pill_color}), 400
     character = notion_service.get_character_by_id(character_id)
-    alive_chars = notion_service.get_characters_by_deep_level_npc_and_status('l3', True , 'alive')
+    alive_chars = notion_service.get_characters_by_deep_level_npc_and_status_source('l3', True , 'alive')
     result = None
     if character:
         print(f'💊 {pill_color} for {character["name"]}')
