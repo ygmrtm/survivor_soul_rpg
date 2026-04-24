@@ -278,7 +278,8 @@ class NotionService:
                 , deep_level=deep_level
                 , status=status )
             if len(characters) <= 8:
-                print("going to the source: "+deep_level+" "+status)
+                print(f"going to the source 'cause got only {len(characters)}: "+deep_level+" "+status)
+                characters = []
                 data_filter = {
                     "filter": {
                         "and": [
@@ -326,7 +327,7 @@ class NotionService:
                     if character['npc'] == is_npc:
                         characters.append(character)
             if len(characters) <= 0:
-                print("going to the source: "+deep_level+" "+str(is_npc))
+                print(f"going to the source 'cause got only {len(characters)}: "+deep_level+" "+str(is_npc))
                 data_filter = {
                     "filter": {
                         "and": [
@@ -375,7 +376,7 @@ class NotionService:
                 if character['npc'] == is_npc :
                     characters.append(character)
             if len(characters) <= 0:
-                print("going to the source: "+deep_level+" "+str(is_npc)+" "+status)
+                print(f"going to the source 'cause got only {len(characters)}: "+deep_level+" "+str(is_npc)+" "+status)
                 data_filter = {
                     "filter": {
                         "and": [
@@ -414,40 +415,32 @@ class NotionService:
     '''
     PILLS
     '''
-    def apply_all_pills(self, deep_level, pill_color):
+    def apply_all_pills(self, deep_level, pill_color, limit=0):
+        limit = int(limit)
         by_pill_color = []
         response_json = {'message': ''}
         try:
-            cached_chars_count = self.redis_service.exists(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:headcount' 
-                                                                                , f"{deep_level}"))
-            if cached_chars_count > 0:
-                characters = self.redis_service.get(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray',f"{deep_level}"))                
-                for c in characters:
-                    inventory = c['inventory']
-                    for i in inventory:
-                        if f'{pill_color}.pill' == i['name']:
-                            by_pill_color.append(c)
-                if len(by_pill_color) > 0:
-                    #print(f"Using complete cached array for deep level {deep_level} | {len(by_pill_color)} characters")
-                    alive_chars = self.get_characters_by_deep_level_npc_and_status(deep_level='l3', is_npc=True, status='alive')
-                    for character in by_pill_color:
-                        cache_key = self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:characterpillprocessed', character['notionid'])
-                        character = character if not self.redis_service.exists(cache_key) else self.redis_service.get(cache_key)
+            set_cache_key = self.redis_service.get_cache_key('sets', deep_level, pill_color)
+            by_pill_color = self.redis_service.smembers_w_hash_cryptid(set_cache_key)
+            if len(by_pill_color) > 0:
+                alive_chars = self.get_characters_by_deep_level_npc_and_status_source(deep_level='l3', is_npc=True, status='alive')
+                done = 0
+                for character in by_pill_color:
+                    #print(character)
+                    if done >= limit:
+                        break
+                    cache_key = self.redis_service.get_cache_key('cryptids', character['notionid'])
+                    if character['status'] != 'alive':
                         results = self.apply_pill_color_to_character(character, pill_color, alive_chars)
                         response_json[pill_color] = results
                         response_json['message'] += f' | SUCCESS: {pill_color} have been applied : ' + character['name']
-                        self.redis_service.set_with_expiry(cache_key, character, self.expiry_minutes)
-                        self.redis_service.set_with_expiry(self.redis_service.get_cache_key('loaded_characters_level:pillcompleterray:headcount' 
-                                                                                , f"{deep_level}")
-                                                                                , cached_chars_count-1
-                                                                                , self.expiry_minutes)
-                else:
-                    response_json['message'] = f'ERROR: No Characters (with {pill_color}💊s) has been found'
+                        self.redis_service.srem(set_cache_key, cache_key)
+                        done += 1
             else:
-                response_json['message'] = 'ERROR: No full array cached | Characters (with 💊s) array mssing'
+                response_json['message'] = f'ERROR: No Characters (with {pill_color}💊s) has been found'
         except Exception as e:
-            print(f"Failed to fetch characters by deep level {deep_level} and pill collor {pill_color}: {e}")
-            response_json['message'] = f"Failed to fetch characters by deep level {deep_level} and pill collor {pill_color}: {e}"
+            print(f"Failed to apply_all_pills deep level {deep_level} and pill collor {pill_color}: {e}")
+            response_json['message'] = f"Failed to apply_all_pills by deep level {deep_level} and pill collor {pill_color}: {e}"
         return response_json 
 
     def apply_pill_color_to_character(self, character, pill_color, alive_chars=[]):

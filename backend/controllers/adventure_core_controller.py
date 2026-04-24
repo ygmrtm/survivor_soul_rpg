@@ -309,7 +309,7 @@ def evaluate_watchlist_challenge():
         tamano = redis_service.get(redis_service.get_cache_key_nomerge('watchlist','num83r5', 'watchlist_size'))
         if tamano is None:
             tamano = 7
-            redis_service.set_without_expiry(redis_service.get_cache_key('num83r5','watchlist_size'), tamano)
+            redis_service.set_without_expiry(redis_service.get_cache_key_nomerge('watchlist',   'num83r5','watchlist_size'), tamano)
         else:
             tamano = int(tamano)
         current_week = datetime.now().isocalendar()[1]

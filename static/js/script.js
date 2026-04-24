@@ -371,14 +371,16 @@ document.addEventListener("DOMContentLoaded", function () {
         const button = this;
         button.disabled = true;
         logActivity(`Flushing cache (Redis)...`);
-        fetch(`/api/notion/flushredis`, {
+        fetch(`/api/notion/flushredis/cryptids`, {
             method: 'POST'
         })
         .then(response => response.json())
         .then(data => {
             logActivity(`🚽 ${data.message}`);
-            logActivity(`characters:* (${data.characters_del})`)
-            logActivity(`loaded_characters_*:* (${data.indicators_del})`)
+            logActivity(`cryptids:* (${data.cryptids_count})`)
+            logActivity(`deadventures:* (${data.deadventures_count})`)
+            logActivity(`tournaments:* (${data.tournamentes_count})`)
+            logActivity(`sets:l*:* (${data.sets_count})`)
         })
         .catch(error => {
             console.error('Error flushing:', error);
@@ -396,7 +398,7 @@ document.addEventListener("DOMContentLoaded", function () {
         healImage.src = "/static/img/smoking-logo.png";
 
         // First endpoint to
-        fetch(`/api/notion/characters/applypills/deep_level/l3`, {
+        fetch(`/api/notion/characters/applypills/l3/${currentMinutes}`, {
             method: 'POST'
         })
         .then(response => response.json())
@@ -462,9 +464,8 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(data => {
             if(data.count > 0){
-                logActivity(`People w💊s ${data.count}`);
                 document.getElementById('heal-button').disabled = false;
-                logActivity(`Disabling 💊 at ${currentDate} ⚠️`);
+                logActivity(`People w💊s ${data.count} disabling at ${currentDate} ⚠️`);
                 setTimeout(() => {
                     logActivity(`People with pills 💊 timeout.`);
                     document.getElementById('heal-button').disabled = true;

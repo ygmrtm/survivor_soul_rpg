@@ -110,7 +110,7 @@ class TournamentService:
                 for who in whos:
                     who['xp'] += self.add_encounter_log(tournament['xpRwd'], 'xp',f"{who['name']} won tournament reward")
                     who['coins'] += self.add_encounter_log(tournament['coinRwd'], 'coins',f"{who['name']} won tournament reward")
-                    self.redis_service.zincrby(self.redis_service.get_cache_key('sets','leaderboard:xp')
+                    self.redis_service.zincrby(self.redis_service.get_cache_key('sets','boardleaders:xp')
                         , tournament['xpRwd']
                         , self.redis_service.get_cache_key('cryptids',who['notionid']))
                     winners += (who['name'] + '| ')
