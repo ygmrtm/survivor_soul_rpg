@@ -569,3 +569,22 @@ Awakening in Underworld
     - [ ]  pills
 ---
 
+## [1.5.2] - 2026-04-24
+Merge 4c71f52c772b9284a9d2084f6bff1a765566f0ea into 0853010bd21682740adb8e734e98ff6717b6971d
+
+Flush Cryptids and Watchlist Stuff
+
+Flush only cryptids
+Watchlist stuff
+
+Some fixes
+
+Pills general adjustments
+Get Characters adjustments
+
+Merge pull request #69 from ygmrtm/main
+
+[CODE-41] refresh pills 
+Update CHANGELOG for version 1.5.1
+---
+
