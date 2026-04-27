@@ -588,3 +588,30 @@ Merge pull request #69 from ygmrtm/main
 Update CHANGELOG for version 1.5.1
 ---
 
+## [1.5.3] - 2026-04-27
+Merge 4c0f42ccabf7c02bad8d209889d88515c7ae887b into cf599d89140577c6f049aadb8c817527bb64fcfe
+
+pink pills, not_npc
+
+- [ ]  feature: Remaining Pills
+
+    ### 💊  💊  💊  💊  💊  💊  💊
+
+    - [x]  Full **Sanity**
+    - [x]  **Alive** with full **HP + pink.pill**
+    - [x]  **Alive** with full **HP** + **Level** **UP**
+    - [x]  Full properties **Defense**|**Attack**|**Magic**
+    - [x]  inherit the properties of the alter-ego **Defense**|**Attack**|**Magic**
+    - [x]  earn a **green.pill**
+    - [x]  earn a new **tournament** *w/easy-peasy* opponents
+    - [ ]  profit **accumulator**
+    - [x]  **Alive** as **Main** Character with full **HP** *(timelapse processes)*
+
+Merge pull request #71 from ygmrtm/main
+
+Upgrade to 1.5.2
+Update CHANGELOG for version 1.5.2
+
+Merge 4c71f52c772b9284a9d2084f6bff1a765566f0ea into 0853010bd21682740adb8e734e98ff6717b6971d
+---
+
