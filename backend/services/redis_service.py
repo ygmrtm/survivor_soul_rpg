@@ -10,7 +10,7 @@ class RedisService:
     _pool = None
     expiry_hours = 96
     expiry_minutes = 60
-    limit_redis_results = 75
+    limit_redis_results = 100
     
     def __new__(cls):
         """Implement Singleton pattern to ensure only one instance of RedisService exists."""
