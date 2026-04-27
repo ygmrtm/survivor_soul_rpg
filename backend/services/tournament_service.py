@@ -56,7 +56,7 @@ class TournamentService:
             if not adventure:
                 adventure = self.notion_service.get_adventure_by_id(tournament_id)
                 adventure['id'] = tournament_id
-                self.redis_service.set_with_expiry(prefix_save_ifnot + tournament_id,adventure, expiry_hours=self.expirity_tournament_hours)
+                self.redis_service.set_with_expiry(self.redis_service.get_cache_key(prefix_save_ifnot, tournament_id),adventure, expiry_hours=self.expirity_tournament_hours)
             return adventure
         except Exception as e:
             print(f"Failed to fetch get_by_id {tournament_id} ::: {e}")
@@ -64,7 +64,7 @@ class TournamentService:
 
     def count_n_get_by_status(self, status):
         try:
-            return self.notion_service.count_n_get_by_status_source(status=status, prefix=self.redis_service.get_cache_key('tournaments'))
+            return self.notion_service.count_n_get_by_status_source(status=status, prefix='tournaments')
         except Exception as e:
             print(f"Failed to fetch count_n_get_by_status ::: {e}")
             raise        
@@ -110,7 +110,7 @@ class TournamentService:
                 for who in whos:
                     who['xp'] += self.add_encounter_log(tournament['xpRwd'], 'xp',f"{who['name']} won tournament reward")
                     who['coins'] += self.add_encounter_log(tournament['coinRwd'], 'coins',f"{who['name']} won tournament reward")
-                    self.redis_service.zincrby(self.redis_service.get_cache_key('sets','boardleaders:xp')
+                    self.redis_service.zincrby(self.redis_service.get_cache_key('sets','boardleaders','xp')
                         , tournament['xpRwd']
                         , self.redis_service.get_cache_key('cryptids',who['notionid']))
                     winners += (who['name'] + '| ')
@@ -118,7 +118,7 @@ class TournamentService:
                 tournament['status'] = 'won'
                 tournament['encounter_log'] = self.encounter_log
                 tournament['top_5'] = whos
-                self.notion_service.persist_adventure(adventure=tournament, characters=whos, prefix=self.redis_service.get_cache_key('tournaments'))
+                self.notion_service.persist_adventure(adventure=tournament, characters=whos, prefix='tournaments')
                 message_back = f"{tournament['id']} EXECUTED AS {tournament['status']} WINNERS >> {winners} GOT AS REWARD {tournament['xpRwd']} ${tournament['coinRwd']}"
             else:
                 message_back = f"NO WINNER"

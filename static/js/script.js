@@ -1,7 +1,7 @@
 function closeModal() {
     document.getElementById('adventure-modal').style.display = 'none'; // Hide the modal
     // Re-enable all character cards
-    const characterCards = document.querySelectorAll(".character-card");
+    /*const characterCards = document.querySelectorAll(".character-card");
     characterCards.forEach(card => {
         const alive_pts = parseInt(card.dataset.characterHp);
         const characterStatus = card.dataset.characterStatus;
@@ -10,7 +10,7 @@ function closeModal() {
             card.style.pointerEvents = 'auto'; // Re-enable clicks
             card.style.transform = "scale(1)"; // Reset scale
         }
-    });
+    });*/
 }
 
 // Calculate the current week number based on ISO calendar
@@ -27,7 +27,6 @@ const weekNumber = getISOWeekNumber(currentDate);
 const prevWeekNumber = weekNumber - 1;
 console.log(weekNumber, prevWeekNumber,currentDate);
 currentDate.setMinutes(currentDate.getMinutes() + currentMinutes);
-console.log('+',currentMinutes,currentDate);
 
 function logActivity(message) {
     const currentTime = new Date().toLocaleTimeString();
@@ -46,9 +45,10 @@ document.addEventListener("DOMContentLoaded", function () {
         const characterId = card.dataset.characterId;
         const characterHp = parseInt(card.dataset.characterHp);
         const characterStatus = card.dataset.characterStatus;
+        const characterName = card.dataset.characterName;
         // Disable card if character HP is less than zero
         if (characterHp < 0 || characterStatus != 'alive') {
-            console.log('Character HP is less than zero. Cannot execute adventure.');
+            console.log('Character not able to figth: '+characterName + ':' + characterId);
             card.classList.add('disabled');
             card.style.pointerEvents = 'none';
         }
@@ -63,8 +63,8 @@ document.addEventListener("DOMContentLoaded", function () {
             if (card.classList.contains('disabled')) return; // Prevent action if card is disabled
             card.classList.add('disabled'); // Disable the card
             card.style.pointerEvents = 'none'; // Prevent further clicks
-            logActivity(`Starting adventure for ${card.dataset.characterName}...`); // Log activity
-            document.getElementById('adventure-info').innerText = 'Loading... ' + card.dataset.characterName;
+            logActivity(`Starting adventure for ${characterName}...`); // Log activity
+            document.getElementById('adventure-info').innerText = 'Loading... ' + characterName;
             document.getElementById('adventure-modal').style.display = 'block';
             fetch(`/api/adventure/${characterId}/create`, {
                 method: 'POST'
@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     // If the response is not ok (not 2xx status), throw an error
                     throw new Error(`Create adventure failed with status: ${response.status}`);
                 }
-                logActivity(`Adventure created for ${card.dataset.characterName}...`);
+                logActivity(`Adventure created for ${characterName}...`);
                 document.getElementById('adventure-info').innerText += '... created 👍';
                 return response.json();
             })
@@ -87,7 +87,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 }
 
                 const adventureId = data.adventure_id;
-                logActivity(`Executing adventure for ${card.dataset.characterName} ID ${adventureId}.`);
+                logActivity(`Executing adventure for ${characterName} ID ${adventureId}.`);
 
                 // Only proceed to execute if we have a valid adventure_id
                 return fetch(`/api/adventure/${adventureId}/go`, {
@@ -105,6 +105,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 let texto = `${data.who_name} has ${data.status} ID: ${data.adventure_id}`;
                 logActivity(texto);
                 document.getElementById('adventure-info').innerText = texto;
+                card.dataset.characterStatus = data.who_status;
+                card.dataset.characterHp = data.who_hp;
+                if(data.status == 'won'){
+                    card.classList.remove('disabled'); // Remove disabled class
+                    card.style.pointerEvents = 'auto'; // Re-enable clicks
+                }
             })
             .catch(error => {
                 console.error('Error in adventure flow:', error);

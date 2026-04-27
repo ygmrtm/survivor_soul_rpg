@@ -40,13 +40,13 @@ def create_app():
     def landing_page():
         """Landing page displaying playable characters."""
         notion_service = NotionService()
-        characters = notion_service.get_characters_by_deep_level_npc_source('l3', False)
+        characters = notion_service.get_characters_not_npc('l3', 4)
         # Mock character data in case the Notion API is empty or unavailable
         if not characters:
             characters = [
                 {
                     "name": "Abyssal Warrior",
-                    "picture": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSrMHIY_JaKsn5g1S5iM7CxgVRjcYh24vK-Pw&s",
+                    "picture": "https://static.vecteezy.com/system/resources/previews/059/146/551/non_2x/realistic-eyeball-with-red-veins-and-dark-pupil-free-png.png",
                     "level": 3,
                     "coins": 150,
                     "xp": 230,
@@ -61,7 +61,7 @@ def create_app():
                 },
                 {
                     "name": "Void Mage",
-                    "picture": "https://wreathsigndesigns.com/cdn/shop/files/creepy-eyeball-3-halloween-wreath-metal-sign-6-circle-191.webp?v=1693294395",
+                    "picture": "https://png.pngtree.com/png-clipart/20240705/original/pngtree-monster-eye-with-many-little-eyes-png-image_15496474.png",
                     "level": 5,
                     "coins": 300,
                     "xp": 450,

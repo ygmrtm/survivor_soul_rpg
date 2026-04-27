@@ -28,12 +28,6 @@ REDIS_PASSWORD = redis_url.password
 REDIS_DB = 0  # Usually 0 for Redis Cloud
 REDIS_SSL = True  # Enable SSL/TLS for Redis Cloud
 
-# Todoist API credentials
-# TODOIST_API_KEY = os.getenv('TODOIST_API_KEY')
-# TODOIST_PID_INB = os.getenv('TODOIST_PID_INB')
-# TODOIST_PID_CAL = os.getenv('TODOIST_PID_CAL')
-
-
 # TickTick API credentials
 # TICKTICK_ACCESS_TOKEN = os.getenv('TICKTICK_ACCESS_TOKEN')
 # TICKTICK_PASS = os.getenv('TICKTICK_PASS')
