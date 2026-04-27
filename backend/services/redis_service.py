@@ -131,21 +131,27 @@ class RedisService:
         except Exception as e:
             print(f"❌ Error zincrby Redis key {key}: {str(e)}")            
 
-    def ssad(self, key, value, expiry_seconds=3600 ):
+    def ssad(self, key, member, expiry_seconds=3600 ):
         try:
-            serialized_value = json.dumps(value) 
-            respon = self.redis_client.sadd(key, serialized_value)
+            respon = self.redis_client.sadd(key, member)
             self.redis_client.expire(name=key, time=expiry_seconds)            
             return respon
         except Exception as e:
-            print(f"❌ Error setting Redis key {key}: {str(e)}")       
+            print(f"❌ Error setting Redis key {key} for member {member}: {str(e)}")       
 
     def srem(self, key, member):
         try:
             respon = self.redis_client.srem(key, member)
             return respon
         except Exception as e:
-            print(f"❌ Error removing Redis key {key} for member {member}: {str(e)}")       
+            print(f"❌ Error removing Redis key {key} for member {member}: {str(e)}")      
+
+    def sdiff(self, key1, key2):
+        try:
+            respon = self.redis_client.sdiff(key1, key2)
+            return respon
+        except Exception as e:
+            print(f"❌ Error looking for DIFF {key1} | {key2}: {str(e)}")                   
 
     def sscan(self, name, match, count=100):
         try:
@@ -219,10 +225,11 @@ class RedisService:
             expiry_seconds = round(expiry_seconds / 3) if character['status'] != 'alive' and character['deep_level'] == 'l3'  else expiry_seconds
             old_status = str(self.redis_client.hget(key,'status')).replace('"','')
             change_status = old_status != character['status']
-            #print(f"moving from {old_status} to {character['status']} | {character['id']}:{character['name']} = {change_status}")
             if change_status :
-                self.srem(self.get_cache_key('sets', character['deep_level'] + ':' + old_status ) , key)
+                old_set = self.get_cache_key('sets', character['deep_level'] + ':' + old_status )
                 set_name = self.get_cache_key('sets', character['deep_level'] + ':' + character['status']) 
+                #print(f"moving from {old_set} to {set_name} | {key}:{character['name']} = {change_status}")
+                self.srem(old_set , key)
                 self.ssad(set_name, key , expiry_seconds)
                 #print(f"del viejo status {old_status} añadiendo al set {set_name}")
             self.hset(key, 'status' , character['status']  )
@@ -305,48 +312,6 @@ class RedisService:
             print(f"Error hscan({name}, {match}): {str(e)}")
             return None
 
-
-    def set_cryptid_index(self, prefix ):
-        try:
-            hashIndexCreated = self.redis_client.ft("idx:"+prefix)
-            if not hashIndexCreated:
-                hashSchema = (
-                    TextField("notionid"),
-                    TextField("name"),
-                    TextField("deep_level"),
-                    TextField("status")
-                )
-
-                hashIndexCreated = self.redis_client.ft("idx:"+prefix).create_index(
-                    hashSchema,
-                    definition=IndexDefinition(
-                        prefix=[prefix], index_type=IndexType.HASH
-                    )
-                )   
-            return hashIndexCreated
-        except Exception as e:
-            print(f"Error set_cryptid_index : {str(e)}")
-            return None                 
-
-    def set_watchlist_index(self, *args ):
-        try:
-            prefix = ':'.join(str(arg) for arg in args) 
-            hashIndexCreated = self.redis_client.ft("idx:"+prefix)
-            if not hashIndexCreated:
-                hashIndexCreated = self.redis_client.ft("idx:"+prefix).create_index(
-                    (
-                        TextField("notion_id")
-                        ,TextField("titulo")
-                        ,TextField("anio")
-                        ,TextField("estado")
-                    ),
-                    definition=IndexDefinition( prefix=[prefix], index_type=IndexType.HASH)
-                )   
-            return hashIndexCreated
-        except Exception as e:
-            print(f"Error set_watchlist_index : {str(e)}")
-            return None                 
-
     def delete(self, key):
         """
         Delete a key.
@@ -418,7 +383,25 @@ class RedisService:
             prefix (str): Prefix for the cache key
             *args: Variable arguments to include in the key
         """
-        return f"rpg:{prefix}:{':'.join(str(arg) for arg in args)}"
+        return f"rpg:{prefix}{':' if (len(args)>0) else ''}{':'.join(str(arg) for arg in args)}"
+
+    def query_characters_by_deep_status_fullpower(self, prefix, deep_level=None, status=None, full=False):
+        matching_characters = []
+        try:
+            qry = "@deep_level:"+deep_level if deep_level else ''
+            qry += (' & ' if len(qry) > 0 else '') + "@status:"+status if status else ''
+            findHashResult = self.redis_client.ft("idx:"+prefix).search(Query(qry).paging(0,self.limit_redis_results))
+            total = self.redis_client.ft("idx:"+prefix).search(Query(qry).paging(0,self.limit_redis_results)).total
+            for doc in findHashResult.docs:
+                data = doc.__dict__
+                clean_data = {k: v for k, v in data.items() if not k.startswith('_')}
+                adjusted = self.adjust_character(clean_data)
+                matching_characters.append(adjusted)  
+            print(f"🚻 Returning {len(matching_characters)} characters out of {total}. qry={qry} paging {self.limit_redis_results}")
+        except Exception as e:
+            print(f"❌ Error querying characters: {str(e)}")
+        
+        return matching_characters   
 
     def query_characters_by_deep_status(self, prefix, deep_level=None, status=None):
         matching_characters = []
@@ -432,7 +415,27 @@ class RedisService:
                 clean_data = {k: v for k, v in data.items() if not k.startswith('_')}
                 adjusted = self.adjust_character(clean_data)
                 matching_characters.append(adjusted)  
-            #print(f"🚻 Returning {len(matching_characters)} characters out of {total}. qry={qry} paging {self.limit_redis_results}")
+            print(f"🚻 Returning {len(matching_characters)} characters out of {total}. qry={qry} paging {self.limit_redis_results}")
+        except Exception as e:
+            print(f"❌ Error querying characters: {str(e)}")
+        
+        return matching_characters   
+
+    def query_characters_by_deep_status_npc(self, prefix, deep_level=None, status=None, npc=False):
+        matching_characters = []
+        #print(deep_level, status, npc)
+        try:
+            qry = "@deep_level:"+deep_level if deep_level else ''
+            qry += ((' & ' if len(qry) > 0 else '') + "@status:"+status ) if status else ''
+            qry += ((' & ' if len(qry) > 0 else '') + "@npc:"+ ("true" if npc else "false")  ) 
+            findHashResult = self.redis_client.ft("idx:"+prefix).search(Query(qry).paging(0,self.limit_redis_results))
+            total = self.redis_client.ft("idx:"+prefix).search(Query(qry).paging(0,self.limit_redis_results)).total
+            for doc in findHashResult.docs:
+                data = doc.__dict__
+                clean_data = {k: v for k, v in data.items() if not k.startswith('_')}
+                adjusted = self.adjust_character(clean_data)
+                matching_characters.append(adjusted)  
+            print(f"🚻 Returning {len(matching_characters)} characters out of {total}. qry={qry} paging {self.limit_redis_results}")
         except Exception as e:
             print(f"❌ Error querying characters: {str(e)}")
         

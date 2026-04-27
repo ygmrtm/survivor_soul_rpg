@@ -17,6 +17,11 @@ def get_character_by_id(id):
     character = notion_service.get_character_by_id(id)
     return jsonify(character)
 
+@notion_bp.route('/characters/force/<id>', methods=['GET'])
+def get_character_by_id_force(id):
+    character = notion_service.get_character_by_id_force(id)
+    return jsonify(character)
+
 @notion_bp.route('/characters/<id>', methods=['PUT'])
 def update_character(id):
     # Update character details
@@ -26,6 +31,15 @@ def update_character(id):
                             }}   
     notion_service.update_character(character, datau)
     return character
+
+@notion_bp.route('/characters/not_npc/<deep_level>/<limit>', methods=['GET'])
+def get_characters_not_npc(deep_level, limit ):
+    # validate deep_level is valid "l"+int
+    if not deep_level.startswith('l'):
+        return jsonify({"error": "Invalid deep_level"}), 400
+    result = notion_service.get_characters_not_npc(deep_level, limit)
+    return jsonify(result)
+
 
 @notion_bp.route('/characters/deep_level/<deep_level>/<is_npc>', methods=['GET'])
 def get_characters_by_deep_level_npc(deep_level, is_npc ):
