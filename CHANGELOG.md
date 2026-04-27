@@ -615,3 +615,16 @@ Update CHANGELOG for version 1.5.2
 Merge 4c71f52c772b9284a9d2084f6bff1a765566f0ea into 0853010bd21682740adb8e734e98ff6717b6971d
 ---
 
+## [1.5.4] - 2026-04-27
+Merge 52c875bf258b71f861491e26ece2f6fdc4790fef into be6d06fc621fa7ba3904fe0180044173dcf8de08
+
+quick fix
+
+Merge pull request #73 from ygmrtm/main
+
+refresh branch
+Update CHANGELOG for version 1.5.3
+
+Merge 4c0f42ccabf7c02bad8d209889d88515c7ae887b into cf599d89140577c6f049aadb8c817527bb64fcfe
+---
+
