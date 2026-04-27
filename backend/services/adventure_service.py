@@ -40,7 +40,7 @@ class AdventureService:
         self.stencil_service = StencilService()
         self.epics_service = EpicsService()
         
-    def create_adventure(self, character_id, underworld=False, npc_gods=None):
+    def create_adventure(self, character_id, underworld=False, dead_gods=None):
         """Create a new adventure based on specified parameters."""
         # Retrieve the character using the character_id
         character = self.notion_service.get_character_by_id(character_id)
@@ -71,8 +71,8 @@ class AdventureService:
             description = "Adventure to die for..." 
             response = self.notion_service.create_adventure(character_id, final_enemies_ids, xp_reward, coin_reward, description)
         else:
-            #print("npc length:", len(npc_gods))
-            filtered_death_gods = [c for c in npc_gods if c['status'] == 'dead']
+            #print("npc length:", len(dead_gods))
+            filtered_death_gods = [c for c in dead_gods if c['status'] == 'dead']
             description = "Underworld Training 101"
             response = self.notion_service.create_adventure(character_id, [{"id":random.choice(filtered_death_gods)['notionid']}], xp_reward *-1, coin_reward=0, description=description)
         return response
@@ -547,9 +547,9 @@ class AdventureService:
                     adventure['status'] = 'won'
                     random_enemy = random.choice(enemies)
                     if random_enemy['hp'] < 0:
-                        self.create_adventure(random_enemy['id'], underworld=True, npc_gods=dead_gods)
+                        self.create_adventure(random_enemy['id'], underworld=True, dead_gods=dead_gods)
                 else:
-                    new_adventure = self.create_adventure(who['id'], underworld=True, npc_gods=dead_gods)
+                    new_adventure = self.create_adventure(who['id'], underworld=True, dead_gods=dead_gods)
                     self.add_encounter_log(who['hp'], "hp", '‼️You lost the Adventure‼️')
                     new_adv = self.notion_service.get_adventure_by_id(new_adventure['adventure_id'])
                     self.add_encounter_log(0,'new',new_adv['name'] + ' | ' +new_adv['desc'])
@@ -751,10 +751,10 @@ class AdventureService:
         sample_characters = random.sample(char_need_deadventure_creation, min( to_execute, len(char_need_deadventure_creation)))
         done = 1
         return_array = []
-        npc_gods = self.notion_service.get_characters_by_deep_level_npc_source(deep_level='l2', is_npc=True)
+        dead_gods = self.notion_service.get_characters_by_deep_level_npc_and_status_source(deep_level='l2', is_npc=True, status='dead')
         for character in sample_characters:
             print("💀 creating underworld for "+character['name'],' | {}/{} [{}]'.format(done, len(sample_characters), len(char_need_deadventure_creation)))
-            adventure = self.create_adventure(character['notionid'], underworld=True, npc_gods=npc_gods)
+            adventure = self.create_adventure(character['notionid'], underworld=True, dead_gods=dead_gods)
             return_array.append({"adventure_id": adventure['adventure_id']
                                 , "character_id": character['notionid']
                                 , "character_name": character['name']})

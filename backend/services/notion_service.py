@@ -25,6 +25,7 @@ class NotionService:
     expirity_tournament_hours = 12
     expirity_adventure_done_hours = 1
     tour_days_vigencia = 7
+    headcount = 8
     yogmortuum = {"id": "31179ebf-9b11-4247-9af3-318657d81f1d"}
 
     _instance = None
@@ -114,7 +115,7 @@ class NotionService:
                 , deep_level=deep_level
                 ,status = 'dead' )
             headcount = len(characters)
-            if headcount <= 0:
+            if headcount< self.headcount:
                 print(f'no cached | going to the source | count_dead_people_source({deep_level})')
                 data_filter = {
                     "filter": {
@@ -170,7 +171,7 @@ class NotionService:
                 , deep_level=deep_level, status = 'rest' )
             #TODO: filter those with pills
             headcount = len(characters)
-            if headcount <= 0:
+            if headcount< self.headcount:
                 print(f'no cached | going to the source | count_people_pills_source({deep_level})')
                 data_filter = {
                     "filter": {
@@ -289,7 +290,7 @@ class NotionService:
                 prefix=self.redis_service.get_cache_key('cryptids')
                 , deep_level=deep_level
                 , status=status )
-            if len(characters) <= 8:
+            if len(characters)< self.headcount:
                 print(f"going to the source 'cause got only {len(characters)}: "+deep_level+" "+status)
                 characters = []
                 data_filter = {
@@ -357,7 +358,7 @@ class NotionService:
         try:
             characters = self.redis_service.query_characters_by_deep_status_npc(
                 prefix=self.redis_service.get_cache_key('cryptids'), deep_level=deep_level, npc=is_npc )
-            if len(characters) <= 0:
+            if len(characters)< self.headcount:
                 print(f"going to the source 'cause got only {len(characters)}: "+deep_level+" "+str(is_npc))
                 data_filter = {
                     "filter": {
@@ -399,7 +400,7 @@ class NotionService:
         try:
             characters = self.redis_service.query_characters_by_deep_status_npc(
                 prefix=self.redis_service.get_cache_key('cryptids'), deep_level=deep_level, npc=is_npc, status=status)
-            if len(characters) <= 0:
+            if len(characters)< self.headcount:
                 print(f"going to the source 'cause got only {len(characters)}: "+deep_level+" "+str(is_npc)+" "+status)
                 data_filter = {
                     "filter": {
@@ -1298,7 +1299,7 @@ class NotionService:
             url = f"{self.base_url}/databases/{NOTION_DBID_ADVEN}/query"
             adventures = []
             adventures = self.redis_service.query_deadventures(prefix='deadventures',field='status', value='created')            
-            if len(adventures) <= 0:
+            if len(adventures)< self.headcount:
                 data_filter = {
                     "filter": {
                         "and": [

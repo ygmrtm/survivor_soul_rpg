@@ -211,7 +211,7 @@ class WatchlistService:
                 movie_cache_key
                 , movie
                 , expiry_seconds=suggested_seconds)
-            self.redis_service.ssad(key=set_cache_key, value=movie_cache_key, expiry_seconds=suggested_seconds)
+            self.redis_service.ssad(key=set_cache_key, member=movie_cache_key, expiry_seconds=suggested_seconds)
         return watchlist
 
 
