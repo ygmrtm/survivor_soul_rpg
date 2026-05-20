@@ -628,3 +628,19 @@ Update CHANGELOG for version 1.5.3
 Merge 4c0f42ccabf7c02bad8d209889d88515c7ae887b into cf599d89140577c6f049aadb8c817527bb64fcfe
 ---
 
+## [1.5.5] - 2026-05-20
+Merge ac4395a273ab7e9e75bd6907aebc7c83be389354 into 61d2be213c529e669a25bb0eff459d711f9abfe7
+
+chore(watchlist): remove debug print statement and add documentation
+
+Remove a commented-out print statement in the CSV import logic within `WatchlistService` and initialize the `docs/` directory.
+
+Add import_movies_from_csv endpoint to watchlist_controller and implement CSV import logic in WatchlistService
+
+fix
+
+Merge pull request #75 from ygmrtm/main
+
+[CODE-41] Refresh Branch
+---
+
