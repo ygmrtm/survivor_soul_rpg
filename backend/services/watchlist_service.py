@@ -382,6 +382,7 @@ class WatchlistService:
 
         for row_num, row in enumerate(reader, start=2):
             const_id = self._csv_value(row, 'Const')
+            #print(f"const_id [{const_id}]")
             if not const_id:
                 errors.append({"row": row_num, "error": "missing Const"})
                 continue
