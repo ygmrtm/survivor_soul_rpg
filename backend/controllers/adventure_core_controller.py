@@ -23,7 +23,7 @@ notion_service = NotionService()
 @adventure_bp.route('/<character_id>/create', methods=['POST'])
 def create_adventure(character_id):
     # Create a new adventure
-    result = adventure_service.create_adventure(character_id, underworld=False, npc_gods=None)
+    result = adventure_service.create_adventure(character_id, underworld=False, dead_gods=None)
     return jsonify(result)
 
 @adventure_bp.route('/<adventure_id>/go', methods=['POST'])

@@ -1,5 +1,6 @@
-from ast import keyword
 from datetime import datetime
+import csv
+import io
 import requests
 import random 
 from backend.services.redis_service import RedisService
@@ -115,6 +116,8 @@ class WatchlistService:
                         , watchcard
                         , expiry_seconds=self.expiry_hours * 3600)  
                     catched_count += 1
+                if catched_count % 100 == 0:
+                    print(f" 🎥 {catched_count} catched so far...")
             print(f"Fetched:{len(watchcards)} & cached:{catched_count} watchlists")
         return watchcards
 
@@ -223,4 +226,183 @@ class WatchlistService:
             return response.json()
         else:
             print("❌❌","update_movie",response.status_code, response.text) 
-            response.raise_for_status()  
+            response.raise_for_status()
+
+    def _sanitize_text(self, text):
+        if not isinstance(text, str):
+            text = str(text)
+        return ''.join(char for char in text if ord(char) >= 32 or char in '\n\t\r')
+
+    def _get_existing_const_ids(self):
+        """Fetch all IMDb Const ids already present in the Notion watchlist database."""
+        const_ids = set()
+        url = f"{self.base_url}/databases/{NOTION_DBID_WATCH}/query"
+        has_more = True
+        start_cursor = None
+        while has_more:
+            payload = {}
+            if start_cursor:
+                payload['start_cursor'] = start_cursor
+            response = requests.post(url, headers=self.headers, json=payload)
+            response.raise_for_status()
+            data = response.json()
+            for movie in data.get("results", []):
+                rich = movie['properties'].get('Const', {}).get('rich_text', [])
+                if rich:
+                    const_ids.add(rich[-1]['plain_text'].strip())
+            has_more = data.get("has_more", False)
+            start_cursor = data.get("next_cursor")
+        return const_ids
+
+    def _csv_value(self, row, key):
+        value = row.get(key)
+        if value is None:
+            return None
+        value = str(value).strip()
+        return value if value else None
+
+    def _notion_rich_text(self, value):
+        if not value:
+            return None
+        return {"rich_text": [{"text": {"content": self._sanitize_text(value)}}]}
+
+    def _notion_title(self, value):
+        if not value:
+            return None
+        return {"title": [{"text": {"content": self._sanitize_text(value)}}]}
+
+    def _notion_number(self, value):
+        if value is None:
+            return None
+        try:
+            number = float(value)
+            return {"number": int(number) if number.is_integer() else number}
+        except (TypeError, ValueError):
+            return None
+
+    def _notion_date(self, value):
+        if not value:
+            return None
+        return {"date": {"start": value}}
+
+    def _notion_select(self, value):
+        if not value:
+            return None
+        return {"select": {"name": value}}
+
+    def _notion_url(self, value):
+        if not value:
+            return None
+        return {"url": value}
+
+    def _notion_status(self, value):
+        return {"status": {"name": value}}
+
+    def _notion_checkbox(self, value):
+        return {"checkbox": bool(value)}
+
+    def _csv_row_to_notion_properties(self, row):
+        """Map an IMDb export CSV row to Notion database properties."""
+        properties = {}
+        mappings = [
+            ("Position", self._notion_number, self._csv_value(row, "Position")),
+            ("Const", self._notion_rich_text, self._csv_value(row, "Const")),
+            ("Created", self._notion_date, self._csv_value(row, "Created")),
+            ("Modified", self._notion_date, self._csv_value(row, "Modified")),
+            ("Description", self._notion_rich_text, self._csv_value(row, "Description")),
+            ("Title", self._notion_rich_text, self._csv_value(row, "Title")),
+            ("Original Title", self._notion_title, self._csv_value(row, "Original Title")),
+            ("URL", self._notion_url, self._csv_value(row, "URL")),
+            ("Title Type", self._notion_select, self._csv_value(row, "Title Type")),
+            ("IMDb Rating", self._notion_number, self._csv_value(row, "IMDb Rating")),
+            ("Runtime (mins)", self._notion_number, self._csv_value(row, "Runtime (mins)")),
+            ("Year", self._notion_number, self._csv_value(row, "Year")),
+            ("Genres", self._notion_rich_text, self._csv_value(row, "Genres")),
+            ("Num Votes", self._notion_number, self._csv_value(row, "Num Votes")),
+            ("Release Date", self._notion_date, self._csv_value(row, "Release Date")),
+            ("Directors", self._notion_rich_text, self._csv_value(row, "Directors")),
+            ("Your Rating", self._notion_rich_text, self._csv_value(row, "Your Rating")),
+            ("Date Rated", self._notion_date, self._csv_value(row, "Date Rated")),
+        ]
+        for prop_name, builder, value in mappings:
+            built = builder(value)
+            if built is not None:
+                properties[prop_name] = built
+
+        properties["Status"] = self._notion_status("loaded")
+        properties["Available in Streaming?"] = self._notion_checkbox(False)
+        properties["Watched"] = self._notion_checkbox(False)
+        return properties
+
+    def create_movie(self, properties):
+        """Insert a new movie page into the Notion watchlist database."""
+        data = {
+            "parent": {"database_id": NOTION_DBID_WATCH},
+            "icon": {"emoji": "🎬"},
+            "properties": properties,
+        }
+        url = f"{self.base_url}/pages"
+        response = requests.post(url, headers=self.headers, json=data)
+        if response.status_code != 200:
+            print("❌❌", "create_movie", response.status_code, response.text)
+            response.raise_for_status()
+        return response.json()
+
+    def _cache_watchcard(self, notion_page):
+        watchcards = self.translate_watchlist([notion_page])
+        if not watchcards:
+            return None
+        watchcard = watchcards[0]
+        cache_key = self.redis_service.get_cache_key_nomerge('watchlist', 'movies', watchcard['notion_id'])
+        self.redis_service.set_watchcard_hash(
+            cache_key,
+            watchcard,
+            expiry_seconds=self.expiry_hours * 3600,
+        )
+        return watchcard
+
+    def import_movies_from_csv(self, file_storage):
+        """
+        Read an IMDb watchlist CSV and insert movies missing from Notion.
+
+        Returns a summary with inserted, skipped, and error details.
+        """
+        content = file_storage.read()
+        if isinstance(content, bytes):
+            content = content.decode('utf-8-sig')
+
+        reader = csv.DictReader(io.StringIO(content))
+        if not reader.fieldnames or 'Const' not in reader.fieldnames:
+            raise ValueError("CSV must include a Const column")
+
+        existing_const_ids = self._get_existing_const_ids()
+        inserted = []
+        skipped = []
+        errors = []
+
+        for row_num, row in enumerate(reader, start=2):
+            const_id = self._csv_value(row, 'Const')
+            #print(f"const_id [{const_id}]")
+            if not const_id:
+                errors.append({"row": row_num, "error": "missing Const"})
+                continue
+            if const_id in existing_const_ids:
+                skipped.append(const_id)
+                continue
+            try:
+                properties = self._csv_row_to_notion_properties(row)
+                notion_page = self.create_movie(properties)
+                self._cache_watchcard(notion_page)
+                existing_const_ids.add(const_id)
+                inserted.append(const_id)
+            except Exception as e:
+                errors.append({"row": row_num, "const": const_id, "error": str(e)})
+
+        return {
+            "inserted_count": len(inserted),
+            "skipped_count": len(skipped),
+            "error_count": len(errors),
+            "inserted": inserted,
+            "skipped": skipped,
+            "errors": errors,
+        }
