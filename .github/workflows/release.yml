@@ -113,7 +113,7 @@ jobs:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          source: "docker-compose.prod.yml,scripts/deploy.sh,.env.example"
+          source: "docker-compose.ghcr.yml,docker-compose.yml,scripts/deploy.sh,.env.example,app.env.example"
           target: /opt/survivor-soul-rpg
 
       - name: Deploy on production server
