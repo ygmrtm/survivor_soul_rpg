@@ -27,4 +27,5 @@ jobs:
       - name: Run tests
         env:
           PYTHONPATH: .
+          REDIS_URL: redis://default:wFtQct1i9HcqUv2XawZuekyfb8knN5NS@redis-18454.c238.us-central1-2.gce.redns.redis-cloud.com:18454/0
         run: pytest backend/test/ -q
