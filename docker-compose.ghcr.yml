@@ -1,18 +1,20 @@
+# Registry deploy: pull from GHCR (GitHub Actions release or logged-in server).
 services:
   app:
-    image: ghcr.io/${GITHUB_REPOSITORY:-ygmrtm/survivor_soul_rpg}:${APP_VERSION:-latest}
+    image: ghcr.io/${GITHUB_REPOSITORY:-ygmrtm/survivor_soul_rpg}:${IMAGE_TAG:-latest}
+    pull_policy: always
     container_name: survivor-soul-rpg
     restart: unless-stopped
     ports:
-      - "${HOST_PORT:-5000}:5000"
+      - "${HOST_PORT:-5001}:5000"
     env_file:
-      - .env
+      - app.env
     environment:
       FLASK_ENV: production
       PORT: "5000"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5000/api/adventure/version"]
-      interval: 30s
+      interval: 300s
       timeout: 5s
       retries: 3
       start_period: 20s

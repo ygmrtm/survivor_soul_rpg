@@ -19,7 +19,7 @@ NOTION_DBID_STENC = os.getenv('NOTION_DBID_STENC')
 NOTION_DBID_CODIN = os.getenv('NOTION_DBID_CODIN')
 NOTION_DBID_WATCH = os.getenv('NOTION_DBID_WATCH')
 # Redis Cloud Configuration
-REDIS_URL = os.getenv('REDIS_URL', 'redis://default:password@localhost:6379/0')
+REDIS_URL = os.getenv('REDIS_URL')
 # Parse Redis URL
 redis_url = urlparse(REDIS_URL)
 REDIS_HOST = redis_url.hostname or 'localhost'
@@ -31,21 +31,10 @@ REDIS_PASSWORD = redis_url.password
 REDIS_DB = 0  # Usually 0 for Redis Cloud
 REDIS_SSL = True  # Enable SSL/TLS for Redis Cloud
 
-# TickTick API credentials
-# TICKTICK_ACCESS_TOKEN = os.getenv('TICKTICK_ACCESS_TOKEN')
-# TICKTICK_PASS = os.getenv('TICKTICK_PASS')
-# TICKTICK_USER = os.getenv('TICKTICK_USER')
-# TICKTICK_URI = os.getenv('TICKTICK_URI')
-# TICKTICK_CLIENT_ID = os.getenv('TICKTICK_CLIENT_ID')
-# TICKTICK_CLIENT_SECRET = os.getenv('TICKTICK_CLIENT_SECRET')
-# TICKTICK_PID_INB = os.getenv('TICKTICK_PID_INB')
-# TICKTICK_PID_CAL = os.getenv('TICKTICK_PID_CAL')
-
-
 # Flask app settings
 FLASK_ENV = os.getenv('FLASK_ENV', 'development')
 DEBUG = FLASK_ENV == 'development'
-PORT = int(os.getenv('PORT', 5000))
+PORT = int(os.getenv('PORT', 5001))
 
 # Other configurations can go here
 CREATED_LOG = [{'type': 'text','text': {'content': 'created on: ','link': None},'annotations': {'bold': True,'italic': False,'strikethrough': False,'underline': False, 'code': False, 'color': 'blue' }, 'plain_text': 'created on: ','href': None}

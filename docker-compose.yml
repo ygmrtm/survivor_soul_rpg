@@ -1,0 +1,21 @@
+# Offline / tar deploy: use a locally built or `docker load` image (no registry pull).
+# Set in .env: IMAGE_NAME=survivor_soul_rpg  IMAGE_TAG=v1  PULL_POLICY=never
+services:
+  app:
+    image: ${IMAGE_NAME:-survivor_soul_rpg}:${IMAGE_TAG:-latest}
+    pull_policy: ${PULL_POLICY:-never}
+    container_name: survivor-soul-rpg
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-5001}:5000"
+    env_file:
+      - app.env
+    environment:
+      FLASK_ENV: production
+      PORT: "5000"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:5000/api/adventure/version"]
+      interval: 300s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
