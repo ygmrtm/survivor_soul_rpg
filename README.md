@@ -68,11 +68,67 @@ Survivor Soul RPG is a microservices-based RPG game with a Lovecraftian theme, f
    flask run
    ```
 
-5. **Run Docker container** (optional):
+5. **Run Docker container** (optional, local):
    ```bash
    docker build -t survivor-soul-rpg .
-   docker run -p 5000:5000 survivor-soul-rpg
+   docker run --env-file .env -p 5000:5000 survivor-soul-rpg
    ```
+
+## Production Deployment
+
+Production runs as a Docker container on your server. Releases are built in GitHub Actions, pushed to GitHub Container Registry (GHCR), and deployed over SSH.
+
+### One-time server setup
+
+1. Install Docker and Docker Compose on the production host.
+2. Create the app directory:
+   ```bash
+   sudo mkdir -p /opt/survivor-soul-rpg
+   sudo chown "$USER":"$USER" /opt/survivor-soul-rpg
+   ```
+3. Copy environment variables:
+   ```bash
+   cp .env.example /opt/survivor-soul-rpg/.env
+   # Edit /opt/survivor-soul-rpg/.env with production secrets
+   ```
+4. Log in to GHCR on the server (needed if the package is private):
+   ```bash
+   echo "$GHCR_TOKEN" | docker login ghcr.io -u YOUR_GITHUB_USERNAME --password-stdin
+   ```
+
+### GitHub secrets
+
+Configure these repository secrets before running a release:
+
+| Secret | Purpose |
+|--------|---------|
+| `DEPLOY_HOST` | Production server hostname or IP |
+| `DEPLOY_USER` | SSH user on the production server |
+| `DEPLOY_SSH_KEY` | Private SSH key for deployment |
+| `GHCR_TOKEN` | GitHub PAT with `read:packages` (for private images) |
+
+### Release workflow
+
+1. Open **Actions → Release → Run workflow** on `main`.
+2. Choose a version bump (`patch`, `minor`, `major`, or `none`).
+3. The workflow will:
+   - run tests
+   - bump `VERSION.txt` and tag the release (unless bump is `none`)
+   - build and push `ghcr.io/ygmrtm/survivor_soul_rpg:<version>` and `:latest`
+   - copy `docker-compose.prod.yml` and `scripts/deploy.sh` to the server
+   - pull the new image and restart the container
+
+You can also trigger a release by pushing a tag such as `v1.2.3`.
+
+### Manual deploy on the server
+
+```bash
+cd /opt/survivor-soul-rpg
+export APP_VERSION=1.2.3   # or latest
+./scripts/deploy.sh "$APP_VERSION"
+```
+
+Health check: `GET /api/adventure/version`
 
 ## Configuration
 

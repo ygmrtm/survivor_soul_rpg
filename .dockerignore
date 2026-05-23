@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+.venv*/
+.nvenv*/
+venv/
+
+# Local secrets and tooling
+.env
+.env.*
+!.env.example
+.token-oauth
+.qodo/
+.vscode/
+
+# Git and OS
+.git/
+.gitignore
+.DS_Store
+
+# Docs and dev-only files
+docs/
+*.md
+!README.md
+
+# Tests (not needed in production image)
+test_*.py
+backend/test/
+
+# CI / release (not needed in image)
+.github/
+
+# Misc
+freeze.sh
+redis_index.sql
