@@ -1,23 +1,40 @@
-# Use an official Python runtime as a parent image
-FROM python:3.10-slim
+FROM python:3.11-slim AS runtime
 
-# Set environment variables for Python and Flask
-ENV PYTHONUNBUFFERED=1
-ENV FLASK_APP=app.py
-ENV FLASK_ENV=production
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FLASK_APP=app.py \
+    FLASK_ENV=production \
+    PORT=5000
 
-# Set a working directory in the container
 WORKDIR /app
 
-# Copy requirements file and install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system app \
+    && useradd --system --gid app --create-home app
 
-# Copy the application code to the container
-COPY . .
+COPY requirements-prod.txt .
+RUN pip install --no-cache-dir -r requirements-prod.txt
 
-# Expose the port Flask will run on
+COPY app.py config.py wsgi.py VERSION.txt ./
+COPY backend/ backend/
+COPY frontend/ frontend/
+COPY static/ static/
+
+RUN chown -R app:app /app
+USER app
+
 EXPOSE 5000
 
-# Define the command to run the application with a production-ready WSGI server
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "app:create_app()"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD curl -fsS "http://127.0.0.1:${PORT}/api/adventure/version" || exit 1
+
+CMD ["gunicorn", \
+    "--bind", "0.0.0.0:5000", \
+    "--workers", "4", \
+    "--threads", "2", \
+    "--timeout", "120", \
+    "--access-logfile", "-", \
+    "--error-logfile", "-", \
+    "wsgi:app"]
