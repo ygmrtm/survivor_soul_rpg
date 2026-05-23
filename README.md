@@ -68,15 +68,62 @@ Survivor Soul RPG is a microservices-based RPG game with a Lovecraftian theme, f
    flask run
    ```
 
-5. **Run Docker container** (optional, local):
+5. **Run with Docker Compose** (recommended):
+   ```bash
+   cp .env.example .env
+   cp app.env.example app.env
+   # Put API keys and REDIS_URL in app.env (not .env)
+   docker compose up -d
+   ```
+   Open http://localhost:5001 (default `HOST_PORT`; macOS often uses 5000 for AirPlay).
+
+   **Plain `docker run`** (use `$$` for literal `$` in passwords if using `--env-file`):
    ```bash
    docker build -t survivor-soul-rpg .
-   docker run --env-file .env -p 5000:5000 survivor-soul-rpg
+   docker run --env-file app.env -p 5001:5000 survivor-soul-rpg
    ```
 
 ## Production Deployment
 
-Production runs as a Docker container on your server. Releases are built in GitHub Actions, pushed to GitHub Container Registry (GHCR), and deployed over SSH.
+Two options: **offline tar** (your Lenovo server, no registry) or **GHCR** (GitHub Actions).
+
+### A. Offline tar deploy (recommended for Lenovo)
+
+One command from your Mac:
+
+```bash
+./scripts/publish-offline.sh v1
+```
+
+This builds `survivor_soul_rpg:v1`, saves a tar, uploads it with compose files, runs `docker load` and `docker compose up -d` on the server.
+
+**Manual steps** (equivalent):
+
+```bash
+# On your Mac
+docker build -t survivor_soul_rpg:v1 .
+docker save -o ./tar/survivor_soul_rpg_v1.tar survivor_soul_rpg:v1
+scp ./tar/survivor_soul_rpg_v1.tar docker-compose.yml .env app.env scripts/remote-up.sh \
+  yg@lenovo:~/uploads/survivor_soul_rpg/
+
+# On Lenovo (~/uploads/survivor_soul_rpg)
+./scripts/remote-up.sh v1
+```
+
+**Server `.env`** must match the loaded image (not GHCR):
+
+```env
+IMAGE_NAME=survivor_soul_rpg
+IMAGE_TAG=v1
+HOST_PORT=5001
+PULL_POLICY=never
+```
+
+Secrets stay in **`app.env`** only (Notion, Redis).
+
+### B. GHCR deploy (GitHub Actions)
+
+Production runs as a Docker container. Releases are built in GitHub Actions, pushed to GitHub Container Registry (GHCR), and deployed over SSH.
 
 ### One-time server setup
 
@@ -89,7 +136,8 @@ Production runs as a Docker container on your server. Releases are built in GitH
 3. Copy environment variables:
    ```bash
    cp .env.example /opt/survivor-soul-rpg/.env
-   # Edit /opt/survivor-soul-rpg/.env with production secrets
+   cp app.env.example /opt/survivor-soul-rpg/app.env
+   # Edit app.env with production secrets (Notion, Redis, etc.)
    ```
 4. Log in to GHCR on the server (needed if the package is private):
    ```bash
@@ -115,7 +163,7 @@ Configure these repository secrets before running a release:
    - run tests
    - bump `VERSION.txt` and tag the release (unless bump is `none`)
    - build and push `ghcr.io/ygmrtm/survivor_soul_rpg:<version>` and `:latest`
-   - copy `docker-compose.prod.yml` and `scripts/deploy.sh` to the server
+   - copy `docker-compose.ghcr.yml` and `scripts/deploy.sh` to the server
    - pull the new image and restart the container
 
 You can also trigger a release by pushing a tag such as `v1.2.3`.
@@ -124,8 +172,7 @@ You can also trigger a release by pushing a tag such as `v1.2.3`.
 
 ```bash
 cd /opt/survivor-soul-rpg
-export APP_VERSION=1.2.3   # or latest
-./scripts/deploy.sh "$APP_VERSION"
+./scripts/deploy.sh 1.5.7
 ```
 
 Health check: `GET /api/adventure/version`
