@@ -19,11 +19,14 @@ NOTION_DBID_STENC = os.getenv('NOTION_DBID_STENC')
 NOTION_DBID_CODIN = os.getenv('NOTION_DBID_CODIN')
 NOTION_DBID_WATCH = os.getenv('NOTION_DBID_WATCH')
 # Redis Cloud Configuration
-REDIS_URL = os.getenv('REDIS_URL', 'redis://default:password@host.cloud.redislabs.com:port')
+REDIS_URL = os.getenv('REDIS_URL', 'redis://default:password@localhost:6379/0')
 # Parse Redis URL
 redis_url = urlparse(REDIS_URL)
-REDIS_HOST = redis_url.hostname
-REDIS_PORT = redis_url.port
+REDIS_HOST = redis_url.hostname or 'localhost'
+try:
+    REDIS_PORT = redis_url.port or 6379
+except ValueError:
+    REDIS_PORT = 6379
 REDIS_PASSWORD = redis_url.password
 REDIS_DB = 0  # Usually 0 for Redis Cloud
 REDIS_SSL = True  # Enable SSL/TLS for Redis Cloud

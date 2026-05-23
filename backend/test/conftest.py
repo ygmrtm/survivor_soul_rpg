@@ -1,3 +1,8 @@
+import os
+
+# Ensure config imports succeed in CI/local test runs without a real Redis URL.
+os.environ.setdefault("REDIS_URL", "redis://localhost:6379/0")
+
 import pytest
 
 from backend.services.notion_service import NotionService
