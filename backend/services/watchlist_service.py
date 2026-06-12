@@ -119,6 +119,7 @@ class WatchlistService:
                 if catched_count % 100 == 0:
                     print(f" 🎥 {catched_count} catched so far...")
             print(f"Fetched:{len(watchcards)} & cached:{catched_count} watchlists")
+            watchcards = self.redis_service.query_watchcards(prefix=self.redis_service.get_cache_key_nomerge('watchlist','movies'),  qry=qry, limit=self.limit)     
         return watchcards
 
     def get_watchlist_by_year(self, year_from, year_to, limit):
@@ -283,6 +284,11 @@ class WatchlistService:
     def _notion_date(self, value):
         if not value:
             return None
+        try:
+            # Validate that it's a valid date string (IMDb usually provides YYYY-MM-DD)
+            datetime.strptime(str(value).strip(), '%Y-%m-%d')
+        except (ValueError, TypeError):
+            raise ValueError(f"Invalid date format: '{value}'. Expected YYYY-MM-DD.")
         return {"date": {"start": value}}
 
     def _notion_select(self, value):
@@ -391,6 +397,8 @@ class WatchlistService:
                 continue
             try:
                 properties = self._csv_row_to_notion_properties(row)
+                if "Release Date" not in properties:
+                    raise ValueError("Release Date is missing or empty")
                 notion_page = self.create_movie(properties)
                 self._cache_watchcard(notion_page)
                 existing_const_ids.add(const_id)
