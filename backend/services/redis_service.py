@@ -606,9 +606,9 @@ class RedisService:
             self.hset(key, 'streaming' , watchcard['streaming']  )
             self.hset(key, 'vista' , watchcard['vista']  )
             self.hset(key, 'directores' , watchcard['directores']  )
-            self.hset(key, 'calificacion' , int(watchcard['calificacion'])  )
-            self.hset(key, 'anio' , int(watchcard['anio'])  )
-            self.hset(key, 'minutos' , int(watchcard['minutos'])  )
+            self.hset(key, 'calificacion' , int(watchcard['calificacion'] if watchcard['calificacion'] else 0)  )
+            self.hset(key, 'anio' , int(watchcard['anio'] if watchcard['anio'] else 1900)  )
+            self.hset(key, 'minutos' , int(watchcard['minutos'] if watchcard['minutos'] else 0)  )
             self.hset(key, 'semana_sugerida' , watchcard['semana_sugerida']  )
             self.redis_client.expire(name=key, time=expiry_seconds)
             return True
@@ -618,6 +618,7 @@ class RedisService:
 
     def adjust_watchcard(self, clean_data):
         try:
+            #print(f'semana sugerida {clean_data}')
             clean_data["notion_id"] = clean_data["notion_id"].replace('"','')
             clean_data["imdb_id"] = clean_data["imdb_id"].replace('"','')
             clean_data["titulo"] = clean_data["titulo"].replace('"','')
@@ -629,8 +630,9 @@ class RedisService:
             clean_data["streaming"] = clean_data["streaming"] == "true"
             clean_data["vista"] = clean_data["vista"] == "true"
             clean_data["directores"] = clean_data["directores"].replace('"','')
-            clean_data["semana_sugerida"] = clean_data["semana_sugerida"].replace('"','') if clean_data["semana_sugerida"] else None
-
+            clean_data["semana_sugerida"] = clean_data["semana_sugerida"].replace('"','') 
+            if not clean_data["semana_sugerida"] or clean_data["semana_sugerida"] == 'null':
+                clean_data["semana_sugerida"] = ''
             clean_data['calificacion'] = int(clean_data['calificacion'])
             clean_data['anio'] = int(clean_data['anio'])
             clean_data['minutos'] = int(clean_data['minutos'])
