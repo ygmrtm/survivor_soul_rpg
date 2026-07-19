@@ -206,7 +206,7 @@ class WatchlistService:
             #print(movie)
             movie['semana_sugerida'] = (movie['semana_sugerida'] if movie['semana_sugerida'] else '') + ' | w' + str(week) 
             #persist in Notion
-            datau = { "icon" : { "emoji" : "🎞️" },
+            datau = { "icon" : { "emoji" : "🎞️" if movie["tipo"].lower() == "movie" else "📺"   },
                 "properties": { "Your Rating": { "rich_text": [{"text": {"content": movie['semana_sugerida']}}] },}}
             self.update_movie(movie['notion_id'], datau)
             #persist in Redis
