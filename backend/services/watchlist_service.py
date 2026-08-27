@@ -11,7 +11,7 @@ class WatchlistService:
     expiry_hours = 8
     year_start = 1920
     year_range = 20
-    size_for_loaded_suggested = 2
+    size_for_loaded_suggested = 5
     limit=75
     current_date = datetime.now()
     week_number = current_date.isocalendar()[1]
@@ -173,20 +173,23 @@ class WatchlistService:
         priority = 0
         while len(return_watchlist) < tamano and priority < 3:
             for year in range(self.year_start, datetime.now().year, 20):
-                #print(f"🎬 Getting random watchlist for year {year} to {year + self.year_range} | p:{priority} | size:{len(return_watchlist)}")
+                print(f"🎬 Getting random watchlist for year {year} to {year + self.year_range} | p:{priority} | size:{len(return_watchlist)}")
                 if priority == 0:
                     checked_streaming_watchlist = [movie for movie in checked_watchlist if movie['streaming'] and movie['anio'] >= year and movie['anio'] <= (year + self.year_range)]
                     if len(checked_streaming_watchlist) > 0:
+                        print(f"🎬 Found {len(checked_streaming_watchlist)}")
                         return_watchlist.append(random.choice(checked_streaming_watchlist))
                 elif priority == 1:
                     checked_notstreaming_watchlist = [movie for movie in checked_watchlist if not(movie['streaming']) and movie['anio'] >= year and movie['anio'] <= (year + self.year_range)]
                     if len(checked_notstreaming_watchlist) > 0:
+                        print(f"🎬 Found {len(checked_notstreaming_watchlist)}")
                         return_watchlist.append(random.choice(checked_notstreaming_watchlist))
                 elif priority == 2:
                     loaded_watchlist_todo = [movie for movie in loaded_watchlist if movie['anio'] >= year and movie['anio'] <= (year + self.year_range)]
                     if len(loaded_watchlist_todo) > 0:
                         sample = random.sample(loaded_watchlist_todo, self.size_for_loaded_suggested if len(loaded_watchlist_todo) >= self.size_for_loaded_suggested else len(loaded_watchlist_todo))
                         if len(sample) > 0:
+                            print(f"🎬 Found {len(loaded_watchlist_todo)} sample {len(sample)}")
                             return_watchlist.extend(sample)
                 else:
                     print(f"wrong priority {priority}")

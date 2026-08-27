@@ -25,7 +25,7 @@ const currentDate = new Date();
 const currentMinutes = currentDate.getMinutes();
 const weekNumber = getISOWeekNumber(currentDate);
 const prevWeekNumber = weekNumber - 1;
-console.log(weekNumber, prevWeekNumber,currentDate);
+console.log('W'+weekNumber,currentDate);
 currentDate.setMinutes(currentDate.getMinutes() + currentMinutes);
 
 function logActivity(message) {
@@ -172,6 +172,37 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    // Add event listener to the button
+    document.getElementById('movies-button').addEventListener('click', function() {
+        const button = this;
+        button.disabled = true;
+
+        logActivity(`🍿 | Watchlist ...`);
+        // First endpoint to create/retrieve challenges for the current week
+        fetch(`/api/adventure/challenges/watchlist`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            logActivity(`🍿 ➡️ Week Processed : ${data.current_week}`);
+            logActivity(`🍿 ➡️ Size Processed : ${data.size_requested}`);
+            logActivity(`🍿 ⬅️ Watchlist size : ${data.watchlist_count}`);
+            data.watchlist.forEach(item => {
+                logActivity(`🎥 ${item.anio} ${item.titulo}`);
+            });            
+        })
+        .then(() => {
+            logActivity(`🍿 | All Watchlist requests evaluated successfully!`);
+        })
+        .catch(error => {
+            console.error('Error creating/retrieving watchlist:', error);
+            logActivity(`❌❌ Error : ${error.message}`);
+        })
+        .finally(() => {
+            button.disabled = false; // Re-enable the button after all operations
+        });
+    });
+    
     // Function to execute challenges sequentially
     function executeChallengeSequentially(weekNumber, yearNumber) {
         // Define the sequence of challenges to execute
@@ -441,66 +472,4 @@ document.addEventListener("DOMContentLoaded", function () {
             logActivity(`❌❌ Error : ${error.message}`);
             document.getElementById('version-number').innerText = '0.0.0'; // Fallback version
         });
-
-    fetch('/api/notion/countdeadpeople/l3', { method: 'POST' } )
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if(data.count > 0){
-                still_dead = data.count || 0;
-                logActivity(`People 💀 ${still_dead} still`);
-                document.getElementById('underworld-button').disabled = false;
-                document.getElementById('dead-people').innerText = "(" + still_dead + "☠️)";
-            }
-        }).catch(error => {
-            console.error('Error fetching counts:', error);
-            logActivity(`❌❌ Error : ${error.message}`);
-            document.getElementById('dead-people').innerText = '0'; // Fallback version
-    });
-
-    fetch('/api/notion/countpeoplepills/l3', { method: 'POST' })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if(data.count > 0){
-                document.getElementById('heal-button').disabled = false;
-                logActivity(`People w💊s ${data.count} disabling at ${currentDate} ⚠️`);
-                setTimeout(() => {
-                    logActivity(`People with pills 💊 timeout.`);
-                    document.getElementById('heal-button').disabled = true;
-                }, 60000 * currentMinutes);
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching counts:', error);
-            logActivity(`❌❌ Error : ${error.message}`);
-        });
-
-    fetch('/api/tournament/do/count/created', { method: 'POST'  })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok');
-            }
-            return response.json();
-        })
-        .then(data => {
-            if(data.count > 0){
-                logActivity(`Pending tournaments ⚔️ ${data.count}`);
-                document.getElementById('tournament-button').disabled = false;
-                document.getElementById('pending-tournaments').innerText = "(" + data.count + ")";
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching counts:', error);
-            logActivity(`❌❌ Error : ${error.message}`);
-            document.getElementById('pending-tournaments').innerText = '0'; // Fallback version
-        });        
     }); 

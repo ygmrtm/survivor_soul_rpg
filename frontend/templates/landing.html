@@ -3,20 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <link rel="icon" href="{{ url_for('static', filename='img/favicon.ico') }}" type="image/x-icon">
-    <title>Survivor Soul RPG</title>
+    <title>Old Survivor Soul RPG</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </head>
 <body class="lovecraft-theme">
     <header>
-        <h1>Survivor Soul RPG</h1>
-        <h2>Choose Your Surv1vor</h2>
+        <h1>Old Survivor Soul RPG</h1>
+        <h2>... long time ago</h2>
     </header>
     
     <main class="container">
         <!-- Button for Challenges -->
         <div class="challenge-button-container">
             <button id="challenges-button" class="flat-button"><img src="{{ url_for('static', filename='img/notion-logo.png') }}" alt="Notion">Click for Challenges in Week&nbsp;<b><span id="week-number"></span></b></button>
+        </div>    
+        <!-- Button for movies -->
+        <div class="challenge-button-container">
+            <button id="movies-button" class="flat-button">🎥🍿</button>
         </div>    
         <!-- Button for Underworld -->
         <div class="challenge-button-container">
@@ -76,7 +80,7 @@
         <textarea id="activity-log" readonly></textarea>
     </div>    
     <footer>
-        &copy; <span id="current-year"></span> Survivor Soul RPG - v<span id="version-number"></span>
+        &copy; <span id="current-year"></span> Old Survivor Soul RPG - v<span id="version-number"></span>
     </footer>
 </body>
 </html>

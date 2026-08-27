@@ -40,41 +40,11 @@ def create_app():
     def landing_page():
         """Landing page displaying playable characters."""
         notion_service = NotionService()
-        characters = notion_service.get_characters_not_npc('l3', 4)
+        characters = None #notion_service.get_characters_not_npc('l3', 4)
         # Mock character data in case the Notion API is empty or unavailable
         if not characters:
             characters = [
-                {
-                    "name": "Abyssal Warrior",
-                    "picture": "https://static.vecteezy.com/system/resources/previews/059/146/551/non_2x/realistic-eyeball-with-red-veins-and-dark-pupil-free-png.png",
-                    "level": 3,
-                    "coins": 150,
-                    "xp": 230,
-                    "max_xp": 300,
-                    "hp": 80,
-                    "status": "alive",
-                    "max_hp": 100,
-                    "attack": 40,
-                    "defense": 30,
-                    "magic": 25,
-                    "inventory": ["Ancient Sword", "Potion of Wisdom", "Shadowscale Armor"]
-                },
-                {
-                    "name": "Void Mage",
-                    "picture": "https://png.pngtree.com/png-clipart/20240705/original/pngtree-monster-eye-with-many-little-eyes-png-image_15496474.png",
-                    "level": 5,
-                    "coins": 300,
-                    "xp": 450,
-                    "max_xp": 500,
-                    "status": "alive",
-                    "hp": 60,
-                    "max_hp": 60,
-                    "attack": 20,
-                    "defense": 20,
-                    "magic": 55,
-                    "inventory": ["Eldritch Tome", "Mana Elixir", "Phantom Robes"]
-                }
-                # Add additional characters as needed
+            
             ]
         # Render the landing page with character data
         return render_template("landing.html", characters=characters)
@@ -91,7 +61,7 @@ def create_app():
         return jsonify(error="Internal server error"), 500
 
     # Debug logging example for startup
-    logger.info("Survivor Soul RPG application is starting...")
+    logger.info("Old Survivor Soul RPG application is starting...")
 
     return app
 

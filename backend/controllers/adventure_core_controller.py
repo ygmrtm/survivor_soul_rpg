@@ -317,7 +317,7 @@ def evaluate_watchlist_challenge():
         watchlist_result = watchlist_service.persist_suggested_watchlist(watchlist_service.get_random_suggested_watchlist(tamano), current_week, tamano)
         watchlist_count = len(watchlist_result)
 
-        return jsonify({"watchlist": watchlist_result, "watchlist_count": watchlist_count})
+        return jsonify({"watchlist": watchlist_result, "watchlist_count": watchlist_count, "size_requested": tamano, "current_week": current_week})
     except Exception as e:
         return jsonify({"error": str(e), "watchlist": [], "watchlist_count": 0}), 500
 
