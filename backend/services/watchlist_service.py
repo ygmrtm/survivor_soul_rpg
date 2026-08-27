@@ -388,24 +388,23 @@ class WatchlistService:
 
         for row_num, row in enumerate(reader, start=2):
             const_id = self._csv_value(row, 'Const')
-            #print(f"const_id [{const_id}]")
-            if not const_id:
-                errors.append({"row": row_num, "error": "missing Const"})
-                continue
-            if const_id in existing_const_ids:
-                skipped.append(const_id)
-                continue
             try:
+                if not const_id:
+                    raise ValueError("Constant PK is missing or empty")
+                elif const_id in existing_const_ids:
+                    skipped.append(const_id)
+                    continue
                 properties = self._csv_row_to_notion_properties(row)
                 if "Release Date" not in properties:
                     raise ValueError("Release Date is missing or empty")
+                if "IMDb Rating" not in properties:
+                    raise ValueError("IMDb Rating is mising or empty")
                 notion_page = self.create_movie(properties)
                 self._cache_watchcard(notion_page)
                 existing_const_ids.add(const_id)
                 inserted.append(const_id)
             except Exception as e:
                 errors.append({"row": row_num, "const": const_id, "error": str(e)})
-
         return {
             "inserted_count": len(inserted),
             "skipped_count": len(skipped),

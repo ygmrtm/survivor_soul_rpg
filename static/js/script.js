@@ -451,9 +451,10 @@ document.addEventListener("DOMContentLoaded", function () {
         })
         .then(data => {
             if(data.count > 0){
-                logActivity(`Dead people  💀 ${data.count}`);
+                still_dead = data.count || 0;
+                logActivity(`People 💀 ${still_dead} still`);
                 document.getElementById('underworld-button').disabled = false;
-                document.getElementById('dead-people').innerText = "(" + data.count + "☠️)";
+                document.getElementById('dead-people').innerText = "(" + still_dead + "☠️)";
             }
         }).catch(error => {
             console.error('Error fetching counts:', error);
