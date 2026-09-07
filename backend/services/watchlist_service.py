@@ -15,7 +15,6 @@ class WatchlistService:
     limit=75
     current_date = datetime.now()
     week_number = current_date.isocalendar()[1]
-    day_number = current_date.day
     _instance = None
 
     def __new__(cls):
@@ -165,7 +164,7 @@ class WatchlistService:
 
     def get_random_suggested_watchlist(self, tamano):
         """Get a random selection from the watchlist."""
-        set_cache_key = self.redis_service.get_cache_key_nomerge('watchlist','sets', f'suggested{tamano}',str(self.day_number))
+        set_cache_key = self.redis_service.get_cache_key_nomerge('watchlist','sets', f'suggested{tamano}',str(datetime.now().day))
         return_watchlist = self.redis_service.smembers_w_hash_watchcard(set_cache_key)
         checked_watchlist = self.get_watchlist_by_estado('checked', tamano)
         loaded_watchlist = self.get_watchlist_by_estado('loaded', tamano)
@@ -200,7 +199,7 @@ class WatchlistService:
         return return_watchlist[:tamano]
 
     def persist_suggested_watchlist(self, watchlist, week, size=1):
-        set_cache_key = self.redis_service.get_cache_key_nomerge('watchlist','sets', f'suggested{size}',str(self.day_number))
+        set_cache_key = self.redis_service.get_cache_key_nomerge('watchlist','sets', f'suggested{size}',str(datetime.now().day))
         if self.redis_service.exists(set_cache_key):
             print(f"The {set_cache_key} is already loaded, not persisting again")
             return watchlist
